@@ -64,7 +64,7 @@
 	Important	: ./foo is not allowed
 			: But not absolutely necessary for me.
 			: It is not checked whether the program really exists.
-			: Ths is not necessary
+			: This is not necessary
 
 			: Only "make bzImage" need this feature.
 			: The Solutions is Safer OFF.
@@ -106,7 +106,6 @@ static long besearch(char *str_search, char **list, long elements)
 
 		int_ret = strncmp(str_search, list[middle], strlen(list[middle]));
 
-		if (int_ret == 0) return(0);
 		if (int_ret > 0) left = middle + 1;
 		else right = middle;
 	}
