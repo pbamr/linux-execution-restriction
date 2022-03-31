@@ -42,7 +42,7 @@
 	LIST		: If you use binary search, a sorted list ist required.
 			: ALLOW and DENY list
 			: Files and Folder
-			: If you use bsearch, you can also select all executable flles in folder.
+			: If you use bsearch, you can also select all executable files in folder.
 			: Several thousand entries are then no problem.
 
 	root		: ALLOW LIST for root is fixed in the code
@@ -69,7 +69,7 @@
 			: The Solutions is Safer OFF.
 
 
-	Thanks		: Linus Torvalds and ......
+	Thanks		: Linus Torvalds and others
 
 
 			: I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
