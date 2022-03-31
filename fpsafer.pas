@@ -52,7 +52,11 @@
 			: 6 = Clear DENY List
 			: 7 = Set ALLOW List
 			: 8 = Set DENY List
-
+	
+	Thanks		: Florian Klaempfl and others
+	
+	
+	
 			: I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
 
 
