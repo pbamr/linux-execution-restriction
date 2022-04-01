@@ -34,7 +34,8 @@
 			: Simple Frontend
 	
 			: Control Program for Extension <SYSCALL execve>
-	
+			: Only ROOT
+			
 			: If you use binary search, a sorted list ist required.
 	
 	List		: ALLOW and DENY list
