@@ -76,7 +76,8 @@
 	
 	
 	
-	Thanks		: Florian Klaempfl and others
+	Thanks		: Niklaus Wirth
+			: Florian Klaempfl and others
 	
 	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
 
@@ -123,7 +124,11 @@ var
 Procedure ErrorMessage;
 begin
 	writeln('fpsafer, 2022/03 Peter Boettcher, Germany, Muelheim Ruhr');
-	writeln('VERSION     : PASCAL 0, fpc, LINUX VERSION');
+	writeln('VERSION            : PASCAL 0, fpc, LINUX VERSION');
+	writeln;
+	writeln('FreePascal Project : www.freepascal.org');
+	writeln('LGPL               : www.gnu.org');
+	writeln('Special Thanks     : Niklaus Wirth');
 	writeln;
 	writeln('Parameter   :  0 Safer ON');
 	writeln('Parameter   :  1 Safer OFF');
