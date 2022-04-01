@@ -34,7 +34,7 @@
 			: Simple Frontend
 	
 			: Control Program for Extension <SYSCALL execve>
-			: Only ROOT
+			: It Only work as ROOT
 			
 			: If you use binary search, a sorted list ist required.
 	
