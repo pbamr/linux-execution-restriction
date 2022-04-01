@@ -28,6 +28,8 @@
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
+			: Control only works as ROOT 
+			
 			: Only User
 			: No Groups. I don't need it at the moment
 
@@ -38,7 +40,7 @@
 
 	Frontend	: fpsafer.pas
 			: Simple Control Program for Extension <SYSCALL execve>
-			: Only <root>
+			: It only works as <root>
 
 	LIST		: If you use binary search, a sorted list ist required
 			: ALLOW and DENY list
