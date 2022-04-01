@@ -64,6 +64,8 @@
 			: a:100;/bin/test		= file
 			: a:100;/bin/test1		= file
 			: a:100;/usr/sbin		= Folder
+			
+			: rules besearch
 			: d:100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
 			: d:100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
 	
