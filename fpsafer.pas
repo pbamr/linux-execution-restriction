@@ -53,6 +53,24 @@
 			: 7 = Set ALLOW List
 			: 8 = Set DENY List
 	
+	
+	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
+			: String 0 = Number of strings
+	
+			: Structure = allow/deny:USER-ID;PATH
+	
+			: Example:
+			: a:100;/bin/test		= file
+			: a:100;/bin/test1		= file
+			: a:100;/usr/sbin		= Folder
+			: d:100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
+			: d:100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
+	
+			: The program turns it into USER-ID;PATH
+			: 100;/bin/test1
+	
+	
+	
 	Thanks		: Florian Klaempfl and others
 	
 	
@@ -172,7 +190,7 @@ begin
 					for n := 0 to N_LIST.COUNT - 1 do begin
 						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
 						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
-						writeln(WORK_LIST[n+1]);
+						writeln('a:' + WORK_LIST[n+1]);
 					end;
 					
 					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999999, SUB_NUMBER, qword(WORK_LIST)));
@@ -211,7 +229,7 @@ begin
 					for n := 0 to N_LIST.COUNT - 1 do begin
 						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
 						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
-						writeln(WORK_LIST[n+1]);
+						writeln('d:' + WORK_LIST[n+1]);
 					end;
 					
 					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999999, SUB_NUMBER, qword(WORK_LIST)));

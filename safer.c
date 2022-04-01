@@ -70,6 +70,19 @@
 			: The Solutions is Safer OFF
 
 
+	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
+			: String 0 = Number of strings
+
+			: Structure = USER-ID;PATH
+
+			: Example:
+			: 100;/bin/test			= file
+			: 100;/bin/test1		= file
+			: 100;/usr/sbin			= Folder
+			: 100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
+			: 100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
+
+
 	Thanks		: Linus Torvalds and others
 
 
@@ -82,7 +95,7 @@
 
 
 
-
+/* according to textbook. I hope so */
 static long besearch(char *str_search, char **list, long elements)
 {
 	long left;
