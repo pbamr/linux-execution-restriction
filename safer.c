@@ -99,7 +99,6 @@
 
 
 
-/* according to textbook. I hope so */
 static long besearch(char *str_search, char **list, long elements)
 {
 	long left;
