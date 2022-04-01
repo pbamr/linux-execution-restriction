@@ -40,10 +40,10 @@
 			: Simple Control Program for Extension <SYSCALL execve>
 			: Only <root>
 
-	LIST		: If you use binary search, a sorted list ist required.
+	LIST		: If you use binary search, a sorted list ist required
 			: ALLOW and DENY list
 			: Files and Folder
-			: If you use bsearch, you can also select all executable files in folder.
+			: If you use bsearch, you can also select all executable files in folder
 			: Several thousand entries are then no problem.
 
 	root		: ALLOW LIST for root is fixed in the code
@@ -62,12 +62,12 @@
 			: 8 = Set DENY List
 
 	Important	: ./foo is not allowed
-			: But not absolutely necessary for me.
-			: It is not checked whether the program really exists.
+			: But not absolutely necessary for me
+			: It is not checked whether the program really exists
 			: This is not necessary
 
-			: Only "make bzImage" need this feature.
-			: The Solutions is Safer OFF.
+			: Only "make bzImage" need this feature
+			: The Solutions is Safer OFF
 
 
 	Thanks		: Linus Torvalds and others
@@ -106,13 +106,14 @@ static long besearch(char *str_search, char **list, long elements)
 
 		int_ret = strncmp(str_search, list[middle], strlen(list[middle]));
 
+		if (int_ret == 0) return(0);
+
 		if (int_ret > 0) left = middle + 1;
 		else right = middle;
 	}
 
-	if (right < 0) return(-1);
-	if (right >= elements) return(-1);
-	if (strncmp(str_search, list[right], strlen(list[right])) == 0) return(0);
+	if (strncmp(str_search, list[0], strlen(list[0]) == 0)) return(0);
+
 
 	return(-1);
 }
@@ -143,16 +144,18 @@ SYSCALL_DEFINE6(execve,
 	static long	deny_list_max = 0;
 
 	u32		user_id;
+	u64		group_id;
 	u32		n;
 	char		str_user_id[19];
 	u64		str_length;
 	char		*str_file_name = NULL;
-
 	long		int_ret;
 
 
 
+
 	user_id = get_current_user()->uid.val;
+
 
 	/* command part, future ? */
 	if (number == 999999) {
@@ -425,7 +428,7 @@ SYSCALL_DEFINE6(execve,
 
 prog_allowed:
 	if (printk_on == 1) {
-		printk("USER/PROG. allowed     : %d, %s\n", user_id, filename);
+		printk("USER/GROUP/PROG. allowed          : %d, %lld, %s\n", user_id, group_id, filename);
 
 		/* max. argv */
 		for ( n = 1; n <= 32; n++) {
