@@ -18,7 +18,7 @@
 
 	Frontend	: fpsafer.pas
 			: Simple Control Program for Extension <SYSCALL execve>
-			: Only <root>
+			: It only works as ROOT
 
 	LIST		: If you use binary search, a sorted list ist required
 			: ALLOW and DENY list

@@ -34,8 +34,8 @@
 			: Simple Frontend
 	
 			: Control Program for Extension <SYSCALL execve>
-			: It Only work as ROOT
-			
+			: It only works as ROOT
+	
 			: If you use binary search, a sorted list ist required.
 	
 	List		: ALLOW and DENY list
@@ -58,13 +58,13 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 	
-			: Structure = allow/deny:USER-ID;PATH
+			: string = allow/deny:USER-ID;PATH
 	
 			: Example:
 			: a:100;/bin/test		= file
 			: a:100;/bin/test1		= file
 			: a:100;/usr/sbin		= Folder
-			
+	
 			: rules besearch
 			: d:100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
 			: d:100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.

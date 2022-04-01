@@ -28,7 +28,7 @@
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
-			: Control only works as ROOT 
+			: Control only works as root
 			
 			: Only User
 			: No Groups. I don't need it at the moment
@@ -75,14 +75,15 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
-			: Structure = USER-ID;PATH
+			: string = USER-ID;PATH
 
 			: Example:
 			: 100;/bin/test			= file
 			: 100;/bin/test1		= file
-			: 100;/usr/sbin			= Folder
+
 
 			: rules besearch
+			: 100;/usr/sbin			= Folder
 			: 100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
 			: 100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
 
