@@ -69,13 +69,13 @@
 			: The program turns it into USER-ID;PATH
 			: 100;/bin/test1
 	
+			: It is up to the ADMIN to keep the list reasonable according to these rules!
+	
 	
 	
 	Thanks		: Florian Klaempfl and others
 	
-	
-	
-			: I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
+	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
 
 
 *)

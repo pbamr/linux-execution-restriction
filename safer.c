@@ -82,11 +82,13 @@
 			: 100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
 			: 100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
 
+			: It is up to the ADMIN to keep the list reasonable according to these rules!
+
+
 
 	Thanks		: Linus Torvalds and others
 
-
-			: I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
+	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
 
 */
 
