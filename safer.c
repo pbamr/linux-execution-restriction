@@ -163,7 +163,6 @@ SYSCALL_DEFINE6(execve,
 	static long	deny_list_max = 0;
 
 	u32		user_id;
-	u64		group_id;
 	u32		n;
 	char		str_user_id[19];
 	u64		str_length;
@@ -447,7 +446,7 @@ SYSCALL_DEFINE6(execve,
 
 prog_allowed:
 	if (printk_on == 1) {
-		printk("USER/GROUP/PROG. allowed          : %d, %lld, %s\n", user_id, group_id, filename);
+		printk("USER/PROG. allowed          : %d, %lld, %s\n", user_id, filename);
 
 		/* max. argv */
 		for ( n = 1; n <= 32; n++) {
