@@ -84,8 +84,8 @@
 
 			: rules besearch
 			: 100;/usr/sbin			= Folder
-			: 100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
-			: 100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
+			: 100;/usr/sbin/test		= file		avoid
+			: 100;/usr/sbin/test2		= file		avoid
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
@@ -101,14 +101,11 @@
 
 
 
-
 static long besearch(char *str_search, char **list, long elements)
 {
-	long left;
-	long right;
+	long left, right;
 	long middle;
 	long int_ret;
-
 
 	if (elements < 1) return(-1);
 	if (elements == 1) {
@@ -117,26 +114,24 @@ static long besearch(char *str_search, char **list, long elements)
 		else return(-1);
 	}
 
-	left = 0;
-	right = elements;
 
-	while(left < right) {
+	left = 0;
+	right = elements - 1;
+	
+	while(left <= right) {
 		middle = (left + right) / 2;
 
-		int_ret = strncmp(str_search, list[middle], strlen(list[middle]));
+		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
 
 		if (int_ret == 0) return(0);
-
-		if (int_ret > 0) left = middle + 1;
-		else right = middle;
+		else if (int_ret < 0) left = middle + 1;
+		else if (int_ret > 0) right = middle - 1;
 	}
 
-	if (strncmp(str_search, list[0], strlen(list[0]) == 0)) return(0);
-
-
+	if (strncmp(list[right], str_search, strlen(list[right]) == 0)) return(0);
 	return(-1);
-}
 
+}
 
 
 
@@ -418,7 +413,7 @@ SYSCALL_DEFINE6(execve,
 					/* Importend! need qsorted list */
 					if (besearch(str_file_name, deny_list, deny_list_max) == 0) {
 						/* Not allowed */
-						printk("DENY LIST USER/PROG. not allowed  : %d, %s\n", user_id, filename);
+						printk("DENY LIST USER/PROG. not allowed  : %d;%s\n", user_id, filename);
 						return(-1);
 					}
 				}
@@ -437,7 +432,7 @@ SYSCALL_DEFINE6(execve,
 
 			/* ------------------------------------------------------------------------------------------------- */
 			/* Not allowed */
-			printk("ALLOW LIST USER/PROG. not allowed : %d, %s\n", user_id, filename);
+			printk("ALLOW LIST USER/PROG. not allowed : %d;%s\n", user_id, filename);
 			return(-1);
 		}
 	}

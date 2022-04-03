@@ -66,8 +66,8 @@
 			: a:100;/usr/sbin		= Folder
 	
 			: rules besearch
-			: d:100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
-			: d:100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
+			: d:100;/usr/sbin/test		= file		avoid
+			: d:100;/usr/sbin/test2		= file		avoid
 	
 			: The program turns it into USER-ID;PATH
 			: 100;/bin/test1
@@ -189,6 +189,7 @@ begin
 					end;
 					
 					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
+					N_LIST.Sorted := TRUE;
 					
 					setlength(WORK_LIST, N_LIST.COUNT + 1);
 					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
@@ -227,7 +228,7 @@ begin
 					end;
 					
 					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
-					
+					N_LIST.Sorted := TRUE;
 					
 					setlength(WORK_LIST, N_LIST.COUNT + 1);
 					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
