@@ -284,7 +284,7 @@ SYSCALL_DEFINE6(execve,
 
 					if (allow_list_max < 1) {
 #ifdef PRINTK
-						printk("NO ALLOW USERLAND LIST\n");
+						printk("NO ALLOW LIST\n");
 #endif
 						return(-1); 
 					}
@@ -326,7 +326,7 @@ SYSCALL_DEFINE6(execve,
 
 					if (deny_list_max < 1) { 
 #ifdef PRINTK
-						printk("NO DENY USERLAND LIST\n"); 
+						printk("NO DENY LIST\n"); 
 #endif
 						return(-1); 
 					}
