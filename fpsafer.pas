@@ -171,6 +171,8 @@ begin
 			//ALLOW List
 			7:	begin 
 					LIST := TStringList.Create;
+					LIST.Sorted := TRUE;
+					List.Duplicates := dupIgnore;
 					try
 						LIST.LoadFromFile(ParamStr(2));
 					except
@@ -178,10 +180,12 @@ begin
 						ErrorMessage;
 					end;
 					
-					LIST.Sorted := TRUE;
 					
 					
 					N_LIST := TStringList.Create;
+					N_LIST.Sorted := TRUE;
+					N_LIST.Duplicates := dupIgnore;
+					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 2) = 'a:' then begin
 							N_LIST.add(copy(List.Strings[n], 3, length(List.Strings[n])));
@@ -189,7 +193,6 @@ begin
 					end;
 					
 					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
-					N_LIST.Sorted := TRUE;
 					
 					setlength(WORK_LIST, N_LIST.COUNT + 1);
 					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
@@ -210,6 +213,8 @@ begin
 			//DENY LIST
 			8:	begin 
 					LIST := TStringList.Create;
+					LIST.Sorted := TRUE;
+					List.Duplicates := dupIgnore;
 					try
 						LIST.LoadFromFile(ParamStr(2));
 					except
@@ -217,10 +222,11 @@ begin
 						ErrorMessage;
 					end;
 					
-					LIST.Sorted := TRUE;
-					
 					
 					N_LIST := TStringList.Create;
+					N_LIST.Sorted := TRUE;
+					N_LIST.Duplicates := dupIgnore;
+					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 2) = 'd:' then begin
 							N_LIST.add(copy(List.Strings[n], 3, length(List.Strings[n])));
@@ -228,7 +234,6 @@ begin
 					end;
 					
 					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
-					N_LIST.Sorted := TRUE;
 					
 					setlength(WORK_LIST, N_LIST.COUNT + 1);
 					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
