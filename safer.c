@@ -128,7 +128,6 @@ static long besearch(char *str_search, char **list, long elements)
 		else if (int_ret > 0) right = middle - 1;
 	}
 
-	if (strncmp(list[right], str_search, strlen(list[right]) == 0)) return(0);
 	return(-1);
 
 }
