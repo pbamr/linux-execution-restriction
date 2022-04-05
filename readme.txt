@@ -46,7 +46,7 @@
 			: It is not checked whether the program really exists
 			: Ths is not necessary
 
-			: Only "make bzImage" need this feature
+			: "make bzImage" need this feature
 			: The Solutions is Safer OFF
 
 
