@@ -52,6 +52,6 @@
 
 	Thanks		: Linus Torvalds and others
 			: Florian Klaempfl and others
-
-
+			: Niklaus Wirth
+			
 			: I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
