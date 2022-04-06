@@ -175,7 +175,7 @@ SYSCALL_DEFINE5(execve,
 	static long	gdeny_list_max = 0;
 
 	uid_t		user_id;
-	u32		n;
+	u32		n, error_n;
 	char		str_user_id[19];
 	char		str_group_id[19];
 	
@@ -341,7 +341,14 @@ SYSCALL_DEFINE5(execve,
 
 				for (n = 0; n < allow_list_max; n++) {
 					allow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (allow_list[n] == NULL) return(-1);
+					if (allow_list[n] == NULL) {
+						for (error_n = 0; error_n < n; error_n++) {
+							kfree(allow_list[error_n]);
+						}
+						kfree(allow_list);
+						allow_list_max = 0;
+						return(-1);
+					}
 					strcpy(allow_list[n], list[n+1]);
 				}
 				return(allow_list_max);
@@ -385,7 +392,14 @@ SYSCALL_DEFINE5(execve,
 
 				for (n = 0; n < deny_list_max; n++) {
 					deny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (deny_list[n] == NULL) return(-1);
+					if (deny_list[n] == NULL) {
+						for (error_n = 0; error_n < n; error_n++) {
+							kfree(deny_list[error_n]);
+						}
+						kfree(deny_list);
+						deny_list_max = 0;
+						return(-1);
+					}
 					strcpy(deny_list[n], list[n+1]);
 				}
 				return(deny_list_max);
@@ -437,7 +451,14 @@ SYSCALL_DEFINE5(execve,
 
 				for (n = 0; n < gallow_list_max; n++) {
 					gallow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (gallow_list[n] == NULL) return(-1);
+					if (gallow_list[n] == NULL) {
+						for (error_n = 0; error_n < n; error_n++) {
+							kfree(gallow_list[error_n]);
+						}
+						kfree(gallow_list);
+						gallow_list_max = 0;
+						return(-1);
+					}
 					strcpy(gallow_list[n], list[n+1]);
 				}
 				return(gallow_list_max);
@@ -481,7 +502,14 @@ SYSCALL_DEFINE5(execve,
 
 				for (n = 0; n < gdeny_list_max; n++) {
 					gdeny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (gdeny_list[n] == NULL) return(-1);
+					if (gdeny_list[n] == NULL) {
+						for (error_n = 0; error_n < n; error_n++) {
+							kfree(gdeny_list[error_n]);
+						}
+						kfree(gdeny_list);
+						gdeny_list_max = 0;
+						return(-1);
+					}
 					strcpy(gdeny_list[n], list[n+1]);
 				}
 				return(gdeny_list_max);

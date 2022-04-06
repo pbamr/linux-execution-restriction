@@ -295,11 +295,17 @@ SYSCALL_DEFINE6(execve,
 
 					for (n = 0; n < allow_list_max; n++) {
 						allow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-						if (allow_list[n] == NULL) return(-1);
+						if (allow_list[n] == NULL) {
+							for (error_n = 0; error_n < n; error_n++) {
+								kfree(allow_list[error_n]);
+							}
+							kfree(allow_list);
+							allow_list_max = 0;
+							return(-1);
+						}
 						strcpy(allow_list[n], list[n+1]);
 					}
 					return(allow_list_max);
-
 
 					/* set deny list */
 			case 8:		if (list == NULL) {				/* check? */
@@ -337,10 +343,18 @@ SYSCALL_DEFINE6(execve,
 
 					for (n = 0; n < deny_list_max; n++) {
 						deny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-						if (deny_list[n] == NULL) return(-1);
+						if (deny_list[n] == NULL) {
+							for (error_n = 0; error_n < n; error_n++) {
+								kfree(deny_list[error_n]);
+							}
+							kfree(deny_list);
+							deny_list_max = 0;
+							return(-1);
+						}
 						strcpy(deny_list[n], list[n+1]);
 					}
 					return(deny_list_max);
+
 
 
 			default:
@@ -367,7 +381,7 @@ SYSCALL_DEFINE6(execve,
 				if (strncmp("/usr/libexec/", filename, 13) == 0) break;
 				if (strncmp("/usr/local/", filename, 11) == 0) break;
 				if (strncmp("/usr/share/", filename, 11) == 0) break;
-				
+
 				if (strncmp("/lib/", filename, 5) == 0) break;
 				if (strncmp("/opt/", filename, 5) == 0) break;
 				if (strncmp("/etc/", filename, 5) == 0) break;
