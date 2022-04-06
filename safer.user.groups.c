@@ -174,7 +174,7 @@ SYSCALL_DEFINE5(execve,
 	static char	**gdeny_list;
 	static long	gdeny_list_max = 0;
 
-	int		user_id;
+	uid_t		user_id;
 	u32		n;
 	char		str_user_id[19];
 	char		str_group_id[19];
@@ -507,7 +507,6 @@ SYSCALL_DEFINE5(execve,
 				if (strncmp("/usr/libexec/", filename, 13) == 0) break;
 				if (strncmp("/usr/local/", filename, 11) == 0) break;
 				if (strncmp("/usr/share/", filename, 11) == 0) break;
-				if (strncmp("/usr/scripts/", filename, 13) == 0) break;
 
 				if (strncmp("/lib/", filename, 5) == 0) break;
 				if (strncmp("/opt/", filename, 5) == 0) break;
@@ -519,7 +518,7 @@ SYSCALL_DEFINE5(execve,
 				if (strncmp("/proc/", filename, 6) == 0) break;
 
 				/* NOT allowed. */
-				printk("USER/PROG. not allowed : %d;%s\n", user_id, filename);
+				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
 				return(-1);
 			}
 
@@ -527,7 +526,7 @@ SYSCALL_DEFINE5(execve,
 			/* --------------------------------------------------------------------------------- */
 			/* deny user */
 			if (deny_list_max > 0) {
-				sprintf(str_user_id, "%d", user_id);				/* int to string */
+				sprintf(str_user_id, "%u", user_id);				/* int to string */
 				str_length = strlen(str_user_id);				/* str_user_id len*/
 				str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
 
@@ -554,7 +553,7 @@ for (n = 0; n < deny_list_max; n++) {
 				/* Importend! need qsorted list */
 				if (besearch(str_file_name, deny_list, deny_list_max) == 0) {
 					/* Not allowed */
-					printk("DENY LIST USER/PROG. not allowed  : %d;%s\n", user_id, filename);
+					printk("DENY LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
 					return(-1);
 				}
 			}
@@ -568,7 +567,7 @@ for (n = 0; n < deny_list_max; n++) {
 
 					if (group_info->gid[n].val == 0) return(-1);			//group root not allowed. My choice!
 
-					sprintf(str_group_id, "%d", group_info->gid[n].val);		/* int to string */
+					sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
 					str_length = strlen(str_group_id);				/* str_user_id len*/
 					str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
 
@@ -586,7 +585,7 @@ for (n = 0; n < deny_list_max; n++) {
 					/* Importend! need qsorted list */
 					if (besearch(str_file_name, gdeny_list, gdeny_list_max) == 0) {
 						/* Not allowed */
-						printk("DENY GROUP LIST USER/PROG. not allowed  : %d;%s\n", user_id, filename);
+						printk("DENY GROUP LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
 						return(-1);
 					}
 				}
@@ -595,7 +594,7 @@ for (n = 0; n < deny_list_max; n++) {
 			/* --------------------------------------------------------------------------------------------- */
 			/* allow user */
 			if (allow_list_max > 0) {
-				sprintf(str_user_id, "%d", user_id);				/* int to string */
+				sprintf(str_user_id, "%u", user_id);				/* int to string */
 				str_length = strlen(str_user_id);				/* str_user_id len*/
 				str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
 
@@ -623,7 +622,7 @@ for (n = 0; n < deny_list_max; n++) {
 
 					if (group_info->gid[n].val == 0) return(-1);			//group root not allowed. My choice!
 
-					sprintf(str_group_id, "%d", group_info->gid[n].val);		/* int to string */
+					sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
 					str_length = strlen(str_group_id);				/* str_user_id len*/
 					str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
 
@@ -646,7 +645,7 @@ for (n = 0; n < deny_list_max; n++) {
 
 			/* ------------------------------------------------------------------------------------------------- */
 			/* Not allowed */
-			printk("ALLOW LIST USER/PROG. not allowed : %d;%s\n", user_id, filename);
+			printk("ALLOW LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
 			return(-1);
 		}
 	}
@@ -654,7 +653,7 @@ for (n = 0; n < deny_list_max; n++) {
 
 prog_allow:
 	if (printk_on == 1) {
-		printk("USER/PROG. allowed          : %d, %s\n", user_id, filename);
+		printk("USER/PROG. allowed          : %u, %s\n", user_id, filename);
 
 		/* max. argv */
 		for ( n = 1; n <= 32; n++) {

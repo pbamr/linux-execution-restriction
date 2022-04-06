@@ -121,6 +121,8 @@ static long besearch(char *str_search, char **list, long elements)
 	while(left <= right) {
 		middle = (left + right) / 2;
 
+		//middle = left + ((right - left) / 2);
+
 		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
 
 		if (int_ret == 0) return(0);
@@ -156,7 +158,7 @@ SYSCALL_DEFINE6(execve,
 	static char	**deny_list;
 	static long	deny_list_max = 0;
 
-	int		user_id;
+	uid_t		user_id;
 	u32		n;
 	char		str_user_id[19];
 	u64		str_length;
@@ -377,15 +379,14 @@ SYSCALL_DEFINE6(execve,
 				if (strncmp("/proc/", filename, 6) == 0) break;
 
 				/* NOT allowed. */
-				printk("USER/PROG. not allowed : %d, %s\n", user_id, filename);
+				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
 				return(-1);
 			}
 
 			/* --------------------------------------------------------------------------------- */
-			/* future */
 			if (user_id > 0) {
 				/* user-id not 0 */
-				sprintf(str_user_id, "%d", user_id);				/* int to string */
+				sprintf(str_user_id, "%u", user_id);				/* int to string */
 				str_length = strlen(str_user_id);				/* str_user_id len*/
 				str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
 
@@ -413,7 +414,7 @@ SYSCALL_DEFINE6(execve,
 					/* Importend! need qsorted list */
 					if (besearch(str_file_name, deny_list, deny_list_max) == 0) {
 						/* Not allowed */
-						printk("DENY LIST USER/PROG. not allowed  : %d;%s\n", user_id, filename);
+						printk("DENY LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
 						return(-1);
 					}
 				}
@@ -432,14 +433,14 @@ SYSCALL_DEFINE6(execve,
 
 			/* ------------------------------------------------------------------------------------------------- */
 			/* Not allowed */
-			printk("ALLOW LIST USER/PROG. not allowed : %d;%s\n", user_id, filename);
+			printk("ALLOW LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
 			return(-1);
 		}
 	}
 
 
 	if (printk_on == 1) {
-		printk("USER/PROG. allowed          : %d, %s\n", user_id, filename);
+		printk("USER/PROG. allowed          : %u, %s\n", user_id, filename);
 
 		/* max. argv */
 		for ( n = 1; n <= 32; n++) {
