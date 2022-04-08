@@ -172,7 +172,8 @@ begin
 			7:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
-					List.Duplicates := dupIgnore;
+					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
+					List.CaseSensitive := TRUE;
 					try
 						LIST.LoadFromFile(ParamStr(2));
 					except
@@ -183,8 +184,8 @@ begin
 					
 					
 					N_LIST := TStringList.Create;
-					N_LIST.Sorted := TRUE;
-					N_LIST.Duplicates := dupIgnore;
+					N_LIST.Sorted := FALSE;
+					N_LIST.Duplicates := dupAccept;
 					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 2) = 'a:' then begin
@@ -214,7 +215,8 @@ begin
 			8:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
-					List.Duplicates := dupIgnore;
+					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
+					List.CaseSensitive := TRUE;
 					try
 						LIST.LoadFromFile(ParamStr(2));
 					except
@@ -224,8 +226,8 @@ begin
 					
 					
 					N_LIST := TStringList.Create;
-					N_LIST.Sorted := TRUE;
-					N_LIST.Duplicates := dupIgnore;
+					N_LIST.Sorted := FALSE;
+					N_LIST.Duplicates := dupAccept;
 					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 2) = 'd:' then begin
