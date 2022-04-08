@@ -44,16 +44,19 @@
 			: d:USER;Path
 	
 	
-	Control		: 0 = safer ON
-			: 1 = safer OFF
-			: 2 = State
-			: 3 = Log ON
-			: 4 = Log OFF
-			: 5 = Clear ALLOW List
-			: 6 = Clear DENY List
-			: 7 = Set ALLOW List
-			: 8 = Set DENY List
-	
+	Control		:  0 = safer ON
+			:  1 = safer OFF
+			:  2 = State
+			:  3 = Log ON
+			:  4 = Log OFF
+			:  5 = Clear ALLOW List
+			:  6 = Clear DENY List
+			:  7 = Clear GROUP ALLOW LIST
+			:  8 = Clear GROUP DENY List
+			:  9 = Set ALLOW List
+			: 10 = Set DENY List
+			: 11 = SET GROUP ALLOW LIST
+			: 12 = SET GROUP DENY LIST
 	
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
