@@ -66,8 +66,8 @@
 			: a:100;/usr/sbin		= Folder
 	
 			: rules besearch
-			: d:100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
-			: d:100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
+			: d:100;/usr/sbin/test		= file		avoid
+			: d:100;/usr/sbin/test2		= file		avoid
 	
 			: The program turns it into USER-ID;PATH
 			: 100;/bin/test1
@@ -111,7 +111,7 @@ const
 	
 var
 	WORK_LIST	: array of ^char;
-	NUMBER		: qword;
+	SUB_NUMBER	: qword;
 	
 	LIST		: TStringList;
 	N_LIST		: TStringList;
@@ -137,23 +137,14 @@ begin
 	writeln('Parameter   :  4 Safer Printk OFF');
 	writeln;
 	writeln('Parameter   :  5 Safer CLEAR ALLOW LIST');
+	writeln;
 	writeln('Parameter   :  6 Safer CLEAR DENY LIST');
 	writeln;
-	writeln('Parameter   :  7 Safer CLEAR ALLOW GROUP LIST');
-	writeln('Parameter   :  8 Safer CLEAR DENY GROUP LIST');
-	writeln;
-	writeln('Parameter   :  9 Safer SET ALLOW LIST');
+	writeln('Parameter   :  7 Safer SET ALLOW LIST');
 	writeln('            :    <safer list>');
 	writeln;
-	writeln('Parameter   : 10 Safer SET DENY LIST');
+	writeln('Parameter   :  8 Safer SET DENY LIST');
 	writeln('            :    <safer list>');
-	writeln;
-	writeln('Parameter   : 11 Safer SET ALLOW GROUP LIST');
-	writeln('            :    <safer list>');
-	writeln;
-	writeln('Parameter   : 12 Safer SET DENY GROUP LIST');
-	writeln('            :    <safer list>');
-
 	writeln;
 	halt(1);
 end;
@@ -165,20 +156,20 @@ end;
 //simple
 begin
 	if ParamCount = 1 then begin
-		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 8 then ErrorMessage;
+		if TryStrToQword(ParamStr(1), SUB_NUMBER) = FALSE then ErrorMessage;
+		if SUB_NUMBER > 6 then ErrorMessage;
 		
-		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999999, SUB_NUMBER));
 		halt(0);
 	end;
 	
 	
 	if ParamCount = 2 then begin
-		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
+		if TryStrToQword(ParamStr(1), SUB_NUMBER) = FALSE then ErrorMessage;
 		
-		case NUMBER of
+		case SUB_NUMBER of
 			//ALLOW List
-			9:	begin 
+			7:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
 					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
@@ -190,9 +181,6 @@ begin
 						ErrorMessage;
 					end;
 					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
 					
 					
 					N_LIST := TStringList.Create;
@@ -207,9 +195,9 @@ begin
 					
 					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
 					
-					setlength(WORK_LIST, N_LIST.COUNT + 1);					//RESERVIEREN
-					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));		//elements
-					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));				
+					setlength(WORK_LIST, N_LIST.COUNT + 1);
+					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
+					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));
 					
 					writeln(WORK_LIST[0]);
 					for n := 0 to N_LIST.COUNT - 1 do begin
@@ -218,13 +206,13 @@ begin
 						writeln('a:' + WORK_LIST[n+1]);
 					end;
 					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999999, SUB_NUMBER, qword(WORK_LIST)));
 					
 					halt(0);
 				end;
 			
 			//DENY LIST
-			10:	begin 
+			8:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
 					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
@@ -236,9 +224,6 @@ begin
 						ErrorMessage;
 					end;
 					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
 					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := FALSE;
@@ -252,7 +237,6 @@ begin
 					
 					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
 					
-					
 					setlength(WORK_LIST, N_LIST.COUNT + 1);
 					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
 					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));
@@ -264,100 +248,7 @@ begin
 						writeln('d:' + WORK_LIST[n+1]);
 					end;
 					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
-					
-					halt(0);
-				end;
-			
-			//GROUP ALLOW List
-			11:	begin 
-					LIST := TStringList.Create;
-					LIST.Sorted := TRUE;
-					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
-					List.CaseSensitive := TRUE;
-					try
-						LIST.LoadFromFile(ParamStr(2));
-					except
-						LIST.Free;
-						ErrorMessage;
-					end;
-					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
-					
-					
-					N_LIST := TStringList.Create;
-					N_LIST.Sorted := FALSE;
-					N_LIST.Duplicates := dupAccept;
-					
-					for n := 0 to List.Count - 1 do begin
-						if copy(List.Strings[n], 0, 3) = 'ga:' then begin
-							N_LIST.add(copy(List.Strings[n], 4, length(List.Strings[n])));
-						end;
-					end;
-					
-					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
-					
-					
-					setlength(WORK_LIST, N_LIST.COUNT + 1);
-					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
-					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));
-					
-					writeln(WORK_LIST[0]);
-					for n := 0 to N_LIST.COUNT - 1 do begin
-						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
-						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
-						writeln('ga:' + WORK_LIST[n+1]);
-					end;
-					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
-					
-					halt(0);
-				end;
-			
-			//GROUP DENY LIST
-			12:	begin 
-					LIST := TStringList.Create;
-					LIST.Sorted := TRUE;
-					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
-					List.CaseSensitive := TRUE;
-					try
-						LIST.LoadFromFile(ParamStr(2));
-					except
-						LIST.Free;
-						ErrorMessage;
-					end;
-					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
-					
-					
-					N_LIST := TStringList.Create;
-					N_LIST.Sorted := FALSE;
-					N_LIST.Duplicates := dupAccept;
-					
-					for n := 0 to List.Count - 1 do begin
-						if copy(List.Strings[n], 0, 3) = 'gd:' then begin
-							N_LIST.add(copy(List.Strings[n], 4, length(List.Strings[n])));
-						end;
-					end;
-					
-					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
-					
-					setlength(WORK_LIST, N_LIST.COUNT + 1);
-					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));
-					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));
-					
-					writeln(WORK_LIST[0]);
-					for n := 0 to N_LIST.COUNT - 1 do begin
-						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
-						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
-						writeln('gd:' + WORK_LIST[n+1]);
-					end;
-					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999999, SUB_NUMBER, qword(WORK_LIST)));
 					
 					halt(0);
 				end;
