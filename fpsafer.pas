@@ -184,7 +184,7 @@ begin
 			9:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
-					LIST.Duplicates := dupIgnore;		//Not OK uppercase!      dupIgnore, dupAccept, dupError
+					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
 					List.CaseSensitive := TRUE;
 					try
 						LIST.LoadFromFile(ParamStr(2));
