@@ -181,7 +181,7 @@ begin
 			9:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
-					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
+					LIST.Duplicates := dupIgnore;		//Not OK uppercase!      dupIgnore, dupAccept, dupError
 					List.CaseSensitive := TRUE;
 					try
 						LIST.LoadFromFile(ParamStr(2));
@@ -189,11 +189,6 @@ begin
 						LIST.Free;
 						ErrorMessage;
 					end;
-					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
-					
 					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := FALSE;
@@ -235,10 +230,6 @@ begin
 						LIST.Free;
 						ErrorMessage;
 					end;
-					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
 					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := FALSE;
@@ -282,11 +273,6 @@ begin
 						ErrorMessage;
 					end;
 					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
-					
-					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := FALSE;
 					N_LIST.Duplicates := dupAccept;
@@ -328,10 +314,6 @@ begin
 						LIST.Free;
 						ErrorMessage;
 					end;
-					
-					//for n := List.Count - 1 downto 1 do begin
-					//	if List[n] = List[n-1] then List.delete(n);
-					//end;
 					
 					
 					N_LIST := TStringList.Create;
