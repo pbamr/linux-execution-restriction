@@ -44,19 +44,16 @@
 			: d:USER;Path
 	
 	
-	Control		:  0 = safer ON
-			:  1 = safer OFF
-			:  2 = State
-			:  3 = Log ON
-			:  4 = Log OFF
-			:  5 = Clear ALLOW List
-			:  6 = Clear DENY List
-			:  7 = Clear GROUP ALLOW LIST
-			:  8 = Clear GROUP DENY List
-			:  9 = Set ALLOW List
-			: 10 = Set DENY List
-			: 11 = SET GROUP ALLOW LIST
-			: 12 = SET GROUP DENY LIST
+	Control		: 0 = safer ON
+			: 1 = safer OFF
+			: 2 = State
+			: 3 = Log ON
+			: 4 = Log OFF
+			: 5 = Clear ALLOW List
+			: 6 = Clear DENY List
+			: 7 = Set ALLOW List
+			: 8 = Set DENY List
+	
 	
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
@@ -184,7 +181,7 @@ begin
 			9:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
-					LIST.Duplicates := dupIgnore;		//Not OK uppercase!      dupIgnore, dupAccept, dupError
+					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
 					List.CaseSensitive := TRUE;
 					try
 						LIST.LoadFromFile(ParamStr(2));
@@ -194,8 +191,9 @@ begin
 					end;
 					
 					N_LIST := TStringList.Create;
-					N_LIST.Sorted := FALSE;
+					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
+					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 2) = 'a:' then begin
@@ -235,8 +233,9 @@ begin
 					end;
 					
 					N_LIST := TStringList.Create;
-					N_LIST.Sorted := FALSE;
+					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
+					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 2) = 'd:' then begin
@@ -277,8 +276,9 @@ begin
 					end;
 					
 					N_LIST := TStringList.Create;
-					N_LIST.Sorted := FALSE;
+					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
+					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 3) = 'ga:' then begin
@@ -318,10 +318,10 @@ begin
 						ErrorMessage;
 					end;
 					
-					
 					N_LIST := TStringList.Create;
-					N_LIST.Sorted := FALSE;
+					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
+					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
 						if copy(List.Strings[n], 0, 3) = 'gd:' then begin
