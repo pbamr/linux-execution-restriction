@@ -116,33 +116,28 @@ static long besearch(char *str_search, char **list, long elements)
 	long left, right;
 	long middle;
 	long int_ret;
-	
-	
+
+
 	if (elements < 1) return(-1);
 	if (elements == 1) {
 		int_ret = strncmp(str_search, list[0], strlen(list[0]));
 		if (int_ret == 0) return(0);
 		else return(-1);
 	}
-	
-	
-	
+
 	left = 0;
 	right = elements - 1;
-	
+
 	while(left <= right) {
 		middle = (left + right) / 2;
 
 		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
-
 		if (int_ret == 0) return(0);
 		else if (int_ret < 0) left = middle + 1;
 		else if (int_ret > 0) right = middle - 1;
 	}
-	
-	return(-1);
-	
 
+	return(-1);
 }
 
 
@@ -176,7 +171,7 @@ SYSCALL_DEFINE5(execve,
 	u32		n, error_n;
 	char		str_user_id[19];
 	char		str_group_id[19];
-	
+
 	u64		str_length;
 	char		*str_file_name = NULL;
 	long		int_ret;
@@ -186,7 +181,7 @@ SYSCALL_DEFINE5(execve,
 
 
 	user_id = get_current_user()->uid.val;
-	
+
 	/* command part, future ? */
 	switch(number) {
 		/* safer on */
