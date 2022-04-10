@@ -59,15 +59,26 @@
 			: String 0 = Number of strings
 	
 			: string = allow/deny:USER-ID;PATH
+			: string = allow/deny:GROUP-ID;PATH
+	
+			: a:USER-ID;Path
+			: d:USER-ID;Path
+	
+			: ga:GROUP-ID;Path
+			: gd:GROUP-ID;Path
 	
 			: Example:
-			: a:100;/bin/test		= file
-			: a:100;/bin/test1		= file
-			: a:100;/usr/sbin		= Folder
+			: a:100;/bin/test		= allow file
+			: a:100;/bin/test1		= allow file
+			: a:100;/usr/sbin/		= allow Folder
 	
-			: rules besearch
-			: d:100;/usr/sbin/test		= file		not allowed if 100;/usr/sbin exists	etc.
-			: d:100;/usr/sbin/test2		= file		not allowed if 100;/usr/sbin exists	etc.
+			: d:100;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/		= deny folder
+	
+			: ga:100;/usr/sbin/		= allow group folder
+			: gd:100;/usr/bin/		= deny group folder
+			: gd:101;/usr/bin/mc		= deny group file
+			: ga:101;/usr/bin/mc		= allow group file
 	
 			: The program turns it into USER-ID;PATH
 			: 100;/bin/test1

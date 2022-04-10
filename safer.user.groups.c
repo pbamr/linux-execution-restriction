@@ -84,16 +84,7 @@
 			: String 0 = Number of strings
 
 			: string = USER-ID;PATH
-
-			: Example:
-			: 100;/bin/test			= file
-			: 100;/bin/test1		= file
-
-
-			: rules besearch
-			: 100;/usr/sbin			= Folder
-			: 100;/usr/sbin/test		= file
-			: 100;/usr/sbin/test2		= file
+			: string = GROUP-ID;PATH
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
@@ -108,7 +99,6 @@
 
 #define PRINTK
 #define MAX_DYN 100000
-#define MAX_STR_LEN 1000
 
 
 static long besearch(char *str_search, char **list, long elements)
@@ -120,7 +110,7 @@ static long besearch(char *str_search, char **list, long elements)
 
 	if (elements < 1) return(-1);
 	if (elements == 1) {
-		int_ret = strncmp(str_search, list[0], strlen(list[0]));
+		int_ret = strncmp(list[0], str_search, strlen(list[0]));
 		if (int_ret == 0) return(0);
 		else return(-1);
 	}
@@ -340,7 +330,6 @@ SYSCALL_DEFINE5(execve,
 				if (allow_list == NULL) { allow_list_max = 0; return(-1); }
 
 				for (n = 0; n < allow_list_max; n++) {
-					if (strlen(list[n+1]) > MAX_STR_LEN) continue;
 					allow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
 					if (allow_list[n] == NULL) {
 						for (error_n = 0; error_n < n; error_n++) {
@@ -401,7 +390,6 @@ SYSCALL_DEFINE5(execve,
 				if (deny_list == NULL) { deny_list_max = 0; return(-1); }
 
 				for (n = 0; n < deny_list_max; n++) {
-					if (strlen(list[n+1]) > MAX_STR_LEN) continue;
 					deny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
 					if (deny_list[n] == NULL) {
 						for (error_n = 0; error_n < n; error_n++) {
@@ -469,7 +457,6 @@ SYSCALL_DEFINE5(execve,
 				if (gallow_list == NULL) { gallow_list_max = 0; return(-1); }
 
 				for (n = 0; n < gallow_list_max; n++) {
-					if (strlen(list[n+1]) > MAX_STR_LEN) continue;
 					gallow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
 					if (gallow_list[n] == NULL) {
 						for (error_n = 0; error_n < n; error_n++) {
@@ -529,7 +516,6 @@ SYSCALL_DEFINE5(execve,
 				if (gdeny_list == NULL) { gdeny_list_max = 0; return(-1); }
 
 				for (n = 0; n < gdeny_list_max; n++) {
-					if (strlen(list[n+1]) > MAX_STR_LEN) continue;
 					gdeny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
 					if (gdeny_list[n] == NULL) {
 						for (error_n = 0; error_n < n; error_n++) {
@@ -552,11 +538,11 @@ SYSCALL_DEFINE5(execve,
 
 	if (safer == 0) {
 		for(;;) {
-			//-----------------------------------------------------------------------
+			/* --------------------------------------------------------------------------------- */
+			/* my choice */
 			if (user_id == 0) {
 				if (strncmp("/bin/", filename, 5) == 0) break;
 				if (strncmp("/sbin/", filename, 6) == 0) break;
-
 				if (strncmp("/usr/bin/", filename, 9) == 0) break;
 				if (strncmp("/usr/sbin/", filename, 10) == 0) break;
 				if (strncmp("/usr/games/", filename, 11) == 0) break;
@@ -564,7 +550,8 @@ SYSCALL_DEFINE5(execve,
 				if (strncmp("/usr/libexec/", filename, 13) == 0) break;
 				if (strncmp("/usr/local/", filename, 11) == 0) break;
 				if (strncmp("/usr/share/", filename, 11) == 0) break;
-				
+				if (strncmp("/usr/scripts/", filename, 13) == 0) break;
+
 				if (strncmp("/lib/", filename, 5) == 0) break;
 				if (strncmp("/opt/", filename, 5) == 0) break;
 				if (strncmp("/etc/", filename, 5) == 0) break;
@@ -649,6 +636,7 @@ for (n = 0; n < deny_list_max; n++) {
 				}
 			}
 
+
 			/* --------------------------------------------------------------------------------------------- */
 			/* allow user */
 			if (allow_list_max > 0) {
@@ -678,7 +666,7 @@ for (n = 0; n < deny_list_max; n++) {
 				group_info = get_current_groups();
 				for (n = 0; n < group_info->ngroups; n++) {
 
-					if (group_info->gid[n].val == 0) return(-2);	//group root not allowed. My choice!
+					if (group_info->gid[n].val == 0) return(-2);			/* group root not allowed. My choice! */
 
 					sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
 					str_length = strlen(str_group_id);				/* str_user_id len*/
@@ -711,7 +699,7 @@ for (n = 0; n < deny_list_max; n++) {
 
 prog_allow:
 	if (printk_on == 1) {
-		printk("USER/PROG. allowed          : %u, %s\n", user_id, filename);
+		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
 
 		/* max. argv */
 		for ( n = 1; n <= 32; n++) {

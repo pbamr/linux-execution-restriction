@@ -68,7 +68,7 @@
 			: It is not checked whether the program really exists
 			: This is not necessary
 
-			: Only "make bzImage" need this feature
+			: "make bzImage" need this feature
 			: The Solutions is Safer OFF
 
 
@@ -82,10 +82,9 @@
 			: 100;/bin/test1		= file
 
 
-			: rules besearch
 			: 100;/usr/sbin			= Folder
-			: 100;/usr/sbin/test		= file		avoid
-			: 100;/usr/sbin/test2		= file		avoid
+			: 100;/usr/sbin/test		= file
+			: 100;/usr/sbin/test2		= file
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
@@ -100,7 +99,6 @@
 
 
 #define PRINTK
-#define MAX_DYN 100000
 #define MAX_STR_LEN 1000
 
 
@@ -125,8 +123,6 @@ static long besearch(char *str_search, char **list, long elements)
 	
 	while(left <= right) {
 		middle = (left + right) / 2;
-
-		//middle = left + ((right - left) / 2);
 
 		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
 

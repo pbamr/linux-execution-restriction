@@ -66,8 +66,8 @@
 			: a:100;/usr/sbin		= Folder
 	
 			: rules besearch
-			: d:100;/usr/sbin/test		= file		avoid
-			: d:100;/usr/sbin/test2		= file		avoid
+			: d:100;/usr/sbin/test		= file
+			: d:100;/usr/sbin/test2		= file
 	
 			: The program turns it into USER-ID;PATH
 			: 100;/bin/test1

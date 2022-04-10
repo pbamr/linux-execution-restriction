@@ -46,6 +46,30 @@
 			: 999911 = Set GROUP ALLOW List
 			: 999912 = Set GROUP DENY List
 
+	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
+			: String 0 = Number of strings
+			: string = allow/deny:USER-ID;PATH
+			: string = allow/deny:GROUP-ID;PATH
+
+			: Example:
+			: a:100;/bin/test		= allow file
+			: a:100;/bin/test1		= allow file
+			: a:100;/usr/sbin/		= allow Folder
+
+			: d:100;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/		= deny file
+
+			: ga:100;/usr/sbin/		= allow group folder
+			: gd:100;/usr/bin/		= deny group folder
+			: gd:101;/usr/bin/mc		= deny group file
+			: ga:101;/usr/bin/mc		= allow group file
+
+			: The program turns it into USER-ID;PATH
+			: 100;/bin/test1
+
+			: It is up to the ADMIN to keep the list reasonable according to these rules!
+
+
 	Important	: ./foo is not allowed
 			: But not absolutely necessary for me
 			: It is not checked whether the program really exists
@@ -54,9 +78,8 @@
 			: "make bzImage" need this feature
 			: The Solutions is Safer OFF
 
-
 	Thanks		: Linus Torvalds and others
 			: Florian Klaempfl and others
-			: Niklaus Wirth
+
 
 			: I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.

@@ -8,7 +8,8 @@
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
-			: GROUPS and USER.
+			: Only User.
+			: No Groups. I don't need it at the moment
 
 			: Extension of SYSCALL <execve>
 			: Replaces function <execve> in exec.c. Line 2060
@@ -30,55 +31,28 @@
 	Standard	: Safer Mode = ON
 			: Log Mode = Logs all programs from init
 
-			: 999900 = safer ON
-			: 999901 = safer OFF
-			: 999902 = State
-			: 999903 = Log ON
-			: 999904 = Log OFF
-
-			: 999905 = Clear ALLOW List
-			: 999906 = Clear DENY List
-			: 999907 = Clear GROUP ALLOW List
-			: 999908 = Clear GROUP DENY List
-
-			: 999909 = Set ALLOW List
-			: 999910 = Set DENY List
-			: 999911 = Set GROUP ALLOW List
-			: 999912 = Set GROUP DENY List
-
-	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
-			: String 0 = Number of strings
-			: string = allow/deny:USER-ID;PATH
-			: string = allow/deny:GROUP-ID;PATH
-
-			: Example:
-			: a:100;/bin/test		= allow file
-			: a:100;/bin/test1		= allow file
-			: a:100;/usr/sbin/		= allow Folder
-
-			: d:100;/usr/sbin/test		= deny file
-			: d:100;/usr/sbin/		= deny file
-
-			: ga:100;/usr/sbin/		= allow group folder
-			: gd:100;/usr/bin/		= deny group folder
-			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;/usr/bin/mc		= allow group file
-
-			: The program turns it into USER-ID;PATH
-			: 100;/bin/test1
-
-			: It is up to the ADMIN to keep the list reasonable according to these rules!
-
+			: 0 = safer ON
+			: 1 = safer OFF
+			: 2 = State
+			: 3 = Log ON
+			: 4 = Log OFF
+			: 5 = Clear ALLOW List
+			: 6 = Clear DENY List
+			: 7 = Set ALLOW List
+			: 8 = Set DENY List
 
 	Important	: ./foo is not allowed
 			: But not absolutely necessary for me
 			: It is not checked whether the program really exists
 			: Ths is not necessary
 
-			: "make bzImage" need this feature
+			: Only "make bzImage" need this feature
 			: The Solutions is Safer OFF
 
+
 	Thanks		: Linus Torvalds and others
+
+			: Niklaus Wirth
 			: Florian Klaempfl and others
 
 
