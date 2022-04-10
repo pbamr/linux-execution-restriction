@@ -162,6 +162,15 @@ end;
 	
 	
 	
+Function strncmp(str0 : ansistring; str1 : ansistring; Elements : qword) : integer;
+begin
+	exit(CompareStr(copy(str0, 0, Elements), copy(str1, 0, Elements)));
+end;
+	
+	
+	
+	
+	
 //simple
 begin
 	if ParamCount = 1 then begin
@@ -190,14 +199,20 @@ begin
 						ErrorMessage;
 					end;
 					
+					
+					for n := LIST.Count - 1 downto 1 do begin
+						if strncmp(LIST[n-1], LIST[n], length(LIST[n-1])) = 0 then LIST.delete(n);
+					end;
+					
+					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
 					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
-						if copy(List.Strings[n], 0, 2) = 'a:' then begin
-							N_LIST.add(copy(List.Strings[n], 3, length(List.Strings[n])));
+						if copy(List[n], 0, 2) = 'a:' then begin
+							N_LIST.add(copy(List[n], 3, length(List[n])));
 						end;
 					end;
 					
@@ -209,8 +224,8 @@ begin
 					
 					writeln(WORK_LIST[0]);
 					for n := 0 to N_LIST.COUNT - 1 do begin
-						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
-						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
+						WORK_LIST[n+1] := StrAlloc(length(N_LIST[n]) + 1);
+						StrpCopy(WORK_LIST[n+1], N_LIST[n]);
 						writeln('a:' + WORK_LIST[n+1]);
 					end;
 					
@@ -232,14 +247,18 @@ begin
 						ErrorMessage;
 					end;
 					
+					for n := LIST.Count - 1 downto 1 do begin
+						if strncmp(LIST[n-1], LIST[n], length(LIST[n-1])) = 0 then LIST.delete(n);
+					end;
+					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
 					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
-						if copy(List.Strings[n], 0, 2) = 'd:' then begin
-							N_LIST.add(copy(List.Strings[n], 3, length(List.Strings[n])));
+						if copy(List[n], 0, 2) = 'd:' then begin
+							N_LIST.add(copy(List[n], 3, length(List[n])));
 						end;
 					end;
 					
@@ -252,8 +271,8 @@ begin
 					
 					writeln(WORK_LIST[0]);
 					for n := 0 to N_LIST.COUNT - 1 do begin
-						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
-						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
+						WORK_LIST[n+1] := StrAlloc(length(N_LIST[n]) + 1);
+						StrpCopy(WORK_LIST[n+1], N_LIST[n]);
 						writeln('d:' + WORK_LIST[n+1]);
 					end;
 					
@@ -275,14 +294,18 @@ begin
 						ErrorMessage;
 					end;
 					
+					for n := LIST.Count - 1 downto 1 do begin
+						if strncmp(LIST[n-1], LIST[n], length(LIST[n-1])) = 0 then LIST.delete(n);
+					end;
+					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
 					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
-						if copy(List.Strings[n], 0, 3) = 'ga:' then begin
-							N_LIST.add(copy(List.Strings[n], 4, length(List.Strings[n])));
+						if copy(List[n], 0, 3) = 'ga:' then begin
+							N_LIST.add(copy(List[n], 4, length(List[n])));
 						end;
 					end;
 					
@@ -295,8 +318,8 @@ begin
 					
 					writeln(WORK_LIST[0]);
 					for n := 0 to N_LIST.COUNT - 1 do begin
-						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
-						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
+						WORK_LIST[n+1] := StrAlloc(length(N_LIST[n]) + 1);
+						StrpCopy(WORK_LIST[n+1], N_LIST[n]);
 						writeln('ga:' + WORK_LIST[n+1]);
 					end;
 					
@@ -318,14 +341,18 @@ begin
 						ErrorMessage;
 					end;
 					
+					for n := LIST.Count - 1 downto 1 do begin
+						if strncmp(LIST[n-1], LIST[n], length(LIST[n-1])) = 0 then LIST.delete(n);
+					end;
+					
 					N_LIST := TStringList.Create;
 					N_LIST.Sorted := TRUE;
 					N_LIST.Duplicates := dupAccept;
 					N_List.CaseSensitive := TRUE;
 					
 					for n := 0 to List.Count - 1 do begin
-						if copy(List.Strings[n], 0, 3) = 'gd:' then begin
-							N_LIST.add(copy(List.Strings[n], 4, length(List.Strings[n])));
+						if copy(List[n], 0, 3) = 'gd:' then begin
+							N_LIST.add(copy(List[n], 4, length(List[n])));
 						end;
 					end;
 					
@@ -337,8 +364,8 @@ begin
 					
 					writeln(WORK_LIST[0]);
 					for n := 0 to N_LIST.COUNT - 1 do begin
-						WORK_LIST[n+1] := StrAlloc(length(N_LIST.Strings[n]) + 1);
-						StrpCopy(WORK_LIST[n+1], N_LIST.Strings[n]);
+						WORK_LIST[n+1] := StrAlloc(length(N_LIST[n]) + 1);
+						StrpCopy(WORK_LIST[n+1], N_LIST[n]);
 						writeln('gd:' + WORK_LIST[n+1]);
 					end;
 					
