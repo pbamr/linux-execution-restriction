@@ -49,15 +49,18 @@
 			:  2 = State
 			:  3 = Log ON
 			:  4 = Log OFF
-			:  5 = Clear ALLOW List
-			:  6 = Clear DENY List
-			:  7 = Clear GROUP ALLOW LIST
-			:  8 = CLEAR GROUP DENY LIST
+			:  5 = Search bsearch
+			:  6 = Search linar search
 			
-			:  9 = Set ALLOW List
-			: 10 = Set DENY List
-			: 11 = Set GROUP ALLOW LIST
-			: 12 = Set GROUP DENY LIST
+			:  7 = Clear ALLOW List
+			:  8 = Clear DENY List
+			:  9 = Clear GROUP ALLOW LIST
+			: 10 = CLEAR GROUP DENY LIST
+			
+			: 20 = Set ALLOW List
+			: 21 = Set DENY List
+			: 22 = Set GROUP ALLOW LIST
+			: 23 = Set GROUP DENY LIST
 	
 	
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
@@ -151,23 +154,25 @@ begin
 	writeln('Parameter   :  2 Safer STATE');
 	writeln('Parameter   :  3 Safer Printk ON');
 	writeln('Parameter   :  4 Safer Printk OFF');
+	writeln('Parameter   :  5 Safer SEARCH MODE bsearch');
+	writeln('Parameter   :  6 Safer SEARCH MODE LINEAR Search');
 	writeln;
-	writeln('Parameter   :  5 Safer CLEAR ALLOW LIST');
-	writeln('Parameter   :  6 Safer CLEAR DENY LIST');
+	writeln('Parameter   :  7 Safer CLEAR ALLOW LIST');
+	writeln('Parameter   :  8 Safer CLEAR DENY LIST');
 	writeln;
-	writeln('Parameter   :  7 Safer CLEAR ALLOW GROUP LIST');
-	writeln('Parameter   :  8 Safer CLEAR DENY GROUP LIST');
+	writeln('Parameter   :  9 Safer CLEAR ALLOW GROUP LIST');
+	writeln('Parameter   : 10 Safer CLEAR DENY GROUP LIST');
 	writeln;
-	writeln('Parameter   :  9 Safer SET ALLOW LIST');
+	writeln('Parameter   : 20 Safer SET ALLOW LIST');
 	writeln('            :    <safer list>');
 	writeln;
-	writeln('Parameter   : 10 Safer SET DENY LIST');
+	writeln('Parameter   : 21 Safer SET DENY LIST');
 	writeln('            :    <safer list>');
 	writeln;
-	writeln('Parameter   : 11 Safer SET ALLOW GROUP LIST');
+	writeln('Parameter   : 22 Safer SET ALLOW GROUP LIST');
 	writeln('            :    <safer list>');
 	writeln;
-	writeln('Parameter   : 12 Safer SET DENY GROUP LIST');
+	writeln('Parameter   : 23 Safer SET DENY GROUP LIST');
 	writeln('            :    <safer list>');
 
 	writeln;
@@ -191,7 +196,7 @@ end;
 begin
 	if ParamCount = 1 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 8 then ErrorMessage;
+		if NUMBER > 10 then ErrorMessage;
 		
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
 		halt(0);
@@ -203,7 +208,7 @@ begin
 		
 		case NUMBER of
 			//ALLOW List
-			9:	begin 
+			20:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
 					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
@@ -251,7 +256,7 @@ begin
 				end;
 			
 			//DENY LIST
-			10:	begin 
+			21:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
 					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
@@ -298,7 +303,7 @@ begin
 				end;
 			
 			//GROUP ALLOW List
-			11:	begin 
+			22:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
 					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
@@ -345,7 +350,7 @@ begin
 				end;
 			
 			//GROUP DENY LIST
-			12:	begin 
+			23:	begin 
 					LIST := TStringList.Create;
 					LIST.Sorted := TRUE;
 					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError

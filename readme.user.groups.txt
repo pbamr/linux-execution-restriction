@@ -35,16 +35,18 @@
 			: 999902 = State
 			: 999903 = Log ON
 			: 999904 = Log OFF
+			: 999905 = Search bsearch
+			: 999906 = Search lin. search
 
-			: 999905 = Clear ALLOW List
-			: 999906 = Clear DENY List
-			: 999907 = Clear GROUP ALLOW List
-			: 999908 = Clear GROUP DENY List
+			: 999907 = Clear ALLOW List
+			: 999908 = Clear DENY List
+			: 999909 = Clear GROUP ALLOW List
+			: 999910 = Clear GROUP DENY List
 
-			: 999909 = Set ALLOW List
-			: 999910 = Set DENY List
-			: 999911 = Set GROUP ALLOW List
-			: 999912 = Set GROUP DENY List
+			: 999920 = Set ALLOW List
+			: 999921 = Set DENY List
+			: 999922 = Set GROUP ALLOW List
+			: 999923 = Set GROUP DENY List
 
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
