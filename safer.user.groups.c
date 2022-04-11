@@ -739,7 +739,7 @@ SYSCALL_DEFINE5(execve,
 					strcat(str_file_name, filename);				/* + filename */
 
 
-					/* Importend! need qsorted list */
+					
 					if (search(str_file_name, deny_list, deny_list_max) == 0) {
 						/* Not allowed */
 						printk("DENY LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
@@ -771,7 +771,7 @@ SYSCALL_DEFINE5(execve,
 						strcat(str_file_name, ";");					/* + semmicolon */
 						strcat(str_file_name, filename);				/* + filename */
 
-						/* Importend! need qsorted list */
+						
 						if (search(str_file_name, gdeny_list, gdeny_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY GROUP LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
@@ -799,7 +799,7 @@ SYSCALL_DEFINE5(execve,
 					strcat(str_file_name, ";");					/* + semmicolon */
 					strcat(str_file_name, filename);				/* + filename */
 
-					/* Importend! Need qsorted list */
+					
 					if (search(str_file_name, allow_list, allow_list_max) == 0) break;
 				}
 
@@ -828,7 +828,7 @@ SYSCALL_DEFINE5(execve,
 						strcat(str_file_name, filename);				/* + filename */
 
 
-						/* Importend! Need qsorted list */
+						
 						if (search(str_file_name, gallow_list, gallow_list_max) == 0) goto prog_allow;
 					}
 				}
