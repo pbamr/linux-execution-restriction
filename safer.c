@@ -585,8 +585,6 @@ SYSCALL_DEFINE5(execve,
 				if (strncmp("/usr/libexec/", filename, 13) == 0) break;
 				if (strncmp("/usr/local/", filename, 11) == 0) break;
 				if (strncmp("/usr/share/", filename, 11) == 0) break;
-				/* my choice */
-				if (strncmp("/usr/scripts/", filename, 13) == 0) break;
 
 				if (strncmp("/lib/", filename, 5) == 0) break;
 				if (strncmp("/opt/", filename, 5) == 0) break;
