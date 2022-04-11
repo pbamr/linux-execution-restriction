@@ -1,26 +1,43 @@
 #!/bin/bash
+
+#simple
+echo "Parameter: <PATH> <USER GROUP>    Expample: a:USER_GROUP;/Path, d:.., ga:.., gd:.."
+
+case "$1" in
+'')
+	echo "Parameter: <PATH>"
+	exit 1;
+	;;
+*)
+esac
+
+case "$2" in
+'')
+	echo "Parameter: <USER GROUP>"
+	exit 1;
+	;;
+*)
+esac
+
+
+/usr/bin/find $1 -executable >t
+
+LIST=t
+
+	while read zeile
+		do
+			/usr/bin/file $zeile | grep "executable" >>a
+			/usr/bin/file $zeile | grep "symbolic link" >>a
+		done < $LIST;
+
+/sbin/pb.spalte a 1 ':' >b
 	
-	
-/usr/scripts/scripts.system.neu/safer/such.exec /sbin a:1000";" >safer.sbin
-echo "safer.sbin"
-/usr/scripts/scripts.system.neu/safer/such.exec /bin a:1000";" >safer.bin
-echo "safer.bin"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/bin a:1000";" >safer.usr.bin
-echo "safer.usr/bin"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/sbin a:1000";" >safer.usr.sbin
-echo "safer.usr.sbin"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/games a:1000";" >safer.usr.games
-echo "safer.usr.games"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/lib a:1000";" >safer.usr.lib
-echo "safer.usr.lib"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/share a:1000";" >safer.usr.share
-echo "safer.usr.share"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/libexec a:1000";" >safer.usr.libexec
-echo "safer.usr.libexec"
-/usr/scripts/scripts.system.neu/safer/such.exec /usr/local a:1000";" >safer.usr.local
-echo "safer.usr.local"
-/usr/scripts/scripts.system.neu/safer/such.exec /opt/trinity a:1000";" >safer.opt.trinity
-echo "safer.opt.trinity"
-
-
-
+USER_GROUP=$2;
+LIST=b
+	while read zeile
+		do
+			echo $USER_GROUP$zeile
+		done < $LIST;
+/bin/rm t
+/bin/rm a
+/bin/rm b
