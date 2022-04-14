@@ -28,8 +28,8 @@
 
 			: Program with SYSCALL
 
-			: in x86_64 syscall_64.tbl
-			: 501	common set_execve		sys_set_execve
+			: in x86_64/AMD64 syscall_64.tbl
+			: 459	common	set_execve		sys_set_execve
 
 
 
@@ -610,7 +610,7 @@ SYSCALL_DEFINE3(execve,
 				if (strncmp("/usr/libexec/", filename, 13) == 0) break;
 				if (strncmp("/usr/local/", filename, 11) == 0) break;
 				if (strncmp("/usr/share/", filename, 11) == 0) break;
-				
+
 				if (strncmp("/lib/", filename, 5) == 0) break;
 				if (strncmp("/opt/", filename, 5) == 0) break;
 				if (strncmp("/etc/", filename, 5) == 0) break;

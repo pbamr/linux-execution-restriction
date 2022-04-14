@@ -125,7 +125,7 @@ Uses
 	
 	
 const
-	SYSCALL_NR	= 501;		//59;		//syscall execv
+	SYSCALL_NR	= 459;		//59;		//syscall execv
 	
 	
 var
