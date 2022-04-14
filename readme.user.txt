@@ -6,7 +6,7 @@
 	Program		: safer.c
 	Path		: fs/
 
-	Functionality	: Programm execution restriction
+	Functionality	: Program execution restriction
 			: Like Windows Feature "Safer"
 			: Only User.
 			: No Groups. I don't need it at the moment
