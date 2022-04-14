@@ -30,7 +30,7 @@
 
 			: in x86_64 syscall_64.tbl
 			: 501	common set_execve		sys_set_execve
-			: 
+
 
 
 	Functionality	: Program execution restriction
@@ -121,15 +121,6 @@
 
 	static char	**gdeny_list;
 	static long	gdeny_list_max = 0;
-
-	u32		n, error_n;
-	char		str_user_id[19];
-	char		str_group_id[19];
-
-	u64		str_length;
-	char		*str_file_name = NULL;
-	long		int_ret;
-
 
 
 
