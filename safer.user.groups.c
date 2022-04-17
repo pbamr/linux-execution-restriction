@@ -59,18 +59,13 @@
 			: 999902 = State
 			: 999903 = Log ON
 			: 999904 = Log OFF
-			: 999995 = Search bsearch
-			: 999996 = Search linear search
 
-			: 999907 = Clear ALLOW List
-			: 999908 = Clear DENY List
-			: 999909 = Clear GROUP ALLOW List
+			: 999905 = Clear FILE List
+			: 999906 = Clear FOLDER List
 			: 999910 = Clear GROUP DENY List
 
-			: 999920 = Set ALLOW List
-			: 999921 = Set DENY List
-			: 999922 = Set GROUP ALLOW List
-			: 999923 = Set GROUP DENY List
+			: 999920 = Set FILE List
+			: 999921 = Set FOLDER List
 
 
 	Important	: ./foo is not allowed
@@ -137,13 +132,19 @@ static long besearch(char *str_search, char **list, long elements)
 static long search(char *str_search, char **list, long elements)
 {
 	long n;
-	
+
+	if (str_search[strlen(str_search) -1] == '/' ) return(-1);
+
 	for (n = 0; n < elements; n++) {
-		if (strncmp(list[n], str_search, strlen(list[n])) == 0) return(0);
+		if (list[n][strlen(list[n]) -1] == '/') {
+			if (strncmp(list[n], str_search, strlen(list[n])) == 0) return(0);
+		}
+		else if (strcmp(list[n], str_search) == 0) return(0);
 	}
 	
 	return(-1);
 }
+
 
 
 
@@ -739,7 +740,7 @@ SYSCALL_DEFINE5(execve,
 					strcat(str_file_name, filename);				/* + filename */
 
 
-					
+					/* Importend! need qsorted list */
 					if (search(str_file_name, deny_list, deny_list_max) == 0) {
 						/* Not allowed */
 						printk("DENY LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
@@ -771,7 +772,7 @@ SYSCALL_DEFINE5(execve,
 						strcat(str_file_name, ";");					/* + semmicolon */
 						strcat(str_file_name, filename);				/* + filename */
 
-						
+						/* Importend! need qsorted list */
 						if (search(str_file_name, gdeny_list, gdeny_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY GROUP LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
@@ -799,7 +800,7 @@ SYSCALL_DEFINE5(execve,
 					strcat(str_file_name, ";");					/* + semmicolon */
 					strcat(str_file_name, filename);				/* + filename */
 
-					
+					/* Importend! Need qsorted list */
 					if (search(str_file_name, allow_list, allow_list_max) == 0) break;
 				}
 
@@ -828,7 +829,7 @@ SYSCALL_DEFINE5(execve,
 						strcat(str_file_name, filename);				/* + filename */
 
 
-						
+						/* Importend! Need qsorted list */
 						if (search(str_file_name, gallow_list, gallow_list_max) == 0) goto prog_allow;
 					}
 				}
