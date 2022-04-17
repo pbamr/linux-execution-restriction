@@ -21,12 +21,12 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.03.28
+	Date		: 2022.04.17
 
 	Program		: safer.c
 	Path		: fs/
 
-	Functionality	: Program execution restriction
+	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
 			: Control only works as root
 
@@ -62,10 +62,11 @@
 
 			: 999905 = Clear FILE List
 			: 999906 = Clear FOLDER List
-			: 999910 = Clear GROUP DENY List
 
-			: 999920 = Set FILE List
-			: 999921 = Set FOLDER List
+			: 999920 = Set ALLOW List
+			: 999921 = Set DENY List
+			: 999922 = Set GROUP ALLOW List
+			: 999923 = Set GROUP DENY List
 
 
 	Important	: ./foo is not allowed
@@ -98,19 +99,44 @@
 #define MAX_DYN 100000
 
 
-static long besearch(char *str_search, char **list, long elements)
+
+
+
+
+
+long besearch_file(char *str_search, char **list, long elements)
+{
+	long left, right;
+	long middle;
+	long int_ret;
+
+	left = 0;
+	right = elements - 1;
+
+	while(left <= right) {
+		middle = (left + right) / 2;
+
+		int_ret = strcmp(list[middle], str_search);
+
+		if (int_ret == 0) return(0);
+		else if (int_ret < 0) left = middle + 1;
+		else if (int_ret > 0) right = middle - 1;
+	}
+
+	return(-1);
+}
+
+
+
+long besearch_folder(char *str_search, char **list, long elements)
 {
 	long left, right;
 	long middle;
 	long int_ret;
 
 
-	if (elements < 1) return(-1);
-	if (elements == 1) {
-		int_ret = strncmp(list[0], str_search, strlen(list[0]));
-		if (int_ret == 0) return(0);
-		else return(-1);
-	}
+	if (str_search[strlen(str_search) -1] == '/' ) return(-1);
+
 
 	left = 0;
 	right = elements - 1;
@@ -119,9 +145,10 @@ static long besearch(char *str_search, char **list, long elements)
 		middle = (left + right) / 2;
 
 		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
+
 		if (int_ret == 0) return(0);
-		if (int_ret < 0) left = middle + 1;
-		if (int_ret > 0) right = middle - 1;
+		else if (int_ret < 0) left = middle + 1;
+		else if (int_ret > 0) right = middle - 1;
 	}
 
 	return(-1);
@@ -129,21 +156,7 @@ static long besearch(char *str_search, char **list, long elements)
 
 
 
-static long search(char *str_search, char **list, long elements)
-{
-	long n;
 
-	if (str_search[strlen(str_search) -1] == '/' ) return(-1);
-
-	for (n = 0; n < elements; n++) {
-		if (list[n][strlen(list[n]) -1] == '/') {
-			if (strncmp(list[n], str_search, strlen(list[n])) == 0) return(0);
-		}
-		else if (strcmp(list[n], str_search) == 0) return(0);
-	}
-	
-	return(-1);
-}
 
 
 
@@ -158,33 +171,17 @@ SYSCALL_DEFINE5(execve,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
-	static u8	safer = 0;
-	static u8	printk_on = 1;
-	static u8	search_mode = 0;
-
-	static char	**allow_list;
-	static long	allow_list_max = 0;
-
-	static char	**deny_list;
-	static long	deny_list_max = 0;
-
-	static char	**gallow_list;
-	static long	gallow_list_max = 0;
-
-	static char	**gdeny_list;
-	static long	gdeny_list_max = 0;
-
 	uid_t		user_id;
 	u32		n, error_n;
+	long		int_ret;
+
 	char		str_user_id[19];
 	char		str_group_id[19];
 
 	u64		str_length;
 	char		*str_file_name = NULL;
-	long		int_ret;
 
 	struct group_info *group_info;
-
 
 
 	user_id = get_current_user()->uid.val;
@@ -194,657 +191,373 @@ SYSCALL_DEFINE5(execve,
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("SAFER ON\n");
+				printk("MODE: SAFER ON\n");
 #endif
-				safer = 0;
+				safer_mode = true;
 				return(0);
 
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("SAFER OFF\n");
+				printk("MODE: SAFER OFF\n");
 #endif
-				safer = 1;
+				safer_mode = false;
 				return(0);
 
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("SAFER STATE         : %d\n", safer);
+				printk("SAFER STATE         : %d\n", safer_mode);
 #endif
-				return(safer);
+				return(safer_mode);
 
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("SAFER PRINTK ON\n");
+				printk("MODE: SAFER PRINTK ON\n");
 #endif
-				printk_on = 1;
+				printk_mode = true;
 				return(0);
 
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("SAFER PRINTK OFF\n");
+				printk("MODE: SAFER PRINTK OFF\n");
 #endif
-				printk_on = 0;
+				printk_mode = false;
 				return(0);
 
 
-		/* search mode on */
+
+		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("BSEARCH MODE ON\n");
+				printk("CLEAR FILE LIST!\n");
 #endif
-				search_mode = 0;
+				if (file_list_max != 0) {
+					for (n = 0; n < file_list_max; n++) {
+						kfree(file_list[n]);
+					}
+					kfree(file_list);
+					file_list_max = 0;
+				}
 				return(0);
 
-
-		/* search mode off */
+		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
 #ifdef PRINTK
-				printk("LINEARE SEARCH MODE ON\n");
+				printk("CLEAR FOLDER LIST!\n");
 #endif
-				search_mode = 1;
-				return(0);
-
-
-
-		/* clear allow list */
-		case 999907:	if (user_id != 0) return(-1);
-#ifdef PRINTK
-				printk("CLEAR ALLOW LIST!\n");
-#endif
-				if (allow_list_max != 0) {
-					for (n = 0; n < allow_list_max; n++) {
-						kfree(allow_list[n]);
+				if (folder_list_max != 0) {
+					for (n = 0; n < folder_list_max; n++) {
+						kfree(folder_list[n]);
 					}
-					kfree(allow_list);
-					allow_list_max = 0;
+					kfree(folder_list);
+					folder_list_max = 0;
 				}
 				return(0);
 
 
-		/* clear deny list */
-		case 999908:	if (user_id != 0) return(-1);
-#ifdef PRINTK
-				printk("CLEAR DENY LIIST!\n");
-#endif
-				if (deny_list_max != 0) {
-					for (n = 0; n < deny_list_max; n++) {
-						kfree(deny_list[n]);
-					}
-					kfree(deny_list);
-					deny_list_max = 0;
-				}
-				return(0);
-
-
-		/* clear gallow list */
-		case 999909:	if (user_id != 0) return(-1);
-#ifdef PRINTK
-				printk("CLEAR GROUP ALLOW LIST!\n");
-#endif
-				if (gallow_list_max != 0) {
-					for (n = 0; n < gallow_list_max; n++) {
-						kfree(gallow_list[n]);
-					}
-					kfree(gallow_list);
-					gallow_list_max = 0;
-				}
-				return(0);
-
-
-		/* clear gdeny list */
-		case 999910:	if (user_id != 0) return(-1);
-#ifdef PRINTK
-				printk("CLEAR DENY GROUP LIIST!\n");
-#endif
-				if (gdeny_list_max != 0) {
-					for (n = 0; n < gdeny_list_max; n++) {
-						kfree(gdeny_list[n]);
-					}
-					kfree(gdeny_list);
-					gdeny_list_max = 0;
-				}
-				return(0);
-
-
-		/* set allow list */
+		/* set all list */
 		case 999920:	if (user_id != 0) return(-1);
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: ALLOW LIST\n"); 
+				printk("ERROR: FILE LIST\n"); 
 #endif
 					return(-1); 
 				} /* check!? */
 
 				/* clear */
-				if (allow_list_max > 0) {
-					for (n = 0; n < allow_list_max; n++) {
-						kfree(allow_list[n]);
+				if (file_list_max > 0) {
+					for (n = 0; n < file_list_max; n++) {
+						kfree(file_list[n]);
 					}
-					kfree(allow_list);
+					kfree(file_list);
 				}
 
-				int_ret = kstrtol(list[0], 10, &allow_list_max);
+				int_ret = kstrtol(list[0], 10, &file_list_max);
 				if (int_ret != 0) return(-1);
 
-				/* Lines 
-				allow_list_max = 0;
-				for (;;) {
-					if (list[allow_list_max] == NULL) break;
-					allow_list_max++;
-				}
-				*/
-
-				if (allow_list_max < 1) {
+				if (file_list_max < 1) {
 #ifdef PRINTK
-					printk("NO ALLOW LIST\n");
+					printk("NO FILE LIST\n");
 #endif
 					return(-1); 
 				}
 
-				if (allow_list_max > MAX_DYN) {
+				if (file_list_max > MAX_DYN) {
 #ifdef PRINTK
-					printk("ALLOW LIST TO BIG!\n");
+					printk("FILE LIST TO BIG!\n");
 #endif
 					return(-1); 
 				}
 
 #ifdef PRINTK
-				printk("ALLOW LIST ELEMENTS: %ld\n", allow_list_max);
+				printk("FILE LIST ELEMENTS: %ld\n", file_list_max);
 #endif
 
 				/* dyn array */
-				allow_list = kmalloc(allow_list_max * sizeof(char *), GFP_KERNEL);
-				if (allow_list == NULL) { allow_list_max = 0; return(-1); }
+				file_list = kmalloc(file_list_max * sizeof(char *), GFP_KERNEL);
+				if (file_list == NULL) { file_list_max = 0; return(-1); }
 
-				for (n = 0; n < allow_list_max; n++) {
-					allow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (allow_list[n] == NULL) {
+				for (n = 0; n < file_list_max; n++) {
+					file_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
+					if (file_list[n] == NULL) {
 						for (error_n = 0; error_n < n; error_n++) {
-							kfree(allow_list[error_n]);
+							kfree(file_list[error_n]);
 						}
-						kfree(allow_list);
-						allow_list_max = 0;
+						kfree(file_list);
+						file_list_max = 0;
 						return(-1);
 					}
-					strcpy(allow_list[n], list[n+1]);
+					strcpy(file_list[n], list[n+1]);
 				}
-				return(allow_list_max);
+				return(file_list_max);
 
-
-				/* set deny list */
+		/* set all folder list */
 		case 999921:	if (user_id != 0) return(-1);
-
-				if (list == NULL) {				/* check? */
-#ifdef PRINTK
-					printk("ERROR: DENY LIST\n"); 
-#endif
-					return(-1); 
-				} /*check!? */
-
-				/* clear */
-				if (deny_list_max > 0) {
-					for (n = 0; n < deny_list_max; n++) {
-						kfree(deny_list[n]);
-					}
-					kfree(deny_list);
-				}
-
-				int_ret = kstrtol(list[0], 10, &deny_list_max);
-				if (int_ret != 0) return(-1);
-
-/* simple */
-				if (deny_list_max < 1) {
-#ifdef PRINTK
-					printk("NO DENY LIST\n"); 
-#endif
-					return(-1); 
-				}
-
-				if (deny_list_max > MAX_DYN) {
-#ifdef PRINTK
-					printk("DENY LIST TO BIG!\n");
-#endif
-					return(-1); 
-				}
-
-
-#ifdef PRINTK
-				printk("DENY LIST ELEMENTS: %ld\n", deny_list_max);
-#endif
-
-				/* dyn array */
-				deny_list = kmalloc(deny_list_max * sizeof(char *), GFP_KERNEL);
-				if (deny_list == NULL) { deny_list_max = 0; return(-1); }
-
-				for (n = 0; n < deny_list_max; n++) {
-					deny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (deny_list[n] == NULL) {
-						for (error_n = 0; error_n < n; error_n++) {
-							kfree(deny_list[error_n]);
-						}
-						kfree(deny_list);
-						deny_list_max = 0;
-						return(-1);
-					}
-					strcpy(deny_list[n], list[n+1]);
-				}
-				return(deny_list_max);
-
-
-		/* set group allow list */
-		case 999922:	if (user_id != 0) return(-1);
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-					printk("ERROR: ALLOW GROUP LIST\n"); 
+				printk("ERROR: FOLDER LIST\n"); 
 #endif
 					return(-1); 
 				} /* check!? */
 
 				/* clear */
-				if (gallow_list_max > 0) {
-					for (n = 0; n < gallow_list_max; n++) {
-						kfree(gallow_list[n]);
+				if (folder_list_max > 0) {
+					for (n = 0; n < folder_list_max; n++) {
+						kfree(folder_list[n]);
 					}
-					kfree(gallow_list);
+					kfree(folder_list);
 				}
 
-				int_ret = kstrtol(list[0], 10, &gallow_list_max);
+				int_ret = kstrtol(list[0], 10, &folder_list_max);
 				if (int_ret != 0) return(-1);
 
-				/* Lines 
-				allow_list_max = 0;
-				for (;;) {
-					if (list[allow_list_max] == NULL) break;
-					allow_list_max++;
-				}
-				*/
 
-				if (gallow_list_max < 1) {
+				if (folder_list_max < 1) {
 #ifdef PRINTK
-					printk("ERROR: ALLOW GROUP LIST\n");
+					printk("NO FOLDER LIST\n");
 #endif
 					return(-1); 
 				}
 
-
-				if (gallow_list_max > MAX_DYN) {
+				if (folder_list_max > MAX_DYN) {
 #ifdef PRINTK
-					printk("GROUP ALLOW LIST TO BIG!\n");
+					printk("FOLDER LIST TO BIG!\n");
 #endif
 					return(-1); 
 				}
 
 #ifdef PRINTK
-				printk("ALLOW GROUP LIST ELEMENTS: %ld\n", gallow_list_max);
+				printk("FOLDER LIST ELEMENTS: %ld\n", folder_list_max);
 #endif
 
 				/* dyn array */
-				gallow_list = kmalloc(gallow_list_max * sizeof(char *), GFP_KERNEL);
-				if (gallow_list == NULL) { gallow_list_max = 0; return(-1); }
+				folder_list = kmalloc(folder_list_max * sizeof(char *), GFP_KERNEL);
+				if (folder_list == NULL) { folder_list_max = 0; return(-1); }
 
-				for (n = 0; n < gallow_list_max; n++) {
-					gallow_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (gallow_list[n] == NULL) {
+
+				for (n = 0; n < folder_list_max; n++) {
+					folder_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
+					if (folder_list[n] == NULL) {
 						for (error_n = 0; error_n < n; error_n++) {
-							kfree(gallow_list[error_n]);
+							kfree(folder_list[error_n]);
 						}
-						kfree(gallow_list);
-						gallow_list_max = 0;
+						kfree(folder_list);
+						folder_list_max = 0;
 						return(-1);
 					}
-					strcpy(gallow_list[n], list[n+1]);
+					strcpy(folder_list[n], list[n+1]);
 				}
-				return(gallow_list_max);
-
-
-			/* set Group deny list */
-		case 999923:	if (user_id != 0) return(-1);
-
-				if (list == NULL) {				/* check? */
-#ifdef PRINTK
-					printk("ERROR: DENY GROUP LIST\n"); 
-#endif
-					return(-1); 
-				} /*check!? */
-
-				/* clear */
-				if (gdeny_list_max > 0) {
-					for (n = 0; n < gdeny_list_max; n++) {
-						kfree(gdeny_list[n]);
-					}
-					kfree(gdeny_list);
-				}
-
-				int_ret = kstrtol(list[0], 10, &gdeny_list_max);
-				if (int_ret != 0) return(-1);
-
-				if (gdeny_list_max < 1) { 
-#ifdef PRINTK
-					printk("ERROR: DENY GROUP LIST\n"); 
-#endif
-					return(-1); 
-				}
-
-				if (gdeny_list_max > MAX_DYN) {
-#ifdef PRINTK
-					printk("DENY GROUP LIST TO BIG!\n");
-#endif
-					return(-1); 
-				}
-
-
-#ifdef PRINTK
-				printk("DENY GROUP LIST ELEMENTS: %ld\n", gdeny_list_max);
-#endif
-
-				/* dyn array */
-				gdeny_list = kmalloc(gdeny_list_max * sizeof(char *), GFP_KERNEL);
-				if (gdeny_list == NULL) { gdeny_list_max = 0; return(-1); }
-
-				for (n = 0; n < gdeny_list_max; n++) {
-					gdeny_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (gdeny_list[n] == NULL) {
-						for (error_n = 0; error_n < n; error_n++) {
-							kfree(gdeny_list[error_n]);
-						}
-						kfree(gdeny_list);
-						gdeny_list_max = 0;
-						return(-1);
-					}
-					strcpy(gdeny_list[n], list[n+1]);
-				}
-				return(gdeny_list_max);
-
+				return(folder_list_max);
 
 		default:	break;
 	}
 
-
-
-
-	if (safer == 0) {
-		for(;;) {
-			/* --------------------------------------------------------------------------------- */
-			/* my choice */
-			if (user_id == 0) {
-				if (strncmp("/bin/", filename, 5) == 0) break;
-				if (strncmp("/sbin/", filename, 6) == 0) break;
-				if (strncmp("/usr/bin/", filename, 9) == 0) break;
-				if (strncmp("/usr/sbin/", filename, 10) == 0) break;
-				if (strncmp("/usr/games/", filename, 11) == 0) break;
-				if (strncmp("/usr/lib/", filename, 9) == 0) break;
-				if (strncmp("/usr/libexec/", filename, 13) == 0) break;
-				if (strncmp("/usr/local/", filename, 11) == 0) break;
-				if (strncmp("/usr/share/", filename, 11) == 0) break;
-
-				if (strncmp("/lib/", filename, 5) == 0) break;
-				if (strncmp("/opt/", filename, 5) == 0) break;
-				if (strncmp("/etc/", filename, 5) == 0) break;
-
-				if (strncmp("/var/lib/", filename, 9) == 0) break;
-				/* Example: docker required /proc/self/exe */
-
-				if (strncmp("/proc/", filename, 6) == 0) break;
-
-				/* NOT allowed. */
-				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
-				return(-2);
-			}
-
-			if (search_mode == 0) {
-				/* --------------------------------------------------------------------------------- */
-				/* deny user */
-				if (deny_list_max > 0) {
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-					if (str_file_name != NULL) {
-						kfree(str_file_name);
-						str_file_name = NULL;
-					}
-
-					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-					strcpy(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, filename);				/* + filename */
-
-
-					/* Importend! need qsorted list */
-					if (besearch(str_file_name, deny_list, deny_list_max) == 0) {
-						/* Not allowed */
-						printk("DENY LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
-						return(-2);
-					}
-				}
-
-				/* -------------------------------------------------------------------------------------------------- */
-				/* deny groups */
-				if (gdeny_list_max > 0) {
-					group_info = get_current_groups();
-
-					for (n = 0; n < group_info->ngroups; n++) {
-
-						if (group_info->gid[n].val == 0) return(-2);		//group root not allowed. My choice!
-
-						sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
-						str_length = strlen(str_group_id);				/* str_user_id len*/
-						str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
-						}
-
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-						strcpy(str_file_name, str_group_id);				/* str_group_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, filename);				/* + filename */
-
-						/* Importend! need qsorted list */
-						if (besearch(str_file_name, gdeny_list, gdeny_list_max) == 0) {
-							/* Not allowed */
-							printk("DENY GROUP LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
-							return(-2);
-						}
-					}
-				}
-
-
-				/* --------------------------------------------------------------------------------------------- */
-				/* allow user */
-				if (allow_list_max > 0) {
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-					if (str_file_name != NULL) {
-						kfree(str_file_name);
-						str_file_name = NULL;
-					}
-
-					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-					strcpy(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, filename);				/* + filename */
-
-					/* Importend! Need qsorted list */
-					if (besearch(str_file_name, allow_list, allow_list_max) == 0) break;
-				}
-
-
-				/* -------------------------------------------------------------------------------------------------- */
-				/* allow groups */
-				if (gallow_list_max > 0) {
-					group_info = get_current_groups();
-					for (n = 0; n < group_info->ngroups; n++) {
-
-						if (group_info->gid[n].val == 0) return(-2);			/* group root not allowed. My choice! */
-
-						sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
-						str_length = strlen(str_group_id);				/* str_user_id len*/
-						str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
-						}
-
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-						strcpy(str_file_name, str_group_id);				/* str_group_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, filename);				/* + filename */
-
-
-						/* Importend! Need qsorted list */
-						if (besearch(str_file_name, gallow_list, gallow_list_max) == 0) goto prog_allow;
-					}
-				}
-
-				/* ------------------------------------------------------------------------------------------------- */
-				/* Not allowed */
-				printk("ALLOW LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
-				return(-2);
-			}
-			else {
-				/* --------------------------------------------------------------------------------- */
-				/* deny user */
-				if (deny_list_max > 0) {
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-					if (str_file_name != NULL) {
-						kfree(str_file_name);
-						str_file_name = NULL;
-					}
-
-					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-					strcpy(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, filename);				/* + filename */
-
-
-					/* Importend! need qsorted list */
-					if (search(str_file_name, deny_list, deny_list_max) == 0) {
-						/* Not allowed */
-						printk("DENY LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
-						return(-2);
-					}
-				}
-
-				/* -------------------------------------------------------------------------------------------------- */
-				/* deny groups */
-				if (gdeny_list_max > 0) {
-					group_info = get_current_groups();
-
-					for (n = 0; n < group_info->ngroups; n++) {
-
-						if (group_info->gid[n].val == 0) return(-2);		//group root not allowed. My choice!
-
-						sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
-						str_length = strlen(str_group_id);				/* str_user_id len*/
-						str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
-						}
-
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-						strcpy(str_file_name, str_group_id);				/* str_group_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, filename);				/* + filename */
-
-						/* Importend! need qsorted list */
-						if (search(str_file_name, gdeny_list, gdeny_list_max) == 0) {
-							/* Not allowed */
-							printk("DENY GROUP LIST USER/PROG. not allowed  : %u;%s\n", user_id, filename);
-							return(-2);
-						}
-					}
-				}
-
-
-				/* --------------------------------------------------------------------------------------------- */
-				/* allow user */
-				if (allow_list_max > 0) {
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-					if (str_file_name != NULL) {
-						kfree(str_file_name);
-						str_file_name = NULL;
-					}
-
-					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-					strcpy(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, filename);				/* + filename */
-
-					/* Importend! Need qsorted list */
-					if (search(str_file_name, allow_list, allow_list_max) == 0) break;
-				}
-
-
-				/* -------------------------------------------------------------------------------------------------- */
-				/* allow groups */
-				if (gallow_list_max > 0) {
-					group_info = get_current_groups();
-					for (n = 0; n < group_info->ngroups; n++) {
-
-						if (group_info->gid[n].val == 0) return(-2);			/* group root not allowed. My choice! */
-
-						sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
-						str_length = strlen(str_group_id);				/* str_user_id len*/
-						str_length += strlen(filename) + 1;				/* plus 1 = semikolon */
-
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
-						}
-
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-						strcpy(str_file_name, str_group_id);				/* str_group_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, filename);				/* + filename */
-
-
-						/* Importend! Need qsorted list */
-						if (search(str_file_name, gallow_list, gallow_list_max) == 0) goto prog_allow;
-					}
-				}
-
-				/* ------------------------------------------------------------------------------------------------- */
-				/* Not allowed */
-				printk("ALLOW LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+	if (safer_mode == true) {
+		/* --------------------------------------------------------------------------------- */
+		/* my choice */
+		if (user_id == 0) {
+			if (strncmp("/bin/", filename, 5) == 0) goto prog_allow;
+			if (strncmp("/sbin/", filename, 6) == 0) goto prog_allow;
+			if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allow;
+			if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allow;
+			if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allow;
+			if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allow;
+			if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allow;
+			if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allow;
+			if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allow;
+
+			if (strncmp("/lib/", filename, 5) == 0) goto prog_allow;
+			if (strncmp("/opt/", filename, 5) == 0) goto prog_allow;
+			if (strncmp("/etc/", filename, 5) == 0) goto prog_allow;
+
+			if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allow;
+			/* Example: docker required /proc/self/exe */
+
+			if (strncmp("/proc/", filename, 6) == 0) goto prog_allow;
+
+			/* NOT allowed. */
+			printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
+			return(-2);
+		}
+
+
+		/* --------------------------------------------------------------------------------- */
+		sprintf(str_user_id, "%u", user_id);				/* int to string */
+		str_length = strlen(str_user_id);				/* str_user_id len*/
+		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + d: */
+
+		if (str_file_name != NULL) {
+			kfree(str_file_name);
+			str_file_name = NULL;
+		}
+
+		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+		strcpy(str_file_name, "d:");
+		strcat(str_file_name, str_user_id);				/* str_user_id */
+		strcat(str_file_name, ";");					/* + semmicolon */
+		strcat(str_file_name, filename);				/* + filename */
+
+		if (folder_list_max > 0) {
+			/* Importend! need qsorted list */
+			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
+			/* Not allowed */
+				printk("DENY LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
 				return(-2);
 			}
 		}
+
+		if (file_list_max > 0) {
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
+				/* Not allowed */
+				printk("DENY LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
+		}
+
+		/* -------------------------------------------------------------------------------------------------- */
+		/* deny groups */
+		group_info = get_current_groups();
+
+		for (n = 0; n < group_info->ngroups; n++) {
+			if (group_info->gid[n].val == 0) return(-2);			//group root not allowed. My choice!
+
+			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+			str_length = strlen(str_group_id);				/* str_user_id len*/
+			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + gd: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "gd:");
+			strcat(str_file_name, str_group_id);				/* str_group_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			if (folder_list_max > 0) {
+				/* Importend! need qsorted list */
+				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
+					/* Not allowed */
+					printk("DENY GROUP LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					return(-2);
+				}
+			}
+
+			if (file_list_max > 0) {
+				/* Importend! need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
+					/* Not allowed */
+					printk("DENY GROUP LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					return(-2);
+				}
+			}
+		}
+
+
+		/* --------------------------------------------------------------------------------------------- */
+		/* allow user */
+		sprintf(str_user_id, "%u", user_id);				/* int to string */
+		str_length = strlen(str_user_id);				/* str_user_id len*/
+		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + a: */
+
+		if (str_file_name != NULL) {
+			kfree(str_file_name);
+			str_file_name = NULL;
+		}
+
+		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+		strcpy(str_file_name, "a:");
+		strcat(str_file_name, str_user_id);				/* str_user_id */
+		strcat(str_file_name, ";");					/* + semmicolon */
+		strcat(str_file_name, filename);				/* + filename */
+
+		if (folder_list_max > 0) {
+			/* Importend! Need qsorted list */
+			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allow;
+		}
+
+		if (file_list_max > 0) {
+			/* Importend! Need qsorted list */
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
+		}
+
+
+		/* -------------------------------------------------------------------------------------------------- */
+		/* allow groups */
+		group_info = get_current_groups();
+
+		for (n = 0; n < group_info->ngroups; n++) {
+			if (group_info->gid[n].val == 0) return(-2);				/* group root not allowed. My choice! */
+			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+			str_length = strlen(str_group_id);				/* str_user_id len*/
+			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + ga: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "ga:");
+			strcat(str_file_name, str_group_id);				/* str_group_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			if (folder_list_max > 0) {
+				/* Importend! Need qsorted list */
+				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allow;
+			}
+
+				if (file_list_max > 0) {
+					/* Importend! Need qsorted list */
+					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
+				}
+			}
+
+		/* ------------------------------------------------------------------------------------------------- */
+		/* Not allowed */
+		printk("ALLOW LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+		return(-2);
 	}
 
 
 prog_allow:
-	if (printk_on == 1) {
+	if (printk_mode == 1) {
 		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
 
 		/* max. argv */
@@ -858,4 +571,5 @@ prog_allow:
 	return do_execve(getname(filename), argv, envp);
 
 }
+
 
