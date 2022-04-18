@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.17
+	Date		: 2022.03.28
 
 	Program		: safer.c
 	Path		: fs/
@@ -63,10 +63,8 @@
 			: 999905 = Clear FILE List
 			: 999906 = Clear FOLDER List
 
-			: 999920 = Set ALLOW List
-			: 999921 = Set DENY List
-			: 999922 = Set GROUP ALLOW List
-			: 999923 = Set GROUP DENY List
+			: 999920 = Set FILE List
+			: 999921 = Set FOLDER List
 
 
 	Important	: ./foo is not allowed
@@ -99,6 +97,55 @@
 #define MAX_DYN 100000
 
 
+
+
+static bool	safer_mode = true;
+static bool	printk_mode = true;
+static u8	search_mode = 0;
+
+static char	**file_list;
+static long	file_list_max = 0;
+
+static char	**folder_list;
+static long	folder_list_max = 0;
+
+
+
+/* decl. */
+struct info_safer_struct {
+	bool safer_mode;
+	bool printk_mode;
+	u8 search_mode;
+	long file_list_max;
+	long folder_list_max;
+	char **file_list;
+	char **folder_list;
+};
+
+
+
+
+/* DATA: Only over function */
+void info_safer(struct info_safer_struct *info)
+{
+	info->safer_mode = safer_mode;
+	info->printk_mode = printk_mode;
+	info->search_mode = search_mode;
+	info->file_list_max = file_list_max;
+	info->folder_list_max = folder_list_max;
+	info->file_list = file_list;
+	info->folder_list = folder_list;
+}
+
+
+char *info_files_safer(long number) {
+
+	if (number < 0) return(NULL);
+	if (number < folder_list_max) {
+		return(folder_list[number]);
+	}
+	return(NULL);
+}
 
 
 
@@ -543,11 +590,11 @@ SYSCALL_DEFINE5(execve,
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allow;
 			}
 
-				if (file_list_max > 0) {
-					/* Importend! Need qsorted list */
-					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
-				}
+			if (file_list_max > 0) {
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
 			}
+		}
 
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
