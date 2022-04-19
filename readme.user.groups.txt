@@ -39,10 +39,9 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
-			: 20 = Set ALLOW List
-			: 21 = Set DENY List
-			: 22 = Set GROUP ALLOW LIST
-			: 23 = Set GROUP DENY LIST
+			: 20 = Set FILE List
+			: 21 = Set FOLDER List
+		
 
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
