@@ -464,6 +464,7 @@ SYSCALL_DEFINE3(execve,
 		}
 
 
+
 		/* --------------------------------------------------------------------------------- */
 		sprintf(str_user_id, "%u", user_id);				/* int to string */
 		str_length = strlen(str_user_id);				/* str_user_id len*/
@@ -597,11 +598,11 @@ SYSCALL_DEFINE3(execve,
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allow;
 			}
 
-				if (file_list_max > 0) {
-					/* Importend! Need qsorted list */
-					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
-				}
+			if (file_list_max > 0) {
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
 			}
+		}
 
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
@@ -625,5 +626,4 @@ prog_allow:
 	return do_execve(getname(filename), argv, envp);
 
 }
-
 

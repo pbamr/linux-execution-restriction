@@ -464,6 +464,7 @@ SYSCALL_DEFINE3(execve,
 		}
 
 
+
 		/* --------------------------------------------------------------------------------- */
 		sprintf(str_user_id, "%u", user_id);				/* int to string */
 		str_length = strlen(str_user_id);				/* str_user_id len*/
@@ -601,6 +602,7 @@ SYSCALL_DEFINE3(execve,
 				/* Importend! Need qsorted list */
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
 			}
+		}
 
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
@@ -624,5 +626,4 @@ prog_allow:
 	return do_execve(getname(filename), argv, envp);
 
 }
-
 
