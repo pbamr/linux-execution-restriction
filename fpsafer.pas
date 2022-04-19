@@ -53,10 +53,8 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
-			: 20 = Set ALLOW List
-			: 21 = Set DENY List
-			: 22 = Set GROUP ALLOW LIST
-			: 23 = Set GROUP DENY LIST
+			: 20 = Set FILE List
+			: 21 = Set FOLDER List
 	
 	
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
@@ -154,16 +152,10 @@ begin
 	writeln('Parameter   :  5 Safer CLEAR FILE LIST');
 	writeln('Parameter   :  6 Safer CLEAR FOLDER LIST');
 	writeln;
-	writeln('Parameter   : 20 Safer SET ALLOW LIST');
+	writeln('Parameter   : 20 Safer SET FILE LIST');
 	writeln('            :    <safer list>');
 	writeln;
-	writeln('Parameter   : 21 Safer SET DENY LIST');
-	writeln('            :    <safer list>');
-	writeln;
-	writeln('Parameter   : 22 Safer SET ALLOW GROUP LIST');
-	writeln('            :    <safer list>');
-	writeln;
-	writeln('Parameter   : 23 Safer SET DENY GROUP LIST');
+	writeln('Parameter   : 21 Safer SET FOLDER LIST');
 	writeln('            :    <safer list>');
 
 	writeln;
