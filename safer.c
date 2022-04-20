@@ -49,12 +49,12 @@
 			: It only works as <root>
 
 	LIST		: If you use binary search, a sorted list ist required
-			: ALLOW and DENY list
+			: ALLOWED and DENY list
 			: Files and Folder
 			: If you use bsearch, you can also select all executable files in folder
 			: Several thousand entries are then no problem.
 
-	root		: ALLOW LIST for root is fixed in the code
+	root		: ALLOWED LIST for root is fixed in the code
 			: Group root = GROUP ID 0 is not allowed
 
 
@@ -79,7 +79,7 @@
 			: It is not checked whether the program really exists
 			: This is not necessary
 
-	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
+	ALLOWED/DENY List:2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
 			: string = USER-ID;PATH
@@ -439,24 +439,24 @@ SYSCALL_DEFINE3(execve,
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
-			if (strncmp("/bin/", filename, 5) == 0) goto prog_allow;
-			if (strncmp("/sbin/", filename, 6) == 0) goto prog_allow;
-			if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allow;
-			if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allow;
-			if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allow;
-			if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allow;
-			if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allow;
-			if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allow;
-			if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allow;
+			if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
+			if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
+			if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
+			if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allowed;
+			if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allowed;
+			if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allowed;
+			if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allowed;
+			if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allowed;
+			if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allowed;
 
-			if (strncmp("/lib/", filename, 5) == 0) goto prog_allow;
-			if (strncmp("/opt/", filename, 5) == 0) goto prog_allow;
-			if (strncmp("/etc/", filename, 5) == 0) goto prog_allow;
+			if (strncmp("/lib/", filename, 5) == 0) goto prog_allowed;
+			if (strncmp("/opt/", filename, 5) == 0) goto prog_allowed;
+			if (strncmp("/etc/", filename, 5) == 0) goto prog_allowed;
 
-			if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allow;
+			if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allowed;
 			/* Example: docker required /proc/self/exe */
 
-			if (strncmp("/proc/", filename, 6) == 0) goto prog_allow;
+			if (strncmp("/proc/", filename, 6) == 0) goto prog_allowed;
 
 			/* NOT allowed. */
 			printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
@@ -543,7 +543,7 @@ SYSCALL_DEFINE3(execve,
 
 
 		/* --------------------------------------------------------------------------------------------- */
-		/* allow user */
+		/* allowed user */
 		sprintf(str_user_id, "%u", user_id);				/* int to string */
 		str_length = strlen(str_user_id);				/* str_user_id len*/
 		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + a: */
@@ -562,17 +562,17 @@ SYSCALL_DEFINE3(execve,
 
 		if (folder_list_max > 0) {
 			/* Importend! Need qsorted list */
-			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allow;
+			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allowed;
 		}
 
 		if (file_list_max > 0) {
 			/* Importend! Need qsorted list */
-			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 		}
 
 
 		/* -------------------------------------------------------------------------------------------------- */
-		/* allow groups */
+		/* allowed groups */
 		group_info = get_current_groups();
 
 		for (n = 0; n < group_info->ngroups; n++) {
@@ -595,23 +595,23 @@ SYSCALL_DEFINE3(execve,
 
 			if (folder_list_max > 0) {
 				/* Importend! Need qsorted list */
-				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allow;
+				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allowed;
 			}
 
 			if (file_list_max > 0) {
 				/* Importend! Need qsorted list */
-				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allow;
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 			}
 		}
 
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
-		printk("ALLOW LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+		printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
 		return(-2);
 	}
 
 
-prog_allow:
+prog_allowed:
 	if (printk_mode == 1) {
 		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
 
