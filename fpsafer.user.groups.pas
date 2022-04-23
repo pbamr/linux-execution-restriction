@@ -53,6 +53,9 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
+			:  7 = ROOT LIST IN KERNEL ON
+			:  8 = ROOT LIST IN KERNEL OFF
+			
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 	
