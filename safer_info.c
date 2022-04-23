@@ -44,17 +44,18 @@
 
 
 
+
 /* decl. */
 struct info_safer_struct {
 	bool safer_mode;
 	bool printk_mode;
+	bool safer_root_list_in_kernel;
 	u8 search_mode;
 	long file_list_max;
 	long folder_list_max;
 	char **file_list;
 	char **folder_list;
 };
-
 
 
 
@@ -70,13 +71,23 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 
 	info_safer(&info);
 	seq_printf(proc_show, "INFO SAFER\n\n");
-	seq_printf(proc_show, "SAFER ON/OFF         : %d\n", info.safer_mode);
-	seq_printf(proc_show, "PRINTK ON/OFF        : %d\n", info.printk_mode);
 
-	seq_printf(proc_show, "FILE LIST MAX        : %ld\n", info.file_list_max);
-	seq_printf(proc_show, "FOLDER LIST MAX      : %ld\n", info.folder_list_max);
+	if (info.safer_mode == true)
+		seq_printf(proc_show, "MODE SAFER                  : ON\n");
+	else	seq_printf(proc_show, "MODE SAFER                  : OFF\n");
 
-	seq_printf(proc_show, "MODE SEARCH          : BSEARCH\n");
+	if (info.printk_mode == true)
+		seq_printf(proc_show, "MODE PRINTK                 : ON\n");
+	else	seq_printf(proc_show, "MODE PRINTK                 : OFF\n");
+
+	if (info.safer_root_list_in_kernel == true)
+		seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : ON\n");
+	else	seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : OFF\n");
+
+	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.file_list_max);
+	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.folder_list_max);
+
+	seq_printf(proc_show, "MODE SEARCH                 : BSEARCH\n");
 
 	seq_printf(proc_show, "\n\n");
 

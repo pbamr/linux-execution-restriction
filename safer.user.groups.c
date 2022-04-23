@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.03.28
+	Date		: 2022.04.23
 
 	Program		: safer.c
 	Path		: fs/
@@ -63,6 +63,9 @@
 			: 999905 = Clear FILE List
 			: 999906 = Clear FOLDER List
 
+			: 999907 = ROOT LIST IN KERNEL ON
+			: 999908 = ROOT LIST IN KERNEL OFF
+
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
 
@@ -76,7 +79,7 @@
 			: The Solutions is Safer OFF
 
 
-	ALLOWED/DENY List	: 2 DIM. dyn. char Array = string
+	FILE/FOLDER List: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
 			: string = USER-ID;PATH
@@ -102,6 +105,7 @@
 static bool	safer_mode = true;
 static bool	printk_mode = true;
 static u8	search_mode = 0;
+static bool	safer_root_list_in_kernel = true;
 
 static char	**file_list;
 static long	file_list_max = 0;
@@ -111,10 +115,12 @@ static long	folder_list_max = 0;
 
 
 
+
 /* decl. */
 struct info_safer_struct {
 	bool safer_mode;
 	bool printk_mode;
+	bool safer_root_list_in_kernel;
 	u8 search_mode;
 	long file_list_max;
 	long folder_list_max;
@@ -131,6 +137,7 @@ void info_safer(struct info_safer_struct *info)
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
 	info->search_mode = search_mode;
+	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
 	info->file_list = file_list;
@@ -308,6 +315,21 @@ SYSCALL_DEFINE5(execve,
 				}
 				return(0);
 
+		case 999907:	if (user_id != 0) return(-1);
+#ifdef PRINTK
+				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
+#endif
+				safer_root_list_in_kernel = true;
+				return(0);
+
+
+		case 999908:	if (user_id != 0) return(-1);
+#ifdef PRINTK
+				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
+#endif
+				safer_root_list_in_kernel = false;
+				return(0);
+
 
 		/* set all list */
 		case 999920:	if (user_id != 0) return(-1);
@@ -432,28 +454,32 @@ SYSCALL_DEFINE5(execve,
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
-			if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
-			if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
-			if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
-			if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allowed;
-			if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allowed;
-			if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allowed;
-			if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allowed;
-			if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allowed;
-			if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allowed;
+			if (safer_root_list_in_kernel == true) {
+				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
+				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
+				if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allowed;
+				if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allowed;
+				if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allowed;
+				if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allowed;
+				if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allowed;
+				if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allowed;
+				/* my choice */
+				if (strncmp("/usr/scripts/", filename, 13) == 0) goto prog_allowed;
 
-			if (strncmp("/lib/", filename, 5) == 0) goto prog_allowed;
-			if (strncmp("/opt/", filename, 5) == 0) goto prog_allowed;
-			if (strncmp("/etc/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/lib/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/opt/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/etc/", filename, 5) == 0) goto prog_allowed;
 
-			if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allowed;
-			/* Example: docker required /proc/self/exe */
+				if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allowed;
+				/* Example: docker required /proc/self/exe */
 
-			if (strncmp("/proc/", filename, 6) == 0) goto prog_allowed;
+				if (strncmp("/proc/", filename, 6) == 0) goto prog_allowed;
 
-			/* NOT allowed. */
-			printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
-			return(-2);
+				/* NOT allowed. */
+				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
 		}
 
 
@@ -496,7 +522,6 @@ SYSCALL_DEFINE5(execve,
 		group_info = get_current_groups();
 
 		for (n = 0; n < group_info->ngroups; n++) {
-			if (group_info->gid[n].val == 0) return(-2);			//group root not allowed. My choice!
 
 			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
 			str_length = strlen(str_group_id);				/* str_user_id len*/

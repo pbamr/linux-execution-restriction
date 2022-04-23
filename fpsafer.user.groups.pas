@@ -28,7 +28,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.17
+	Date		: 2022.04.23
 	
 	Program		: fpsafer.pas
 			: Simple Frontend
@@ -152,13 +152,15 @@ begin
 	writeln('Parameter   :  5 Safer CLEAR FILE LIST');
 	writeln('Parameter   :  6 Safer CLEAR FOLDER LIST');
 	writeln;
+	writeln('Parameter   :  7 Safer ROOT LIST IN KERNEL ON');
+	writeln('Parameter   :  8 Safer ROOT LIST IN KERNEL OFF');
+	writeln;
 	writeln('Parameter   : 20 Safer SET FILE LIST');
 	writeln('            :    <safer list>');
 	writeln;
 	writeln('Parameter   : 21 Safer SET FOLDER LIST');
 	writeln('            :    <safer list>');
 	writeln;
-
 	writeln;
 	halt(1);
 end;
@@ -180,7 +182,7 @@ end;
 begin
 	if ParamCount = 1 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 6 then ErrorMessage;
+		if NUMBER > 8 then ErrorMessage;
 		
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
 		halt(0);
