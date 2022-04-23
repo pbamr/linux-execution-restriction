@@ -38,10 +38,13 @@
 			
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
-			
-			: 20 = Set FILE LIST
-			: 21 = Set FOLDER LIST
-			
+
+			:  7 = ROOT LIST IN KERNEL ON
+			:  8 = ROOT LIST IN KERNEL OFF
+
+			: 20 = Set FILE List
+			: 21 = Set FOLDER List
+
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 			: string = allow/deny:USER-ID;PATH
