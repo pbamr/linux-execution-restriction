@@ -33,7 +33,7 @@ PATH=$1
 USER_GROUP=$2
 
 
-/usr/bin/find $PATH -executable >t
+/usr/bin/find -L $PATH -executable >t
 
 LIST=t
 
