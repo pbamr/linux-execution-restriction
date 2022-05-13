@@ -838,13 +838,7 @@ void main(int argc, char *argv[]) {
 					TStringListCreate(&folder_list);
 					all_list.DelDUP = true;
 					all_list.LoadFromFile(&all_list, argv[2]);
-					
-					for (s64 n = all_list.TStringList_Lines - 1; n > -1; n--) {
-						if (strncmp("#", all_list.TStringList[n], 1) == 0) {
-							all_list.Del(&all_list, n);
-						}
-					}
-					
+			
 					for (s64 n = 0; n < all_list.TStringList_Lines; n++) {
 						if (strncmp(all_list.TStringList[n], "a:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
