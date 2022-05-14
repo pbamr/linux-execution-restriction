@@ -477,17 +477,22 @@ s64 Del(void *self, s64 number)
 	if (number >= struct_tstringlist->TStringList_Lines) return(-1);
 	
 	
+	//if number = last line
 	if (number == struct_tstringlist->TStringList_Lines - 1) {
-		free(struct_tstringlist->TStringList[--struct_tstringlist->TStringList_Lines]);
-		struct_tstringlist->TStringList[struct_tstringlist->TStringList_Lines] = NULL;
+		//delete
+		free(struct_tstringlist->TStringList[number]);
+		struct_tstringlist->TStringList = realloc(struct_tstringlist->TStringList, (struct_tstringlist->TStringList_Lines - 1) * sizeof(char *));
 		return(0);
 	}
 	
-	strcpy(struct_tstringlist->TStringList[number], struct_tstringlist->TStringList[--struct_tstringlist->TStringList_Lines]);
-	free(struct_tstringlist->TStringList[struct_tstringlist->TStringList_Lines]);
-	struct_tstringlist->TStringList[struct_tstringlist->TStringList_Lines] = NULL;
+	//delete
+	free(struct_tstringlist->TStringList[number]);
 	
-	struct_tstringlist->TStringList = realloc(struct_tstringlist->TStringList, struct_tstringlist->TStringList_Lines * sizeof(char *));
+	//address last line -> delete line
+	struct_tstringlist->TStringList[number] = struct_tstringlist->TStringList[struct_tstringlist->TStringList_Lines - 1];
+	
+	
+	struct_tstringlist->TStringList = realloc(struct_tstringlist->TStringList, (struct_tstringlist->TStringList_Lines - 1) * sizeof(char *));
 	
 	return(0);
 }
@@ -594,16 +599,7 @@ s64 LoadFromFile(void *self, char *file_name)
 	long lines = 0;
 	long start = 0;
 	long len = 0;
-	str_length = 0;
-	lines = 0;
 	
-	
-	
-	lines = 0;
-	start = 0;
-	len = 0;
-	str_length = 0;
-	lines = 0;
 	
 	for (int n = 0; n < max_bytes; n++) {
 		if (TEXT[n] == '\n') {
