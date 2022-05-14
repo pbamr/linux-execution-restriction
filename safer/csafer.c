@@ -594,17 +594,8 @@ s64 LoadFromFile(void *self, char *file_name)
 	long lines = 0;
 	long start = 0;
 	long len = 0;
-	str_length = 0;
-	lines = 0;
-	
-	
-	
-	lines = 0;
-	start = 0;
-	len = 0;
-	str_length = 0;
-	lines = 0;
-	
+		
+		
 	for (int n = 0; n < max_bytes; n++) {
 		if (TEXT[n] == '\n') {
 			if (n > start) {
