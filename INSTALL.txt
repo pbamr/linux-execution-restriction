@@ -1,0 +1,41 @@
+INSTALL:
+
+copy safer.c -> fs/
+copy safer_info.c -> /fs
+
+look for changes in "#define pb_safer" in EXAMPLE "exec.c" and write in your current "exec.c"
+
+
+write in fs/Makefile
+obj-y				+= safer_info.o
+
+make bzImage
+
+
+
+
+INSTALL with Syscall:
+
+copy safer.c -> fs/
+copy safer_info.c -> /fs
+
+lock for changes in "#define pb_safer" in EXAMPLE "exec.c" and write in your current "exec.c"
+
+
+write in fs/Makefile
+obj-y				+= safer_info.o
+
+
+Example x86:
+write in "arch/x86/entry/syscalls/syscall_64.tbl"
+
+459	common	set_execve		sys_set_execve
+or other number
+
+OTHER ARCHITECURES: search for syscall.tbl
+
+
+make bzImage
+
+
+
