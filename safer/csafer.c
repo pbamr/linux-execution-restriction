@@ -284,7 +284,7 @@ s64 DynFree (void *self)
 	for (s64 n = 0; n < struct_tstringlist->TStringList_Lines - 1; n++) {
 		if (struct_tstringlist->TStringList[n] != NULL) {
 			free(struct_tstringlist->TStringList[n]);
-			struct_tstringlist->TStringList[n] = NULL;
+			//struct_tstringlist->TStringList[n] = NULL;
 		}
 	}
 	
