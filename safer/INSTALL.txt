@@ -9,7 +9,7 @@ look for changes in "#define pb_safer" in EXAMPLE "exec.c" and write in your cur
 write in fs/Makefile
 obj-y				+= safer_info.o
 
-make bzImage
+make bzImage (architecture)
 
 
 
@@ -35,7 +35,7 @@ or other number
 OTHER ARCHITECURES: search for syscall.tbl
 
 
-make bzImage
+make bzImage (architecture)
 
 
 
