@@ -81,6 +81,7 @@
 #ifdef pb_safer
 static long allowed_deny_open(const char *filename);
 #endif
+/* search for mnore "pb_safer" and write in current "exec.c" */
 
 static int bprm_creds_from_file(struct linux_binprm *bprm);
 
