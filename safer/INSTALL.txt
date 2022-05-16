@@ -20,7 +20,7 @@ copy safer.c -> fs/
 copy safer_info.c -> /fs
 
 lock for changes in "#define pb_safer" in EXAMPLE "exec.c" and write in your current "exec.c"
-
+ATTENTION: exec.c with syscall is not the same as exec.c without sysycall
 
 write in fs/Makefile
 obj-y				+= safer_info.o
