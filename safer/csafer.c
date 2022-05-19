@@ -435,7 +435,6 @@ s64 SetLines(void *self, s64 numbers)
 		struct_tstringlist->TStringList = tmp_ptr;
 		struct_tstringlist->TStringList_Lines = numbers;
 		
-		
 		for (s64 n = diff - 1; n < struct_tstringlist->TStringList_Lines; n++) {
 			struct_tstringlist->TStringList[n] = NULL;
 		}
@@ -578,7 +577,6 @@ s64 StringLengthMax(void *self)
 	
 	
 	
-
 s64 LoadFromFile(void *self, char *file_name)
 {
 	long max_bytes = 0;
@@ -762,7 +760,14 @@ int ErrorMessage()
 //--------------------------------------------------------------------------------------------------
 void main(int argc, char *argv[]) {
 	
+/* #define VERSION_SYSCALL */
+	
+#ifdef VERSION_SYSCALL
+#define SYSCALL_NR 459
+#else
 #define SYSCALL_NR 59
+#endif
+	
 	
 	s64 NUMBER = 0;
 	
@@ -770,7 +775,12 @@ void main(int argc, char *argv[]) {
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
 		if (NUMBER < 0) ErrorMessage();
+		
+#ifdef VERSION_SYSCALL
+		printf("%ld\n", syscall(SYSCALL_NR, 999900 + NUMBER));
+#else
 		printf("%ld\n", syscall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+#endif
 		exit(0);
 	}
 	
@@ -830,7 +840,11 @@ void main(int argc, char *argv[]) {
 						printf("%s\n", work_list.TStringList[n]);
 					}
 					
+#ifdef VERSION_SYSCALL
+					printf("%ld\n", syscall(SYSCALL_NR, 999900 + NUMBER, work_list.TStringList));
+#else
 					printf("%ld\n", syscall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, work_list.TStringList));
+#endif
 					
 					exit(0);
 				
@@ -883,7 +897,11 @@ void main(int argc, char *argv[]) {
 					for (s64 n = 0; n < work_list.TStringList_Lines; n++) {
 						printf("%s\n", work_list.TStringList[n]);
 					}
+#ifdef VERSION_SYSCALL
+					printf("%ld\n", syscall(SYSCALL_NR, 999900 + NUMBER, work_list.TStringList));
+#else
 					printf("%ld\n", syscall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, work_list.TStringList));
+#endif
 					
 					exit(0);
 					
