@@ -435,7 +435,7 @@ s64 SetLines(void *self, s64 numbers)
 		struct_tstringlist->TStringList = tmp_ptr;
 		struct_tstringlist->TStringList_Lines = numbers;
 		
-		//VEREINFACHT VIELES
+		
 		for (s64 n = diff - 1; n < struct_tstringlist->TStringList_Lines; n++) {
 			struct_tstringlist->TStringList[n] = NULL;
 		}
@@ -578,7 +578,7 @@ s64 StringLengthMax(void *self)
 	
 	
 	
-//OS doesn't matter
+
 s64 LoadFromFile(void *self, char *file_name)
 {
 	long max_bytes = 0;
