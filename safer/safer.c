@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
 
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
 
@@ -108,10 +108,13 @@ static u8	search_mode = 0;
 static bool	safer_root_list_in_kernel = true;
 
 static char	**file_list;
+static char	**proc_file_list;
 static long	file_list_max = 0;
 
 static char	**folder_list;
+static char	**proc_folder_list;
 static long	folder_list_max = 0;
+
 
 
 
@@ -140,25 +143,14 @@ void info_safer(struct info_safer_struct *info)
 	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
-	info->file_list = file_list;
-	info->folder_list = folder_list;
-}
-
-
-char *info_files_safer(long number) {
-
-	if (number < 0) return(NULL);
-	if (number < folder_list_max) {
-		return(folder_list[number]);
-	}
-	return(NULL);
+	info->file_list = proc_file_list;
+	info->folder_list = proc_folder_list;
 }
 
 
 
 
-
-long besearch_file(char *str_search, char **list, long elements)
+static int besearch_file(char *str_search, char **list, long elements)
 {
 	long left, right;
 	long middle;
@@ -182,7 +174,7 @@ long besearch_file(char *str_search, char **list, long elements)
 
 
 
-long besearch_folder(char *str_search, char **list, long elements)
+static int besearch_folder(char *str_search, char **list, long elements)
 {
 	long left, right;
 	long middle;
@@ -211,7 +203,7 @@ long besearch_folder(char *str_search, char **list, long elements)
 
 
 
-static long allowed_deny_open(const char *filename)
+static int allowed_deny_exec(const char *filename)
 {
 	uid_t		user_id;
 	u32		n;
@@ -222,7 +214,6 @@ static long allowed_deny_open(const char *filename)
 	char		*str_file_name = NULL;
 
 	struct group_info *group_info;
-
 
 
 	user_id = get_current_user()->uid.val;
@@ -260,7 +251,6 @@ static long allowed_deny_open(const char *filename)
 			}
 		}
 
-
 		/* --------------------------------------------------------------------------------- */
 		sprintf(str_user_id, "%u", user_id);				/* int to string */
 		str_length = strlen(str_user_id);				/* str_user_id len*/
@@ -286,6 +276,7 @@ static long allowed_deny_open(const char *filename)
 				return(-2);
 			}
 		}
+
 
 		if (file_list_max > 0) {
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
@@ -326,6 +317,7 @@ static long allowed_deny_open(const char *filename)
 				}
 			}
 
+
 			if (file_list_max > 0) {
 				/* Importend! need qsorted list */
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
@@ -335,7 +327,6 @@ static long allowed_deny_open(const char *filename)
 				}
 			}
 		}
-
 
 		/* --------------------------------------------------------------------------------------------- */
 		/* allowed user */
@@ -365,13 +356,16 @@ static long allowed_deny_open(const char *filename)
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 		}
 
-
 		/* -------------------------------------------------------------------------------------------------- */
 		/* allowed groups */
 		group_info = get_current_groups();
 
 		for (n = 0; n < group_info->ngroups; n++) {
-			if (group_info->gid[n].val == 0) return(-2);			/* group root not allowed. My choice! */
+			if (group_info->gid[n].val == 0) {
+				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);			/* group root not allowed. My choice! */
+			}
+
 			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
 			str_length = strlen(str_group_id);				/* str_user_id len*/
 			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + ga: */
@@ -414,12 +408,6 @@ prog_allowed:
 	return(0);
 
 }
-
-
-
-
-
-
 
 
 
@@ -492,8 +480,10 @@ SYSCALL_DEFINE5(execve,
 				if (file_list_max != 0) {
 					for (n = 0; n < file_list_max; n++) {
 						kfree(file_list[n]);
+						kfree(proc_file_list[n]);
 					}
 					kfree(file_list);
+					kfree(proc_file_list);
 					file_list_max = 0;
 				}
 				return(0);
@@ -542,8 +532,10 @@ SYSCALL_DEFINE5(execve,
 				if (file_list_max > 0) {
 					for (n = 0; n < file_list_max; n++) {
 						kfree(file_list[n]);
+						kfree(proc_file_list[n]);
 					}
 					kfree(file_list);
+					kfree(proc_file_list);
 				}
 
 				int_ret = kstrtol(list[0], 10, &file_list_max);
@@ -583,6 +575,15 @@ SYSCALL_DEFINE5(execve,
 					}
 					strcpy(file_list[n], list[n+1]);
 				}
+
+				proc_file_list = kmalloc(file_list_max * sizeof(char *), GFP_KERNEL);
+				if (proc_file_list == NULL) { file_list_max = 0; return(-1); }
+
+				for (n = 0; n < file_list_max; n++) {
+					proc_file_list[n] = kmalloc((strlen(file_list[n]) + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(proc_file_list[n], file_list[n]);
+				}
+
 				return(file_list_max);
 
 		/* set all folder list */
@@ -599,8 +600,10 @@ SYSCALL_DEFINE5(execve,
 				if (folder_list_max > 0) {
 					for (n = 0; n < folder_list_max; n++) {
 						kfree(folder_list[n]);
+						kfree(proc_folder_list[n]);
 					}
 					kfree(folder_list);
+					kfree(proc_folder_list);
 				}
 
 				int_ret = kstrtol(list[0], 10, &folder_list_max);
@@ -642,6 +645,13 @@ SYSCALL_DEFINE5(execve,
 					}
 					strcpy(folder_list[n], list[n+1]);
 				}
+
+				proc_folder_list = kmalloc(folder_list_max * sizeof(char *), GFP_KERNEL);
+				for (n = 0; n < folder_list_max; n++) {
+					proc_folder_list[n] = kmalloc((strlen(folder_list[n]) + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(proc_folder_list[n], folder_list[n]);
+				}
+
 				return(folder_list_max);
 
 		default:	break;
@@ -652,13 +662,10 @@ SYSCALL_DEFINE5(execve,
 		
 		for ( n = 0; n <= 32; n++) {
 			if (argv[n] != NULL) 
-				printk("%s:argv[%d] : %s\n", filename, n, argv[n]);
+				printk("%s :argv[%d] : %s\n", filename, n, argv[n]);
 			else break;
 		}
 	}
-
-
-
 
 	return do_execve(getname(filename), argv, envp);
 
