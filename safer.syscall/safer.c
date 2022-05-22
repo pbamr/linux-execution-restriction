@@ -203,7 +203,7 @@ long besearch_folder(char *str_search, char **list, long elements)
 
 
 
-static long allowed_deny_open(const char *filename)
+static long allowed_deny_exec(const char *filename)
 {
 	uid_t		user_id;
 	u32		n;
@@ -401,6 +401,224 @@ static long allowed_deny_open(const char *filename)
 prog_allowed:
 	if (printk_mode == 1) {
 		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
+	}
+
+	return(0);
+
+}
+
+
+static long allowed_deny(const char *filename,
+			 const char __user *const __user *argv,
+			 const char __user *const __user *envp)
+{
+	uid_t		user_id;
+	u32		n;
+	char		str_user_id[19];
+	char		str_group_id[19];
+
+	u64		str_length;
+	char		*str_file_name = NULL;
+
+	struct group_info *group_info;
+
+
+
+	user_id = get_current_user()->uid.val;
+
+	if (safer_mode == true) {
+		/* --------------------------------------------------------------------------------- */
+		/* my choice */
+		if (user_id == 0) {
+			if (safer_root_list_in_kernel == true) {
+				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
+				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
+				if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allowed;
+				if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allowed;
+				if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allowed;
+				if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allowed;
+				if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allowed;
+				if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allowed;
+				/* my choice */
+				if (strncmp("/usr/scripts/", filename, 13) == 0) goto prog_allowed;
+
+				if (strncmp("/lib/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/lib64/", filename, 7) == 0)  goto prog_allowed;
+				if (strncmp("/opt/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/etc/", filename, 5) == 0) goto prog_allowed;
+
+				if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allowed;
+				/* Example: docker required /proc/self/exe */
+
+				if (strncmp("/proc/", filename, 6) == 0) goto prog_allowed;
+
+				/* NOT allowed. */
+				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
+		}
+
+
+		/* --------------------------------------------------------------------------------- */
+		sprintf(str_user_id, "%u", user_id);				/* int to string */
+		str_length = strlen(str_user_id);				/* str_user_id len*/
+		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + d: */
+
+		if (str_file_name != NULL) {
+			kfree(str_file_name);
+			str_file_name = NULL;
+		}
+
+		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+		strcpy(str_file_name, "d:");
+		strcat(str_file_name, str_user_id);				/* str_user_id */
+		strcat(str_file_name, ";");					/* + semmicolon */
+		strcat(str_file_name, filename);				/* + filename */
+
+		if (folder_list_max > 0) {
+			/* Importend! need qsorted list */
+			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
+			/* Not allowed */
+				printk("DENY LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
+		}
+
+		if (file_list_max > 0) {
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
+				/* Not allowed */
+				printk("DENY LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
+		}
+
+		/* -------------------------------------------------------------------------------------------------- */
+		/* deny groups */
+		group_info = get_current_groups();
+
+		for (n = 0; n < group_info->ngroups; n++) {
+
+			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+			str_length = strlen(str_group_id);				/* str_user_id len*/
+			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + gd: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "gd:");
+			strcat(str_file_name, str_group_id);				/* str_group_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			if (folder_list_max > 0) {
+				/* Importend! need qsorted list */
+				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
+					/* Not allowed */
+					printk("DENY GROUP LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					return(-2);
+				}
+			}
+
+			if (file_list_max > 0) {
+				/* Importend! need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
+					/* Not allowed */
+					printk("DENY GROUP LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					return(-2);
+				}
+			}
+		}
+
+
+		/* --------------------------------------------------------------------------------------------- */
+		/* allowed user */
+		sprintf(str_user_id, "%u", user_id);				/* int to string */
+		str_length = strlen(str_user_id);				/* str_user_id len*/
+		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + a: */
+
+		if (str_file_name != NULL) {
+			kfree(str_file_name);
+			str_file_name = NULL;
+		}
+
+		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+		strcpy(str_file_name, "a:");
+		strcat(str_file_name, str_user_id);				/* str_user_id */
+		strcat(str_file_name, ";");					/* + semmicolon */
+		strcat(str_file_name, filename);				/* + filename */
+
+		if (folder_list_max > 0) {
+			/* Importend! Need qsorted list */
+			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allowed;
+		}
+
+		if (file_list_max > 0) {
+			/* Importend! Need qsorted list */
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+		}
+
+
+		/* -------------------------------------------------------------------------------------------------- */
+		/* allowed groups */
+		group_info = get_current_groups();
+
+		for (n = 0; n < group_info->ngroups; n++) {
+			if (group_info->gid[n].val == 0) {
+				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);			/* group root not allowed. My choice! */
+			}
+
+			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+			str_length = strlen(str_group_id);				/* str_user_id len*/
+			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + ga: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "ga:");
+			strcat(str_file_name, str_group_id);				/* str_group_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			if (folder_list_max > 0) {
+				/* Importend! Need qsorted list */
+				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allowed;
+			}
+
+			if (file_list_max > 0) {
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+			}
+		}
+
+		/* ------------------------------------------------------------------------------------------------- */
+		/* Not allowed */
+		printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+		return(-2);
+	}
+
+
+prog_allowed:
+	if (printk_mode == 1) {
+		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
+
+		/* max. argv */
+		for ( n = 1; n <= 32; n++) {
+			if (argv[n] != NULL) 
+				printk("%s:argv[%d] : %s\n", argv[0], n, argv[n]);
+			else break;
+		}
 	}
 
 	return(0);
