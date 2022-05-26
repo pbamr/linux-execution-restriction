@@ -115,6 +115,7 @@ static char	**folder_list;
 static char	**proc_folder_list;
 static long	folder_list_max = 0;
 
+static bool	no_change = true;
 
 
 
@@ -124,6 +125,7 @@ struct info_safer_struct {
 	bool safer_mode;
 	bool printk_mode;
 	bool safer_root_list_in_kernel;
+	bool no_change;
 	u8 search_mode;
 	long file_list_max;
 	long folder_list_max;
@@ -141,6 +143,7 @@ void info_safer(struct info_safer_struct *info)
 	info->printk_mode = printk_mode;
 	info->search_mode = search_mode;
 	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
+	info->no_change = no_change;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
 	info->file_list = proc_file_list;
@@ -431,14 +434,14 @@ prog_allowed:
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
 					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_group_id */
+					strcat(str_file_name, str_user_id);				/* str_user_id */
 					strcat(str_file_name, ";");					/* + semmicolon */
 					strcat(str_file_name, argv[n]);					/* + filename */
 
 					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 				}
 
-				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				printk("ALLOWED LIST USER/PROG. <SCRIPT> not allowed : %u;%s\n", user_id, filename);
 				return(-2);
 			}
 
@@ -467,7 +470,7 @@ prog_allowed:
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
 					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_group_id */
+					strcat(str_file_name, str_user_id);				/* str_user_id */
 					strcat(str_file_name, ";");					/* + semmicolon */
 					strcat(str_file_name, argv[n+1]);				/* + classpath */
 					strcat(str_file_name, "/");					/* + / */
@@ -475,11 +478,11 @@ prog_allowed:
 
 					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 					/* only 1 search */
-					printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s, \n", user_id, filename);
 					return(-2);
 				}
 
-				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s\n", user_id, filename);
 				return(-2);
 			}
 
@@ -529,12 +532,18 @@ SYSCALL_DEFINE5(execve,
 	long	int_ret;
 
 
+
+
+
+
 	user_id = get_current_user()->uid.val;
 
 	/* command part, future ? */
 	switch(number) {
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER ON\n");
 #endif
@@ -544,6 +553,8 @@ SYSCALL_DEFINE5(execve,
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
 #endif
@@ -553,6 +564,8 @@ SYSCALL_DEFINE5(execve,
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
 #endif
@@ -561,6 +574,8 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ON\n");
 #endif
@@ -570,6 +585,8 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
 #endif
@@ -580,6 +597,8 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("CLEAR FILE LIST!\n");
 #endif
@@ -596,6 +615,8 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("CLEAR FOLDER LIST!\n");
 #endif
@@ -609,6 +630,8 @@ SYSCALL_DEFINE5(execve,
 				return(0);
 
 		case 999907:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
 #endif
@@ -617,6 +640,8 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999908:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
 #endif
@@ -624,8 +649,19 @@ SYSCALL_DEFINE5(execve,
 				return(0);
 
 
+		case 999909:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1);
+
+#ifdef PRINTK
+				printk("MODE: NO MORE CHANGES ALLOWED\n");
+#endif
+				no_change = false;
+				return(0);
+
+
 		/* set all list */
 		case 999920:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
@@ -694,6 +730,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* set all folder list */
 		case 999921:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK

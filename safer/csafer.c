@@ -734,6 +734,8 @@ int ErrorMessage()
 	printf("Parameter   :  7 Safer ROOT LIST IN KERNEL ON\n");
 	printf("Parameter   :  8 Safer ROOT LIST IN KERNEL OFF\n");
 	printf("\n");
+	printf("Parameter   :  9 Safer DO NOT allowed any more changes\n");
+	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
 	printf("\n");
@@ -774,7 +776,8 @@ void main(int argc, char *argv[]) {
 	
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0) ErrorMessage();
+		if (NUMBER < 0 || NUMBER > 9) ErrorMessage();
+		
 		
 #ifdef VERSION_SYSCALL
 		printf("%ld\n", syscall(SYSCALL_NR, 999900 + NUMBER));
