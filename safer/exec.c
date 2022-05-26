@@ -56,7 +56,6 @@
 #include <linux/tsacct_kern.h>
 #include <linux/cn_proc.h>
 #include <linux/audit.h>
-#include <linux/tracehook.h>
 #include <linux/kmod.h>
 #include <linux/fsnotify.h>
 #include <linux/fs_struct.h>
@@ -77,11 +76,13 @@
 #include <trace/events/sched.h>
 
 
+/* change safer */
 #define pb_safer
-#ifdef pb_safer
-static long allowed_deny_open(const char *filename);
-#endif
-/* search for more "pb_safer" and write in current "exec.c" */
+//#ifdef pb_safer
+//static int allowed_deny_exec(const char *filename, const char __user *const __user *__argv)
+//#endif
+
+
 
 static int bprm_creds_from_file(struct linux_binprm *bprm);
 
@@ -125,7 +126,7 @@ bool path_noexec(const struct path *path)
  * Note that a shared library must be both readable and executable due to
  * security reasons.
  *
- * Also note that we take the address to load from from the file itself.
+ * Also note that we take the address to load from the file itself.
  */
 SYSCALL_DEFINE1(uselib, const char __user *, library)
 {
@@ -502,8 +503,14 @@ static int bprm_stack_limits(struct linux_binprm *bprm)
 	 * the stack. They aren't stored until much later when we can't
 	 * signal to the parent that the child has run out of stack space.
 	 * Instead, calculate it here so it's possible to fail gracefully.
+	 *
+	 * In the case of argc = 0, make sure there is space for adding a
+	 * empty string (which will bump argc to 1), to ensure confused
+	 * userspace programs don't start processing from argv[1], thinking
+	 * argc can never be 0, to keep them from walking envp by accident.
+	 * See do_execveat_common().
 	 */
-	ptr_size = (bprm->argc + bprm->envc) * sizeof(void *);
+	ptr_size = (max(bprm->argc, 1) + bprm->envc) * sizeof(void *);
 	if (limit <= ptr_size)
 		return -E2BIG;
 	limit -= ptr_size;
@@ -543,7 +550,7 @@ static int copy_strings(int argc, struct user_arg_ptr argv,
 		if (!valid_arg_len(bprm, len))
 			goto out;
 
-		/* We're going to work our way backwords. */
+		/* We're going to work our way backwards. */
 		pos = bprm->p;
 		str += len;
 		bprm->p -= len;
@@ -909,11 +916,6 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 		.intent = LOOKUP_OPEN,
 		.lookup_flags = LOOKUP_FOLLOW,
 	};
-
-#ifdef pb_safer
-	if (allowed_deny_open(name->name) == -2) return ERR_PTR(-2);
-#endif
-
 
 	if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH)) != 0)
 		return ERR_PTR(-EINVAL);
@@ -1281,7 +1283,7 @@ int begin_new_exec(struct linux_binprm * bprm)
 
 	/*
 	 * Must be called _before_ exec_mmap() as bprm->mm is
-	 * not visibile until then. This also enables the update
+	 * not visible until then. This also enables the update
 	 * to be lockless.
 	 */
 	retval = set_mm_exe_file(bprm->mm, bprm->file);
@@ -1314,12 +1316,6 @@ int begin_new_exec(struct linux_binprm * bprm)
 	retval = unshare_sighand(me);
 	if (retval)
 		goto out_unlock;
-
-	/*
-	 * Ensure that the uaccess routines can actually operate on userspace
-	 * pointers:
-	 */
-	force_uaccess_begin();
 
 	if (me->flags & PF_KTHREAD)
 		free_kthread_struct(me);
@@ -1909,6 +1905,9 @@ static int do_execveat_common(int fd, struct filename *filename,
 	}
 
 	retval = count(argv, MAX_ARG_STRINGS);
+	if (retval == 0)
+		pr_warn_once("process '%s' launched '%s' with NULL argv: empty string added\n",
+			     current->comm, bprm->filename);
 	if (retval < 0)
 		goto out_free;
 	bprm->argc = retval;
@@ -1935,13 +1934,24 @@ static int do_execveat_common(int fd, struct filename *filename,
 	if (retval < 0)
 		goto out_free;
 
+	/*
+	 * When argv is empty, add an empty string ("") as argv[0] to
+	 * ensure confused userspace programs that start processing
+	 * from argv[1] won't end up walking envp. See also
+	 * bprm_stack_limits().
+	 */
+	if (bprm->argc == 0) {
+		retval = copy_string_kernel("", bprm);
+		if (retval < 0)
+			goto out_free;
+		bprm->argc = 1;
+	}
 
 	retval = bprm_execve(bprm, fd, filename, flags);
 out_free:
 	free_bprm(bprm);
 
 out_ret:
-
 	putname(filename);
 	return retval;
 }
@@ -1954,7 +1964,6 @@ int kernel_execve(const char *kernel_filename,
 	int fd = AT_FDCWD;
 	int retval;
 
-
 	filename = getname_kernel(kernel_filename);
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
@@ -1966,6 +1975,8 @@ int kernel_execve(const char *kernel_filename,
 	}
 
 	retval = count_strings_kernel(argv);
+	if (WARN_ON_ONCE(retval == 0))
+		retval = -EINVAL;
 	if (retval < 0)
 		goto out_free;
 	bprm->argc = retval;
@@ -2079,6 +2090,9 @@ void set_dumpable(struct mm_struct *mm, int value)
 
 
 
+
+
+/* change safer n*/
 #ifdef pb_safer
 #include "safer.c"
 #endif
@@ -2088,14 +2102,12 @@ void set_dumpable(struct mm_struct *mm, int value)
 #ifndef pb_safer
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
-		const char __user *const __user *, argv,//
+		const char __user *const __user *, argv,
 		const char __user *const __user *, envp)
 {
 	return do_execve(getname(filename), argv, envp);
 }
 #endif
-
-
 
 
 
