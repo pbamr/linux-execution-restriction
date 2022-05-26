@@ -99,7 +99,6 @@
 */
 
 
-
 #define PRINTK
 #define MAX_DYN 100000
 
@@ -112,10 +111,13 @@ static u8	search_mode = 0;
 static bool	safer_root_list_in_kernel = true;
 
 static char	**file_list;
+static char	**proc_file_list;
 static long	file_list_max = 0;
 
 static char	**folder_list;
+static char	**proc_folder_list;
 static long	folder_list_max = 0;
+
 
 
 
@@ -144,14 +146,14 @@ void info_safer(struct info_safer_struct *info)
 	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
-	info->file_list = file_list;
-	info->folder_list = folder_list;
+	info->file_list = proc_file_list;
+	info->folder_list = proc_folder_list;
 }
 
 
 
 
-long besearch_file(char *str_search, char **list, long elements)
+static int besearch_file(char *str_search, char **list, long elements)
 {
 	long left, right;
 	long middle;
@@ -175,7 +177,7 @@ long besearch_file(char *str_search, char **list, long elements)
 
 
 
-long besearch_folder(char *str_search, char **list, long elements)
+static int besearch_folder(char *str_search, char **list, long elements)
 {
 	long left, right;
 	long middle;
@@ -203,18 +205,20 @@ long besearch_folder(char *str_search, char **list, long elements)
 
 
 
-static long allowed_deny_exec(const char *filename)
-{
-	uid_t		user_id;
-	u32		n;
-	char		str_user_id[19];
-	char		str_group_id[19];
 
-	u64		str_length;
-	char		*str_file_name = NULL;
+static int allowed_deny_exec(const char *filename, const char __user *const __user *argv) 
+{
+	uid_t	user_id;
+	u32	n;
+	char	str_user_id[19];
+	char	str_group_id[19];
+
+	u64	str_length;
+	char	*str_file_name = NULL;
+	s64	retval;
+	s64	parameter_max;
 
 	struct group_info *group_info;
-
 
 
 	user_id = get_current_user()->uid.val;
@@ -224,34 +228,33 @@ static long allowed_deny_exec(const char *filename)
 		/* my choice */
 		if (user_id == 0) {
 			if (safer_root_list_in_kernel == true) {
-				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
-				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
-				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
-				if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allowed;
-				if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allowed;
-				if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allowed;
-				if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allowed;
-				if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allowed;
-				if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allowed;
+				if (strncmp("/bin/", filename, 5) == 0) goto prog_exit_allowed;
+				if (strncmp("/sbin/", filename, 6) == 0) goto prog_exit_allowed;
+				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_exit_allowed;
+				if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_exit_allowed;
+				if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_exit_allowed;
+				if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_exit_allowed;
+				if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_exit_allowed;
+				if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_exit_allowed;
+				if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_exit_allowed;
 				/* my choice */
-				if (strncmp("/usr/scripts/", filename, 13) == 0) goto prog_allowed;
+				if (strncmp("/usr/scripts/", filename, 13) == 0) goto prog_exit_allowed;
 
-				if (strncmp("/lib/", filename, 5) == 0) goto prog_allowed;
-				if (strncmp("/lib64/", filename, 7) == 0)  goto prog_allowed;
-				if (strncmp("/opt/", filename, 5) == 0) goto prog_allowed;
-				if (strncmp("/etc/", filename, 5) == 0) goto prog_allowed;
+				if (strncmp("/lib/", filename, 5) == 0) goto prog_exit_allowed;
+				if (strncmp("/lib64/", filename, 7) == 0)  goto prog_exit_allowed;
+				if (strncmp("/opt/", filename, 5) == 0) goto prog_exit_allowed;
+				if (strncmp("/etc/", filename, 5) == 0) goto prog_exit_allowed;
 
-				if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allowed;
+				if (strncmp("/var/lib/", filename, 9) == 0) goto prog_exit_allowed;
 				/* Example: docker required /proc/self/exe */
 
-				if (strncmp("/proc/", filename, 6) == 0) goto prog_allowed;
+				if (strncmp("/proc/", filename, 6) == 0) goto prog_exit_allowed;
 
 				/* NOT allowed. */
 				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
 				return(-2);
 			}
 		}
-
 
 		/* --------------------------------------------------------------------------------- */
 		sprintf(str_user_id, "%u", user_id);				/* int to string */
@@ -278,6 +281,7 @@ static long allowed_deny_exec(const char *filename)
 				return(-2);
 			}
 		}
+
 
 		if (file_list_max > 0) {
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
@@ -318,6 +322,7 @@ static long allowed_deny_exec(const char *filename)
 				}
 			}
 
+
 			if (file_list_max > 0) {
 				/* Importend! need qsorted list */
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
@@ -327,7 +332,6 @@ static long allowed_deny_exec(const char *filename)
 				}
 			}
 		}
-
 
 		/* --------------------------------------------------------------------------------------------- */
 		/* allowed user */
@@ -356,214 +360,6 @@ static long allowed_deny_exec(const char *filename)
 			/* Importend! Need qsorted list */
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 		}
-
-
-		/* -------------------------------------------------------------------------------------------------- */
-		/* allowed groups */
-		group_info = get_current_groups();
-
-		for (n = 0; n < group_info->ngroups; n++) {
-			if (group_info->gid[n].val == 0) return(-2);			/* group root not allowed. My choice! */
-			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
-			str_length = strlen(str_group_id);				/* str_user_id len*/
-			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + ga: */
-
-			if (str_file_name != NULL) {
-				kfree(str_file_name);
-				str_file_name = NULL;
-			}
-
-			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-			strcpy(str_file_name, "ga:");
-			strcat(str_file_name, str_group_id);				/* str_group_id */
-			strcat(str_file_name, ";");					/* + semmicolon */
-			strcat(str_file_name, filename);				/* + filename */
-
-			if (folder_list_max > 0) {
-				/* Importend! Need qsorted list */
-				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allowed;
-			}
-
-			if (file_list_max > 0) {
-				/* Importend! Need qsorted list */
-				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
-			}
-		}
-
-		/* ------------------------------------------------------------------------------------------------- */
-		/* Not allowed */
-		printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
-		return(-2);
-	}
-
-
-prog_allowed:
-	if (printk_mode == 1) {
-		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
-	}
-
-	return(0);
-
-}
-
-
-static long allowed_deny(const char *filename,
-			 const char __user *const __user *argv,
-			 const char __user *const __user *envp)
-{
-	uid_t		user_id;
-	u32		n;
-	char		str_user_id[19];
-	char		str_group_id[19];
-
-	u64		str_length;
-	char		*str_file_name = NULL;
-
-	struct group_info *group_info;
-
-
-
-	user_id = get_current_user()->uid.val;
-
-	if (safer_mode == true) {
-		/* --------------------------------------------------------------------------------- */
-		/* my choice */
-		if (user_id == 0) {
-			if (safer_root_list_in_kernel == true) {
-				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
-				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
-				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
-				if (strncmp("/usr/sbin/", filename, 10) == 0) goto prog_allowed;
-				if (strncmp("/usr/games/", filename, 11) == 0)  goto prog_allowed;
-				if (strncmp("/usr/lib/", filename, 9) == 0)  goto prog_allowed;
-				if (strncmp("/usr/libexec/", filename, 13) == 0) goto prog_allowed;
-				if (strncmp("/usr/local/", filename, 11) == 0)  goto prog_allowed;
-				if (strncmp("/usr/share/", filename, 11) == 0)  goto prog_allowed;
-				/* my choice */
-				if (strncmp("/usr/scripts/", filename, 13) == 0) goto prog_allowed;
-
-				if (strncmp("/lib/", filename, 5) == 0) goto prog_allowed;
-				if (strncmp("/lib64/", filename, 7) == 0)  goto prog_allowed;
-				if (strncmp("/opt/", filename, 5) == 0) goto prog_allowed;
-				if (strncmp("/etc/", filename, 5) == 0) goto prog_allowed;
-
-				if (strncmp("/var/lib/", filename, 9) == 0) goto prog_allowed;
-				/* Example: docker required /proc/self/exe */
-
-				if (strncmp("/proc/", filename, 6) == 0) goto prog_allowed;
-
-				/* NOT allowed. */
-				printk("USER/PROG. not allowed : %u;%s\n", user_id, filename);
-				return(-2);
-			}
-		}
-
-
-		/* --------------------------------------------------------------------------------- */
-		sprintf(str_user_id, "%u", user_id);				/* int to string */
-		str_length = strlen(str_user_id);				/* str_user_id len*/
-		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + d: */
-
-		if (str_file_name != NULL) {
-			kfree(str_file_name);
-			str_file_name = NULL;
-		}
-
-		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-		strcpy(str_file_name, "d:");
-		strcat(str_file_name, str_user_id);				/* str_user_id */
-		strcat(str_file_name, ";");					/* + semmicolon */
-		strcat(str_file_name, filename);				/* + filename */
-
-		if (folder_list_max > 0) {
-			/* Importend! need qsorted list */
-			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
-			/* Not allowed */
-				printk("DENY LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
-				return(-2);
-			}
-		}
-
-		if (file_list_max > 0) {
-			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
-				/* Not allowed */
-				printk("DENY LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
-				return(-2);
-			}
-		}
-
-		/* -------------------------------------------------------------------------------------------------- */
-		/* deny groups */
-		group_info = get_current_groups();
-
-		for (n = 0; n < group_info->ngroups; n++) {
-
-			sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
-			str_length = strlen(str_group_id);				/* str_user_id len*/
-			str_length += strlen(filename) + 4;				/* plus 1 = semikolon + gd: */
-
-			if (str_file_name != NULL) {
-				kfree(str_file_name);
-				str_file_name = NULL;
-			}
-
-			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-			strcpy(str_file_name, "gd:");
-			strcat(str_file_name, str_group_id);				/* str_group_id */
-			strcat(str_file_name, ";");					/* + semmicolon */
-			strcat(str_file_name, filename);				/* + filename */
-
-			if (folder_list_max > 0) {
-				/* Importend! need qsorted list */
-				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
-					/* Not allowed */
-					printk("DENY GROUP LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
-					return(-2);
-				}
-			}
-
-			if (file_list_max > 0) {
-				/* Importend! need qsorted list */
-				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
-					/* Not allowed */
-					printk("DENY GROUP LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
-					return(-2);
-				}
-			}
-		}
-
-
-		/* --------------------------------------------------------------------------------------------- */
-		/* allowed user */
-		sprintf(str_user_id, "%u", user_id);				/* int to string */
-		str_length = strlen(str_user_id);				/* str_user_id len*/
-		str_length += strlen(filename) + 3;				/* plus 1 = semikolon + a: */
-
-		if (str_file_name != NULL) {
-			kfree(str_file_name);
-			str_file_name = NULL;
-		}
-
-		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-		strcpy(str_file_name, "a:");
-		strcat(str_file_name, str_user_id);				/* str_user_id */
-		strcat(str_file_name, ";");					/* + semmicolon */
-		strcat(str_file_name, filename);				/* + filename */
-
-		if (folder_list_max > 0) {
-			/* Importend! Need qsorted list */
-			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_allowed;
-		}
-
-		if (file_list_max > 0) {
-			/* Importend! Need qsorted list */
-			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
-		}
-
 
 		/* -------------------------------------------------------------------------------------------------- */
 		/* allowed groups */
@@ -608,27 +404,115 @@ static long allowed_deny(const char *filename,
 		return(-2);
 	}
 
-
 prog_allowed:
+
+	/* check script files.max 10 param. */
+	if (safer_mode == true) {
+		if (file_list_max > 0) {
+			if (strncmp(argv[0], "python", 6) == 0 || \
+				strcmp(argv[0], "perl") == 0 || \
+				strcmp(argv[0], "ruby") == 0 || \
+				strcmp(argv[0], "lua") == 0)  {
+
+				retval = count_strings_kernel(argv);
+
+				parameter_max = retval;
+				if (retval > 10) parameter_max = 10;
+				if (retval == 1) goto prog_exit_allowed;
+
+				for ( n = 1; n < parameter_max; n++) {
+				
+					sprintf(str_user_id, "%u", user_id);				/* int to string */
+					str_length = strlen(str_user_id);				/* str_user_id len*/
+					str_length += strlen(argv[n]) + 3;				/* plus 1 = semikolon + d: */
+
+					if (str_file_name != NULL) {
+						kfree(str_file_name);
+						str_file_name = NULL;
+					}
+
+					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+					strcpy(str_file_name, "a:");
+					strcat(str_file_name, str_user_id);				/* str_group_id */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, argv[n]);					/* + filename */
+
+					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
+				}
+
+				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
+
+			/* java special */
+			if (strcmp(argv[0], "java") == 0) {
+				retval = count_strings_kernel(argv); 					/* check Parameter */
+
+				parameter_max = retval;
+				if (retval > 10) parameter_max = 10;					/* Only 10 Parameters */
+				if (retval == 1) goto prog_exit_allowed;				/* without Parameters */
+
+				for ( n = 1; n < parameter_max; n++) {
+					if (strcmp(argv[n], "-classpath") != 0) continue;		/* if not "-classpath" found continue */
+					if ((n + 2) >= retval) break;					/* if "classpath" found, without programm name */
+
+					sprintf(str_user_id, "%u", user_id);				/* int to string */
+					str_length = strlen(str_user_id);				/* str_user_id len*/
+					str_length += strlen(argv[n+1]);				
+					str_length += strlen(argv[n+2]) + 5;				/* a:0;  plus "/" */
+
+					if (str_file_name != NULL) {
+						kfree(str_file_name);
+						str_file_name = NULL;
+					}
+
+					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+					strcpy(str_file_name, "a:");
+					strcat(str_file_name, str_user_id);				/* str_group_id */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, argv[n+1]);				/* + classpath */
+					strcat(str_file_name, "/");					/* + / */
+					strcat(str_file_name, argv[n+2]);				/* + filename */
+
+					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
+					/* only 1 search */
+					printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					return(-2);
+				}
+
+				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				return(-2);
+			}
+
+
+
+/* END SCRIPTS CHECK */
+/*-----------------------------------------------------------------*/
+		}
+	}
+
+prog_exit_allowed:
+
 	if (printk_mode == 1) {
 		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
+	}
 
+	if (printk_mode == true) {
 		/* max. argv */
-		for ( n = 1; n <= 32; n++) {
+		
+		for ( n = 0; n <= 32; n++) {
 			if (argv[n] != NULL) 
-				printk("%s:argv[%d] : %s\n", argv[0], n, argv[n]);
+				printk("%s :argv[%d] : %s\n", filename, n, argv[n]);
 			else break;
+
 		}
 	}
 
 	return(0);
 
 }
-
-
-
-
-
 
 
 
@@ -860,4 +744,14 @@ SYSCALL_DEFINE2(set_execve,
 }
 
 
+
+SYSCALL_DEFINE3(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp)
+{
+	if (allowed_deny_exec(filename, argv) == -2) return(-2);
+
+	return do_execve(getname(filename), argv, envp);
+}
 
