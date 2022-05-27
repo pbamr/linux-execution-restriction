@@ -118,6 +118,7 @@ static char	**folder_list;
 static char	**proc_folder_list;
 static long	folder_list_max = 0;
 
+static bool	no_change = true;
 
 
 
@@ -127,6 +128,7 @@ struct info_safer_struct {
 	bool safer_mode;
 	bool printk_mode;
 	bool safer_root_list_in_kernel;
+	bool no_change;
 	u8 search_mode;
 	long file_list_max;
 	long folder_list_max;
@@ -144,12 +146,12 @@ void info_safer(struct info_safer_struct *info)
 	info->printk_mode = printk_mode;
 	info->search_mode = search_mode;
 	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
+	info->no_change = no_change;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
 	info->file_list = proc_file_list;
 	info->folder_list = proc_folder_list;
 }
-
 
 
 
@@ -205,7 +207,6 @@ static int besearch_folder(char *str_search, char **list, long elements)
 
 
 
-
 static int allowed_deny_exec(const char *filename, const char __user *const __user *argv) 
 {
 	uid_t	user_id;
@@ -220,6 +221,17 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 	struct group_info *group_info;
 
+
+
+	if (printk_mode == true) {
+		/* max. argv */
+		
+		for ( n = 0; n <= 32; n++) {
+			if (argv[n] != NULL) 
+				printk("%s :argv[%d] : %s\n", filename, n, argv[n]);
+			else break;
+		}
+	}
 
 	user_id = get_current_user()->uid.val;
 
@@ -409,10 +421,12 @@ prog_allowed:
 	/* check script files.max 10 param. */
 	if (safer_mode == true) {
 		if (file_list_max > 0) {
-			if (strncmp(argv[0], "python", 6) == 0 || \
-				strcmp(argv[0], "perl") == 0 || \
-				strcmp(argv[0], "ruby") == 0 || \
-				strcmp(argv[0], "lua") == 0)  {
+
+
+			if (strstr(filename, "/python") != NULL || \
+				strstr(filename, "/perl") != NULL || \
+				strstr(filename, "/ruby") != NULL || \
+				strstr(filename, "/lua") != NULL)  {
 
 				retval = count_strings_kernel(argv);
 
@@ -434,19 +448,19 @@ prog_allowed:
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
 					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_group_id */
+					strcat(str_file_name, str_user_id);				/* str_user_id */
 					strcat(str_file_name, ";");					/* + semmicolon */
 					strcat(str_file_name, argv[n]);					/* + filename */
 
 					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 				}
 
-				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				printk("ALLOWED LIST USER/PROG. <SCRIPT> not allowed : %u;%s\n", user_id, filename);
 				return(-2);
 			}
 
 			/* java special */
-			if (strcmp(argv[0], "java") == 0) {
+			if (strstr(filename, "/java") != NULL) {
 				retval = count_strings_kernel(argv); 					/* check Parameter */
 
 				parameter_max = retval;
@@ -470,7 +484,7 @@ prog_allowed:
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
 					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_group_id */
+					strcat(str_file_name, str_user_id);				/* str_user_id */
 					strcat(str_file_name, ";");					/* + semmicolon */
 					strcat(str_file_name, argv[n+1]);				/* + classpath */
 					strcat(str_file_name, "/");					/* + / */
@@ -478,11 +492,11 @@ prog_allowed:
 
 					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 					/* only 1 search */
-					printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+					printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s, \n", user_id, filename);
 					return(-2);
 				}
 
-				printk("ALLOWED LIST USER/PROG. not allowed : %u;%s\n", user_id, filename);
+				printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s\n", user_id, filename);
 				return(-2);
 			}
 
@@ -499,21 +513,12 @@ prog_exit_allowed:
 		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
 	}
 
-	if (printk_mode == true) {
-		/* max. argv */
-		
-		for ( n = 0; n <= 32; n++) {
-			if (argv[n] != NULL) 
-				printk("%s :argv[%d] : %s\n", filename, n, argv[n]);
-			else break;
-
-		}
-	}
 
 	return(0);
 
-}
 
+
+}
 
 
 /* SYSCALL NR: 459 or other */
