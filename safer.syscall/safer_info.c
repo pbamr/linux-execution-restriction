@@ -50,6 +50,7 @@ struct info_safer_struct {
 	bool safer_mode;
 	bool printk_mode;
 	bool safer_root_list_in_kernel;
+	bool no_change;
 	u8 search_mode;
 	long file_list_max;
 	long folder_list_max;
@@ -83,6 +84,10 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 	if (info.safer_root_list_in_kernel == true)
 		seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : OFF\n");
+
+	if (info.no_change == true)
+		seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : ON\n");
+	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
 	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.file_list_max);
 	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.folder_list_max);
