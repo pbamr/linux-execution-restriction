@@ -221,6 +221,17 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 	struct group_info *group_info;
 
 
+
+	if (printk_mode == true) {
+		/* max. argv */
+		
+		for ( n = 0; n <= 32; n++) {
+			if (argv[n] != NULL) 
+				printk("%s :argv[%d] : %s\n", filename, n, argv[n]);
+			else break;
+		}
+	}
+
 	user_id = get_current_user()->uid.val;
 
 	if (safer_mode == true) {
@@ -409,10 +420,12 @@ prog_allowed:
 	/* check script files.max 10 param. */
 	if (safer_mode == true) {
 		if (file_list_max > 0) {
-			if (strncmp(argv[0], "python", 6) == 0 || \
-				strcmp(argv[0], "perl") == 0 || \
-				strcmp(argv[0], "ruby") == 0 || \
-				strcmp(argv[0], "lua") == 0)  {
+
+
+			if (strstr(filename, "/python") != NULL || \
+				strstr(filename, "/perl") != NULL || \
+				strstr(filename, "/ruby") != NULL || \
+				strstr(filename, "/lua") != NULL)  {
 
 				retval = count_strings_kernel(argv);
 
@@ -446,7 +459,7 @@ prog_allowed:
 			}
 
 			/* java special */
-			if (strcmp(argv[0], "java") == 0) {
+			if (strstr(filename, "/java") != NULL) {
 				retval = count_strings_kernel(argv); 					/* check Parameter */
 
 				parameter_max = retval;
@@ -497,18 +510,6 @@ prog_exit_allowed:
 
 	if (printk_mode == 1) {
 		printk("USER/PROG. allowed          : %u;%s\n", user_id, filename);
-	}
-
-
-	if (printk_mode == true) {
-		/* max. argv */
-		
-		for ( n = 0; n <= 32; n++) {
-			if (argv[n] != NULL) 
-				printk("%s :argv[%d] : %s\n", filename, n, argv[n]);
-			else break;
-
-		}
 	}
 
 
