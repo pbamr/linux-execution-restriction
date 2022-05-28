@@ -216,7 +216,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 	u64	str_length;
 	char	*str_file_name = NULL;
-	s64	retval;
+	char	*str_classpath = NULL;
 	s64	parameter_max;
 
 	struct group_info *group_info;
@@ -428,11 +428,8 @@ prog_allowed:
 				strstr(filename, "/ruby") != NULL || \
 				strstr(filename, "/lua") != NULL)  {
 
-				retval = count_strings_kernel(argv);
-
-				parameter_max = retval;
-				if (retval > 10) parameter_max = 10;
-				if (retval == 1) goto prog_exit_allowed;
+				parameter_max = count_strings_kernel(argv);
+				if (parameter_max == 1) goto prog_exit_allowed;
 
 				for ( n = 1; n < parameter_max; n++) {
 				
@@ -461,20 +458,38 @@ prog_allowed:
 
 			/* java special */
 			if (strstr(filename, "/java") != NULL) {
-				retval = count_strings_kernel(argv); 					/* check Parameter */
-
-				parameter_max = retval;
-				if (retval > 10) parameter_max = 10;					/* Only 10 Parameters */
-				if (retval == 1) goto prog_exit_allowed;				/* without Parameters */
+				parameter_max = count_strings_kernel(argv);				/* check Parameter */
+				if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
+				if (parameter_max < 4) {
+					printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s\n", user_id, filename);
+					return(-2);
+				}
 
 				for ( n = 1; n < parameter_max; n++) {
-					if (strcmp(argv[n], "-classpath") != 0) continue;		/* if not "-classpath" found continue */
-					if ((n + 2) >= retval) break;					/* if "classpath" found, without programm name */
+					if (n == parameter_max - 2) {					/* PATH not possible */
+						printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s\n", user_id, filename);
+						return(-2);
+					}
+					if (strcmp(argv[n], "-classpath") == 0) break;
+				}
 
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(argv[n+1]);				
-					str_length += strlen(argv[n+2]) + 5;				/* a:0;  plus "/" */
+				/* hit -classpath */
+				sprintf(str_user_id, "%u", user_id);			/* int to string */
+				str_length = strlen(str_user_id);			/* str_user_id len*/
+				str_length += strlen(argv[n+1]);			/* PATH */
+				str_length += 4;					/* a:; / */
+
+				str_classpath = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+				strcpy(str_classpath, "a:");
+				strcat(str_classpath, str_user_id);				/* str_user_id */
+				strcat(str_classpath, ";");					/* + semmicolon */
+				strcat(str_classpath, argv[n+1]);
+
+
+				for (n = n; n < parameter_max - 2; n++) {
+
+					str_length += strlen(argv[n+2]);
 
 					if (str_file_name != NULL) {
 						kfree(str_file_name);
@@ -483,17 +498,12 @@ prog_allowed:
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
-					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, argv[n+1]);				/* + classpath */
-					strcat(str_file_name, "/");					/* + / */
-					strcat(str_file_name, argv[n+2]);				/* + filename */
+					strcat(str_file_name, str_classpath);				/* plus classpath */
+					strcat(str_file_name, "/");					/* plus / */
+					strcat(str_file_name, argv[n+2]);				/* plus filename */
+
 
 					if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
-					/* only 1 search */
-					printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s, \n", user_id, filename);
-					return(-2);
 				}
 
 				printk("ALLOWED LIST USER/PROG. <CLASS> not allowed : %u;%s\n", user_id, filename);
@@ -519,6 +529,8 @@ prog_exit_allowed:
 
 
 }
+
+
 
 
 /* SYSCALL NR: 459 or other */
