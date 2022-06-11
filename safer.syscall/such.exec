@@ -1,0 +1,64 @@
+#!/bin/bash
+
+#fpsafer deletes multiple entries
+
+#simple
+fehler_meldung() {
+	echo "Parameter: <PATH> <USER GROUP ID>"
+	echo 'Expample: such.exec /sbin "a:555;" >file_name'
+	echo 'Expample: such.exec /sbin "d:556;" >file_name'
+	echo 'Expample: such.exec /sbin "ga:557;" >file_name'
+	echo 'Expample: such.exec /sbin "gd:558;" >file_name'
+}
+
+case "$1" in
+'')
+	#echo "Parameter: <PATH>"
+	fehler_meldung
+	exit 1;
+	;;
+*)
+esac
+
+case "$2" in
+'')
+	#echo "Parameter: <USER GROUP ID>"
+	fehler_meldung
+	exit 1;
+	;;
+*)
+esac
+
+PATH=$1
+USER_GROUP=$2
+
+
+
+/usr/bin/find $PATH -executable >t
+
+LIST=t
+
+#delete FOLDER
+	while read zeile
+		do
+			/usr/bin/file $zeile | /bin/grep "ELF" >>a
+			/usr/bin/file $zeile | /bin/grep "executable" >>a
+			/usr/bin/file $zeile | /bin/grep "link to" >>a
+		done < $LIST;
+
+
+/usr/bin/cut -d: -f1 a > b
+
+LIST=b
+	
+	while read zeile
+		do
+			lisa=$(/bin/ls -lH $zeile)
+			array=(${lisa// / })
+			if [[ ${array[4]} == *[[:digit:]]* ]]
+				then echo "$USER_GROUP$zeile"
+			fi
+		done < $LIST;
+/bin/rm t
+/bin/rm a
+/bin/rm b
