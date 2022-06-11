@@ -60,8 +60,8 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 	
-			: string = allow/deny:USER-ID;PATH
-			: string = allow/deny:GROUP-ID;PATH
+			: string = allow:USER-ID;FILE-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
 	
 			: a:USER-ID;Path
 			: d:USER-ID;Path
@@ -70,20 +70,18 @@
 			: gd:GROUP-ID;Path
 	
 			: Example:
-			: a:100;/bin/test		= allow file
-			: a:100;/bin/test1		= allow file
+			: a:100;1234;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
 			: a:100;/usr/sbin/		= allow Folder
 	
 			: d:100;/usr/sbin/test		= deny file
 			: d:100;/usr/sbin/		= deny folder
 	
-			: ga:100;/usr/sbin/		= allow group folder
+			: ga:100;1234;/usr/sbin/		= allow group folder
 			: gd:100;/usr/bin/		= deny group folder
 			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;/usr/bin/mc		= allow group file
+			: ga:101;1234;/usr/bin/mc	= allow group file
 	
-			: The program turns it into USER-ID;PATH
-			: 100;/bin/test1
 	
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 	
@@ -155,6 +153,9 @@ begin
 	writeln('Parameter   :  7 Safer ROOT LIST IN KERNEL ON');
 	writeln('Parameter   :  8 Safer ROOT LIST IN KERNEL OFF');
 	writeln;
+	writeln('Parameter   :  9 Safer DO NOT allowed any more changes');
+	writeln;
+
 	writeln('Parameter   : 20 Safer SET FILE LIST');
 	writeln('            :    <safer list>');
 	writeln;
@@ -182,7 +183,7 @@ end;
 begin
 	if ParamCount = 1 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 8 then ErrorMessage;
+		if NUMBER > 9 then ErrorMessage;
 		
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
 		halt(0);

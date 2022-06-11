@@ -57,8 +57,8 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 	
-			: string = allow/deny:USER-ID;PATH
-			: string = allow/deny:GROUP-ID;PATH
+			: string = allow:USER-ID;FIL-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
 	
 			: a:USER-ID;Path
 			: d:USER-ID;Path
@@ -67,9 +67,9 @@
 			: gd:GROUP-ID;Path
 	
 			: Example:
-			: a:100;/bin/test		= allow file
-			: a:100;/bin/test1		= allow file
-			: a:100;/usr/sbin/		= allow Folder
+			: a:100;1224;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
+			: a:100;1234;/usr/sbin/	= allow Folder
 	
 			: d:100;/usr/sbin/test		= deny file
 			: d:100;/usr/sbin/		= deny folder
@@ -79,8 +79,6 @@
 			: gd:101;/usr/bin/mc		= deny group file
 			: ga:101;/usr/bin/mc		= allow group file
 	
-			: The program turns it into USER-ID;PATH
-			: 100;/bin/test1
 	
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 	
@@ -763,7 +761,6 @@ int ErrorMessage()
 void main(int argc, char *argv[]) {
 	
 /* #define VERSION_SYSCALL */
-	
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 459
 #else
