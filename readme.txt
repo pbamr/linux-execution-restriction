@@ -1,7 +1,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.03.28
+	Date		: 2022.03.28, 2022.06.11
 
 	Program		: safer.c
 	Path		: fs/
@@ -42,17 +42,19 @@
 			:  7 = ROOT LIST IN KERNEL ON
 			:  8 = ROOT LIST IN KERNEL OFF
 
+			:  9 = LOCK changes
+			
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
-			: string = allow/deny:USER-ID;PATH
-			: string = allow/deny:GROUP-ID;PATH
+			: string = allow:USER-ID;FILE-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
 
 			: Example:
-			: a:100;/bin/test		= allow file
-			: a:100;/bin/test1		= allow file
+			: a:100;1234;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
 			: a:100;/usr/sbin/		= allow Folder
 
 			: d:100;/usr/sbin/test		= deny file
@@ -60,8 +62,8 @@
 
 			: ga:100;/usr/sbin/		= allow group folder
 			: gd:100;/usr/bin/		= deny group folder
-			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;/usr/bin/mc		= allow group file
+			: gd:101;1234;/usr/bin/mc	= deny group file
+			: ga:101;1234;/usr/bin/mc	= allow group file
 
 			: The program turns it into USER-ID;PATH
 			: 100;/bin/test1
