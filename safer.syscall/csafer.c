@@ -57,8 +57,8 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 	
-			: string = allow/deny:USER-ID;PATH
-			: string = allow/deny:GROUP-ID;PATH
+			: string = allow:USER-ID;FIL-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
 	
 			: a:USER-ID;Path
 			: d:USER-ID;Path
@@ -67,9 +67,9 @@
 			: gd:GROUP-ID;Path
 	
 			: Example:
-			: a:100;/bin/test		= allow file
-			: a:100;/bin/test1		= allow file
-			: a:100;/usr/sbin/		= allow Folder
+			: a:100;1224;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
+			: a:100;1234;/usr/sbin/	= allow Folder
 	
 			: d:100;/usr/sbin/test		= deny file
 			: d:100;/usr/sbin/		= deny folder
@@ -79,8 +79,6 @@
 			: gd:101;/usr/bin/mc		= deny group file
 			: ga:101;/usr/bin/mc		= allow group file
 	
-			: The program turns it into USER-ID;PATH
-			: 100;/bin/test1
 	
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 	
@@ -734,6 +732,8 @@ int ErrorMessage()
 	printf("Parameter   :  7 Safer ROOT LIST IN KERNEL ON\n");
 	printf("Parameter   :  8 Safer ROOT LIST IN KERNEL OFF\n");
 	printf("\n");
+	printf("Parameter   :  9 Safer DO NOT allowed any more changes\n");
+	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
 	printf("\n");
@@ -760,8 +760,7 @@ int ErrorMessage()
 //--------------------------------------------------------------------------------------------------
 void main(int argc, char *argv[]) {
 	
-#define VERSION_SYSCALL
-	
+/* #define VERSION_SYSCALL */
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 459
 #else
@@ -774,7 +773,8 @@ void main(int argc, char *argv[]) {
 	
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0) ErrorMessage();
+		if (NUMBER < 0 || NUMBER > 9) ErrorMessage();
+		
 		
 #ifdef VERSION_SYSCALL
 		printf("%ld\n", syscall(SYSCALL_NR, 999900 + NUMBER));
