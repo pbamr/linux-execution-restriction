@@ -78,9 +78,6 @@
 
 /* change safer */
 #define pb_safer
-//#ifdef pb_safer
-//static int allowed_deny_exec(const char *filename, const char __user *const __user *__argv)
-//#endif
 
 
 

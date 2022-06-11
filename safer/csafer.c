@@ -69,7 +69,7 @@
 			: Example:
 			: a:100;1224;/bin/test		= allow file
 			: a:100;1234;/bin/test1		= allow file
-			: a:100;1234;/usr/sbin/	= allow Folder
+			: a:100;/usr/sbin/		= allow Folder
 	
 			: d:100;/usr/sbin/test		= deny file
 			: d:100;/usr/sbin/		= deny folder
@@ -77,7 +77,7 @@
 			: ga:100;/usr/sbin/		= allow group folder
 			: gd:100;/usr/bin/		= deny group folder
 			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;/usr/bin/mc		= allow group file
+			: ga:101;1234;/usr/bin/mc	= allow group file
 	
 	
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
