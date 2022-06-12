@@ -133,6 +133,7 @@ static long	folder_list_max = 0;
 
 static bool	no_change = true;
 
+static void	*data = NULL;
 
 
 
@@ -221,7 +222,6 @@ static int besearch_folder(char *str_search, char **list, long elements)
 
 
 
-
 static int allowed_deny_exec(const char *filename, const char __user *const __user *argv) 
 {
 	uid_t	user_id;
@@ -237,10 +237,11 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 	struct group_info *group_info;
 
-	void	*data;
 	size_t	file_size = 0;
 	int	ret;
 
+
+	/* Hash in the next? */
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 
 	if (printk_mode == true) {
@@ -253,9 +254,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		}
 	}
 
-
 	if (ret != 0) return(-2);
-
 
 	user_id = get_current_user()->uid.val;
 
@@ -471,6 +470,9 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				strcat(str_file_name, ";");					/* + semmicolon */
 				strcat(str_file_name, filename);				/* + filename */
 
+//printk("DEBUG 0: %s\n", str_file_name);
+
+
 				/* Importend! Need qsorted list */
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 			}
@@ -495,6 +497,7 @@ prog_allowed:
 		strstr(filename, "/perl") != NULL || \
 		strstr(filename, "/ruby") != NULL || \
 		strstr(filename, "/julia") != NULL || \
+		strstr(filename, "/Rscript") != NULL || \
 		strstr(filename, "/lua") != NULL)  {
 
 			parameter_max = count_strings_kernel(argv);
@@ -502,7 +505,9 @@ prog_allowed:
 
 			for ( n = 1; n < parameter_max; n++) {
 				file_size = 0;
-				if (kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY) == 0) {
+				/* HASH */
+				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
+				if (ret == 0) {
 					/* folder test */
 					if (folder_list_max > 0) {
 						sprintf(str_user_id, "%u", user_id);				/* int to string */
@@ -585,7 +590,8 @@ prog_allowed:
 						strcat(str_java_name, argv[3]);
 						strcat(str_java_name, ".class");
 
-						if (kernel_read_file_from_path(str_java_name, 0, &data, 0, &file_size, READING_POLICY) == 0) {
+						ret = kernel_read_file_from_path(str_java_name, 0, &data, 0, &file_size, READING_POLICY);
+						if (ret == 0) {
 							/* folder test */
 							if (folder_list_max > 0) { 
 								sprintf(str_user_id, "%u", user_id);				/* int to string */
@@ -637,8 +643,9 @@ prog_allowed:
 				//test "-jar" */
 				if (parameter_max == 3) {
 					if (strcmp(argv[1], "-jar") == 0) {
-						if (kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY) == 0) {
+						ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
 
+						if (ret == 0) {
 							/* folder test */
 							if (folder_list_max > 0) {
 								sprintf(str_user_id, "%u", user_id);				/* int to string */
