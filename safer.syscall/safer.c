@@ -117,7 +117,6 @@
 
 
 
-
 static bool	safer_mode = true;
 static bool	printk_mode = true;
 static u8	search_mode = 0;
@@ -166,6 +165,7 @@ void info_safer(struct info_safer_struct *info)
 	info->file_list = proc_file_list;
 	info->folder_list = proc_folder_list;
 }
+
 
 
 
@@ -243,20 +243,21 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 	/* Hash in the next? */
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
+	user_id = get_current_user()->uid.val;
+
 
 	if (printk_mode == true) {
 		/* max. argv */
 		
 		for ( n = 0; n <= 32; n++) {
 			if (argv[n] != NULL)
-				printk("%s  size:%lu  argv[%d]:%s\n", filename, file_size, n, argv[n]);
+				printk("USER ID:%u, PROG:%s, SIZE:%lu, argv[%d]:%s\n", user_id, filename, file_size, n, argv[n]);
 			else break;
 		}
 	}
 
 	if (ret != 0) return(-2);
 
-	user_id = get_current_user()->uid.val;
 
 	if (safer_mode == true) {
 		/* --------------------------------------------------------------------------------- */
@@ -725,9 +726,9 @@ SYSCALL_DEFINE2(set_execve,
 		const char __user *const __user *, list)
 {
 
-	uid_t		user_id;
-	u32		n, error_n;
-	long		int_ret;
+	uid_t	user_id;
+	u32	n, error_n;
+	long	int_ret;
 
 
 
@@ -738,6 +739,8 @@ SYSCALL_DEFINE2(set_execve,
 	switch(number) {
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER ON\n");
 #endif
@@ -747,6 +750,8 @@ SYSCALL_DEFINE2(set_execve,
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
 #endif
@@ -756,6 +761,8 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
 #endif
@@ -764,6 +771,8 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ON\n");
 #endif
@@ -773,6 +782,8 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
 #endif
@@ -783,26 +794,33 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("CLEAR FILE LIST!\n");
 #endif
 				if (file_list_max != 0) {
 					for (n = 0; n < file_list_max; n++) {
 						kfree(file_list[n]);
+						kfree(proc_file_list[n]);
 					}
 					kfree(file_list);
+					kfree(proc_file_list);
 					file_list_max = 0;
 				}
 				return(0);
 
 		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("CLEAR FOLDER LIST!\n");
 #endif
 				if (folder_list_max != 0) {
 					for (n = 0; n < folder_list_max; n++) {
 						kfree(folder_list[n]);
+						kfree(proc_file_list[n]);
 					}
 					kfree(folder_list);
 					folder_list_max = 0;
@@ -810,6 +828,8 @@ SYSCALL_DEFINE2(set_execve,
 				return(0);
 
 		case 999907:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
 #endif
@@ -818,6 +838,8 @@ SYSCALL_DEFINE2(set_execve,
 
 
 		case 999908:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
+
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
 #endif
@@ -825,8 +847,19 @@ SYSCALL_DEFINE2(set_execve,
 				return(0);
 
 
+		case 999909:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1);
+
+#ifdef PRINTK
+				printk("MODE: NO MORE CHANGES ALLOWED\n");
+#endif
+				no_change = false;
+				return(0);
+
+
 		/* set all list */
 		case 999920:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
@@ -839,8 +872,10 @@ SYSCALL_DEFINE2(set_execve,
 				if (file_list_max > 0) {
 					for (n = 0; n < file_list_max; n++) {
 						kfree(file_list[n]);
+						kfree(proc_file_list[n]);
 					}
 					kfree(file_list);
+					kfree(proc_file_list);
 				}
 
 				int_ret = kstrtol(list[0], 10, &file_list_max);
@@ -880,10 +915,20 @@ SYSCALL_DEFINE2(set_execve,
 					}
 					strcpy(file_list[n], list[n+1]);
 				}
+
+				proc_file_list = kmalloc(file_list_max * sizeof(char *), GFP_KERNEL);
+				if (proc_file_list == NULL) { file_list_max = 0; return(-1); }
+
+				for (n = 0; n < file_list_max; n++) {
+					proc_file_list[n] = kmalloc((strlen(file_list[n]) + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(proc_file_list[n], file_list[n]);
+				}
+
 				return(file_list_max);
 
 		/* set all folder list */
 		case 999921:	if (user_id != 0) return(-1);
+				if (no_change == false) return(-1); 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
@@ -896,8 +941,10 @@ SYSCALL_DEFINE2(set_execve,
 				if (folder_list_max > 0) {
 					for (n = 0; n < folder_list_max; n++) {
 						kfree(folder_list[n]);
+						kfree(proc_folder_list[n]);
 					}
 					kfree(folder_list);
+					kfree(proc_folder_list);
 				}
 
 				int_ret = kstrtol(list[0], 10, &folder_list_max);
@@ -938,13 +985,25 @@ SYSCALL_DEFINE2(set_execve,
 					}
 					strcpy(folder_list[n], list[n+1]);
 				}
+
+				proc_folder_list = kmalloc(folder_list_max * sizeof(char *), GFP_KERNEL);
+				for (n = 0; n < folder_list_max; n++) {
+					proc_folder_list[n] = kmalloc((strlen(folder_list[n]) + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(proc_folder_list[n], folder_list[n]);
+				}
+
 				return(folder_list_max);
 
 		default:	printk("ERROR: COMMAND NOT IN LIST\n");
 				return(-1);
+
 	}
 
 }
+
+
+
+
 
 
 

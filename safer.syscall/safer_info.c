@@ -44,7 +44,6 @@
 
 
 
-
 /* decl. */
 struct info_safer_struct {
 	bool safer_mode;
@@ -57,6 +56,7 @@ struct info_safer_struct {
 	char **file_list;
 	char **folder_list;
 };
+
 
 
 
@@ -96,17 +96,16 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 
 	seq_printf(proc_show, "\n\n");
 
+	seq_printf(proc_show, "FOLDER:\n\n");
 	for (n = 0; n < info.folder_list_max; n++) {
 		seq_printf(proc_show, "%s\n", info.folder_list[n]);
 	}
 
 	seq_printf(proc_show, "\n\n");
-
-
+	seq_printf(proc_show, "FILES:\n\n");
 	for (n = 0; n < info.file_list_max; n++) {
 		seq_printf(proc_show, "%s\n", info.file_list[n]);
 	}
-
 
 	return 0;
 }
