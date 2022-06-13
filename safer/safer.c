@@ -240,7 +240,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		
 		for ( n = 0; n <= 32; n++) {
 			if (argv[n] != NULL)
-				printk("%s  size:%lu  argv[%d]:%s\n", filename, file_size, n, argv[n]);
+				printk("USER ID:%u, PROG:%s, SIZE:%lu, argv[%d]:%s\n", user_id, filename, file_size, n, argv[n]);
 			else break;
 		}
 	}
@@ -811,6 +811,7 @@ SYSCALL_DEFINE5(execve,
 				if (folder_list_max != 0) {
 					for (n = 0; n < folder_list_max; n++) {
 						kfree(folder_list[n]);
+						kfree(proc_file_list[n]);
 					}
 					kfree(folder_list);
 					folder_list_max = 0;
