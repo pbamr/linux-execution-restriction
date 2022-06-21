@@ -85,7 +85,7 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : OFF\n");
 
-	if (info.no_change == true)
+	if (info.no_change == false)
 		seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
@@ -96,17 +96,16 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 
 	seq_printf(proc_show, "\n\n");
 
+	seq_printf(proc_show, "FOLDER:\n\n");
 	for (n = 0; n < info.folder_list_max; n++) {
 		seq_printf(proc_show, "%s\n", info.folder_list[n]);
 	}
 
 	seq_printf(proc_show, "\n\n");
-
-
+	seq_printf(proc_show, "FILES:\n\n");
 	for (n = 0; n < info.file_list_max; n++) {
 		seq_printf(proc_show, "%s\n", info.file_list[n]);
 	}
-
 
 	return 0;
 }
