@@ -85,7 +85,7 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : OFF\n");
 
-	if (info.no_change == false)
+	if (info.no_change == true)
 		seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
