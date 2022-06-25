@@ -16,22 +16,25 @@
  */
 
 
-
 /*
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.23, 2022.06.11
+	Date		: 2022.03.28, 2022.06.11
 
 	Program		: safer.c
 	Path		: fs/
 
-	Functionality	: Programm execution restriction
+			: Program with SYSCALL
+
+			: in x86_64/amd64 syscall_64.tbl
+			: 459	common	set_execve		sys_set_execve
+
+	Functionality	: Program execution restriction
 			: Like Windows Feature "Safer"
 			: Control only works as root
 
 			: USER and GROUPS
-			  IMPORTANT: file size will test
 
 			: Extension of SYSCALL <execve>
 			  You found <replaces> under "pb_safer"
@@ -66,7 +69,7 @@
 			: 999907 = ROOT LIST IN KERNEL ON
 			: 999908 = ROOT LIST IN KERNEL OFF
 
-			: 999909 = LOCK changes
+			: 999909 = LOCK CHANGES
 
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
@@ -89,26 +92,28 @@
 			: String 0 = Number of strings
 
 			: string = USER-ID;FILE-SIZE;PATH
-			: string = GROUP-ID;FILE-SIZEPATH
+			: string = GROUP-ID;FILE-SIZE;PATH
 			: string = File Size
+
+			: example:
+				a:0;1234;/path
+				d:0;/path
+				ga:0;1234;path
+				d:0;/path
+				gd:0;path
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
 
 	Thanks		: Linus Torvalds and others
 
-
-
-	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
-	Admirable ballet dancers.
-
+	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
 
 */
 
 
 #define PRINTK
 #define MAX_DYN 100000
-
 
 
 
@@ -125,7 +130,7 @@ static char	**folder_list;
 static char	**proc_folder_list;
 static long	folder_list_max = 0;
 
-static bool	no_change = false;
+static bool	no_change = true;
 
 static void	*data = NULL;
 
@@ -160,6 +165,7 @@ void info_safer(struct info_safer_struct *info)
 	info->file_list = proc_file_list;
 	info->folder_list = proc_folder_list;
 }
+
 
 
 
@@ -889,6 +895,7 @@ prog_exit_allowed:
 
 
 
+
 static int allowed_deny_exec_sec(const char *filename)
 {
 	uid_t	user_id;
@@ -1151,18 +1158,12 @@ prog_allowed:
 
 
 
-
-
-
-
-
-SYSCALL_DEFINE5(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp,
+/* SYSCALL NR: 459 or other */
+SYSCALL_DEFINE2(set_execve,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
+
 	uid_t	user_id;
 	u32	n, error_n;
 	long	int_ret;
@@ -1176,7 +1177,7 @@ SYSCALL_DEFINE5(execve,
 	switch(number) {
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("MODE: SAFER ON\n");
@@ -1187,7 +1188,7 @@ SYSCALL_DEFINE5(execve,
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
@@ -1198,7 +1199,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
@@ -1208,7 +1209,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ON\n");
@@ -1219,7 +1220,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
@@ -1231,7 +1232,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("CLEAR FILE LIST!\n");
@@ -1249,7 +1250,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("CLEAR FOLDER LIST!\n");
@@ -1265,7 +1266,7 @@ SYSCALL_DEFINE5(execve,
 				return(0);
 
 		case 999907:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
@@ -1275,7 +1276,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999908:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
@@ -1285,24 +1286,24 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999909:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
-				no_change = true;
+				no_change = false;
 				return(0);
 
 
 		/* set all list */
 		case 999920:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: FILE LIST\n");
+				printk("ERROR: FILE LIST\n"); 
 #endif
-					return(-1);
+					return(-1); 
 				} /* check!? */
 
 				/* clear */
@@ -1322,14 +1323,14 @@ SYSCALL_DEFINE5(execve,
 #ifdef PRINTK
 					printk("NO FILE LIST\n");
 #endif
-					return(-1);
+					return(-1); 
 				}
 
 				if (file_list_max > MAX_DYN) {
 #ifdef PRINTK
 					printk("FILE LIST TO BIG!\n");
 #endif
-					return(-1);
+					return(-1); 
 				}
 
 #ifdef PRINTK
@@ -1365,13 +1366,13 @@ SYSCALL_DEFINE5(execve,
 
 		/* set all folder list */
 		case 999921:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change == false) return(-1); 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: FOLDER LIST\n");
+				printk("ERROR: FOLDER LIST\n"); 
 #endif
-					return(-1);
+					return(-1); 
 				} /* check!? */
 
 				/* clear */
@@ -1392,15 +1393,16 @@ SYSCALL_DEFINE5(execve,
 #ifdef PRINTK
 					printk("NO FOLDER LIST\n");
 #endif
-					return(-1);
+					return(-1); 
 				}
 
 				if (folder_list_max > MAX_DYN) {
 #ifdef PRINTK
 					printk("FOLDER LIST TO BIG!\n");
 #endif
-					return(-1);
+					return(-1); 
 				}
+
 #ifdef PRINTK
 				printk("FOLDER LIST ELEMENTS: %ld\n", folder_list_max);
 #endif
@@ -1430,17 +1432,26 @@ SYSCALL_DEFINE5(execve,
 
 				return(folder_list_max);
 
-		default:	break;
+		default:	printk("ERROR: COMMAND NOT IN LIST\n");
+				return(-1);
+
 	}
-
-
-	if (allowed_deny_exec(filename, argv) == -2) return(-2);
-
-
-	return do_execve(getname(filename), argv, envp);
 
 }
 
 
 
+
+
+
+
+SYSCALL_DEFINE3(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp)
+{
+	if (allowed_deny_exec(filename, argv) == -2) return(-2);
+
+	return do_execve(getname(filename), argv, envp);
+}
 
