@@ -15,7 +15,7 @@
 
 			: Program is compiled without ERRORS and WARNINGS
 
-	Frontend	: fpsafer.pas, csafer
+	Frontend	: fpsafer.pas, csafer.c
 			: Simple Control Program for Extension <SYSCALL execve>
 			: It only works as ROOT
 
@@ -42,6 +42,11 @@
 			:  7 = ROOT LIST IN KERNEL ON
 			:  8 = ROOT LIST IN KERNEL OFF
 
+			:  9 = LOCK changes
+
+			: 10 = HISTORY ON
+			: 11 = HISTORY OFF
+ 
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 
@@ -49,20 +54,20 @@
 			: String 0 = Number of strings
 			: string = allow/deny:USER-ID;FILE-SIZE;PATH
 			: string = allow/deny:GROUP-ID;PATH
+			: folder = "/" last char
 
 			: Example:
 			: a:100;1234;/bin/test		= allow file
 			: a:100;1234;/bin/test1		= allow file
-			: a:100;1234;/usr/sbin/		= allow Folder
+			: a:100;/usr/sbin/		= allow Folder
 
 			: d:100;/usr/sbin/test		= deny file
-			: d:100;/usr/sbin/		= deny file
+			: d:100;/usr/sbin/		= deny folder
 
-			: ga:100;1234;/usr/sbin/	= allow group folder
-			: gd:100;1234;/usr/bin/		= deny group folder
+			: ga:100;/usr/sbin/		= allow group folder
+			: gd:100;/usr/bin/		= deny group folder
 			: gd:101;/usr/bin/mc		= deny group file
 			: ga:101;1234;/usr/bin/mc	= allow group file
-
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 

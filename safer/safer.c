@@ -68,6 +68,9 @@
 
 			: 999909 = LOCK changes
 
+			: 999910 = History ON
+			: 999911 = History OFF
+
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
 
@@ -114,30 +117,34 @@
 
 static bool	safer_mode = true;
 static bool	printk_mode = true;
-static u8	search_mode = 0;
-static bool	safer_root_list_in_kernel = true;
+static bool	safer_root_list_in_kernel_mode = true;
+static bool	history_mode = true;
+static bool	no_change_mode = false;
 
-static char	**file_list;
-static char	**proc_file_list;
+static char	**file_list = NULL;
+static char	**proc_file_list = NULL;
+static char	**file_history_list = NULL;
+static char	**file_argv_list = NULL;
+static long	file_history_list_max = 0;
+static long	file_argv_list_max = 0;
 static long	file_list_max = 0;
+
 
 static char	**folder_list;
 static char	**proc_folder_list;
 static long	folder_list_max = 0;
-
-static bool	no_change = false;
 
 static void	*data = NULL;
 
 
 
 /* decl. */
-struct info_safer_struct {
+struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
-	bool safer_root_list_in_kernel;
-	bool no_change;
-	u8 search_mode;
+	bool history_mode;
+	bool no_change_mode;
+	bool safer_root_list_in_kernel_mode;
 	long file_list_max;
 	long folder_list_max;
 	char **file_list;
@@ -145,20 +152,41 @@ struct info_safer_struct {
 };
 
 
-
-
 /* DATA: Only over function */
-void info_safer(struct info_safer_struct *info)
+void safer_info(struct safer_info_struct *info)
 {
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
-	info->search_mode = search_mode;
-	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
-	info->no_change = no_change;
+	info->history_mode = history_mode;
+	info->no_change_mode = no_change_mode;
+	info->safer_root_list_in_kernel_mode = safer_root_list_in_kernel_mode;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
 	info->file_list = proc_file_list;
 	info->folder_list = proc_folder_list;
+}
+
+
+
+
+/* decl. */
+struct  safer_history_struct {
+	long file_history_list_max;
+	char **file_history_list;
+	long file_argv_list_max;
+	char **file_argv_list;
+};
+
+
+
+/* DATA: Only over function */
+void safer_history(struct safer_history_struct *history)
+{
+	history->file_history_list_max = file_history_list_max;
+	history->file_history_list = file_history_list;
+	history->file_argv_list_max = file_argv_list_max;
+	history->file_argv_list = file_argv_list;
+
 }
 
 
@@ -217,7 +245,22 @@ static int besearch_folder(char *str_search, char **list, long elements)
 
 
 
-static int allowed_deny_exec(const char *filename, const char __user *const __user *argv) 
+static long search(char *str_search, char **list, long elements)
+{
+	long n;
+
+	for (n = 0; n < elements; n++) {
+		if (strncmp(list[n], str_search, strlen(list[n])) == 0) return(0);
+	}
+
+	return(-1);
+}
+
+
+
+
+
+static int allowed_deny_exec(const char *filename, const char __user *const __user *argv)
 {
 	uid_t	user_id;
 	u32	n, n0;
@@ -236,10 +279,51 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 	int	ret;
 
 
-
-	/* Hash in the next? */
-	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 	user_id = get_current_user()->uid.val;
+
+	if (history_mode == true) {
+		parameter_max = count_strings_kernel(argv);
+		if (parameter_max > 16) parameter_max = 16;
+
+		for (n = 1; n < parameter_max; n++) {
+			ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
+			if (ret == 0) {
+				sprintf(str_user_id, "%u", user_id);				/* int to string */
+				sprintf(str_file_size, "%lu", file_size);			/* int to string */
+				str_length = strlen(str_user_id);				/* str_user_id len*/
+				str_length += strlen(str_file_size);				/* str_user_id len*/
+				str_length += strlen(argv[n]) + 4;				/* plus 2 semikolon + a: */
+
+				if (str_file_name != NULL) {
+					kfree(str_file_name);
+					str_file_name = NULL;
+				}
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+				strcpy(str_file_name, "a:");
+				strcat(str_file_name, str_user_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, argv[n]);					/* + filename */
+
+				if (file_history_list_max > 0) {
+					if (search(str_file_name, file_history_list, file_history_list_max) == 0) continue;
+				}
+
+				if (file_argv_list_max > 0) {
+					if (search(str_file_name, file_argv_list, file_argv_list_max) == 0) continue;
+				}
+
+				file_argv_list_max += 1;
+				file_argv_list = krealloc(file_argv_list, file_argv_list_max * sizeof(char *), GFP_KERNEL);
+				file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
+			}
+		}
+	}
+
+	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 
 	if (printk_mode == true) {
 		/* max. argv */
@@ -257,7 +341,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
-			if (safer_root_list_in_kernel == true) {
+			if (safer_root_list_in_kernel_mode == true) {
 				if (strncmp("/bin/", filename, 5) == 0) goto prog_exit_allowed;
 				if (strncmp("/sbin/", filename, 6) == 0) goto prog_exit_allowed;
 				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_exit_allowed;
@@ -394,7 +478,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		/* allowed groups file */
 		group_info = get_current_groups();
 		for (n = 0; n < group_info->ngroups; n++) {
-			//if (group_info->gid[n].val == 0) continue;				/* group root not allowed. My choice! */
+			/* if (group_info->gid[n].val == 0) continue; */				/* group root not allowed. My choice! */
 
 			/* allowed groups file */
 			if (file_list_max > 0) {
@@ -508,7 +592,7 @@ prog_allowed:
 				/* HASH */
 				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
 				if (ret == 0) {
-					//group_info = get_current_groups();
+					/* group_info = get_current_groups(); */
 
 					/* deny ---------------------------------------------------------------------- */
 					/* deny user folder */
@@ -567,7 +651,7 @@ prog_allowed:
 
 					/* deny group folder */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/* if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -596,7 +680,7 @@ prog_allowed:
 
 					/* deny group file */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/*if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -650,7 +734,7 @@ prog_allowed:
 
 					/* allowed group file */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/*if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -701,7 +785,7 @@ prog_allowed:
 
 					/* allowed group folder */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/* if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -746,7 +830,7 @@ prog_allowed:
 			if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
 
 
-			//test "-classpath" */
+			/* test "-classpath" */
 			if (parameter_max == 4) {
 				if (strcmp(argv[1], "-classpath") == 0) {
 					if (str_java_name != NULL) {
@@ -822,7 +906,7 @@ prog_allowed:
 			}
 		}
 
-		//test "-jar" */
+		/* test "-jar" */
 		if (parameter_max == 3) {
 			if (strcmp(argv[1], "-jar") == 0) {
 				ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
@@ -910,12 +994,50 @@ static int allowed_deny_exec_sec(const char *filename)
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 	user_id = get_current_user()->uid.val;
 
+	if (history_mode == true) {
+		if (ret == 0) {
+			sprintf(str_user_id, "%u", user_id);				/* int to string */
+			sprintf(str_file_size, "%lu", file_size);			/* int to string */
+			str_length = strlen(str_user_id);				/* str_user_id len*/
+			str_length += strlen(str_file_size);				/* str_user_id len*/
+			str_length += strlen(filename) + 4;				/* plus 2 semikolon + a: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "a:");
+			strcat(str_file_name, str_user_id);				/* str_user_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, str_file_size);				/* str_file_size */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			if (file_history_list_max > 0) {
+				if (search(str_file_name, file_history_list, file_history_list_max) != 0) {
+					file_history_list_max += 1;
+					file_history_list = krealloc(file_history_list, file_history_list_max * sizeof(char *), GFP_KERNEL);
+					file_history_list[file_history_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(file_history_list[file_history_list_max -1], str_file_name);
+				}
+			}
+			else {
+				file_history_list_max += 1;
+				file_history_list = krealloc(file_history_list, file_history_list_max * sizeof(char *), GFP_KERNEL);
+				file_history_list[file_history_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				strcpy(file_history_list[file_history_list_max - 1], str_file_name);
+			}
+		}
+	}
+
 
 	if (safer_mode == true) {
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
-			if (safer_root_list_in_kernel == true) {
+			if (safer_root_list_in_kernel_mode == true) {
 				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
 				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
 				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
@@ -1176,7 +1298,7 @@ SYSCALL_DEFINE5(execve,
 	switch(number) {
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ON\n");
@@ -1187,7 +1309,7 @@ SYSCALL_DEFINE5(execve,
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
@@ -1198,7 +1320,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
@@ -1208,7 +1330,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ON\n");
@@ -1219,7 +1341,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
@@ -1231,7 +1353,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("CLEAR FILE LIST!\n");
@@ -1249,7 +1371,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("CLEAR FOLDER LIST!\n");
@@ -1265,42 +1387,63 @@ SYSCALL_DEFINE5(execve,
 				return(0);
 
 		case 999907:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
 #endif
-				safer_root_list_in_kernel = true;
+				safer_root_list_in_kernel_mode = true;
 				return(0);
 
 
 		case 999908:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
 #endif
-				safer_root_list_in_kernel = false;
+				safer_root_list_in_kernel_mode = false;
 				return(0);
 
 
 		case 999909:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
-				no_change = true;
+				no_change_mode = true;
+				return(0);
+
+		case 999910:	if (user_id != 0) return(-1);
+				if (no_change_mode == true) return(-1);
+
+#ifdef PRINTK
+				printk("MODE: history ON\n");
+#endif
+				history_mode = true;
+
+				return(0);
+
+
+		case 999911:	if (user_id != 0) return(-1);
+				if (no_change_mode == true) return(-1);
+
+#ifdef PRINTK
+				printk("MODE: history OFF\n");
+#endif
+				history_mode = false;
+
 				return(0);
 
 
 		/* set all list */
 		case 999920:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: FILE LIST\n");
+					printk("ERROR: FILE LIST\n");
 #endif
 					return(-1);
 				} /* check!? */
@@ -1365,11 +1508,11 @@ SYSCALL_DEFINE5(execve,
 
 		/* set all folder list */
 		case 999921:	if (user_id != 0) return(-1);
-				if (no_change == true) return(-1);
+				if (no_change_mode == true) return(-1);
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: FOLDER LIST\n");
+					printk("ERROR: FOLDER LIST\n");
 #endif
 					return(-1);
 				} /* check!? */
@@ -1435,7 +1578,6 @@ SYSCALL_DEFINE5(execve,
 
 
 	if (allowed_deny_exec(filename, argv) == -2) return(-2);
-
 
 	return do_execve(getname(filename), argv, envp);
 

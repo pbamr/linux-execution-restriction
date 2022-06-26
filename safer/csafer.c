@@ -37,7 +37,7 @@
 	
 	List		: ALLOW and DENY list
 			: a: = ALLOW, d: = DENY
-			: a:USER;Path
+			: a:USER;FILE-SIZE;Path
 			: d:USER;Path
 	
 	
@@ -57,7 +57,7 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 	
-			: string = allow:USER-ID;FIL-SIZE;PATH
+			: string = allow:USER-ID;FILE-SIZE;PATH
 			: string = deny:GROUP-ID;PATH
 	
 			: a:USER-ID;Path
@@ -734,11 +734,19 @@ int ErrorMessage()
 	printf("\n");
 	printf("Parameter   :  9 Safer DO NOT allowed any more changes\n");
 	printf("\n");
+	printf("Parameter   : 10 Safer MODE: HISTORY ON\n");
+	printf("\n");
+	printf("Parameter   : 11 Safer MODE: HISTORY OFF\n");
+	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
 	printf("\n");
 	printf("Parameter   : 21 Safer SET FOLDER LIST\n");
 	printf("            :    <safer list>\n");
+	printf("\n");
+	printf("Parameter   : 30 Safer LIST SORT\n");
+	printf("            :    <safer list>\n");
+
 	printf("\n");
 	printf("\n");
 	exit(0);
@@ -773,7 +781,7 @@ void main(int argc, char *argv[]) {
 	
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0 || NUMBER > 9) ErrorMessage();
+		if (NUMBER < 0 || NUMBER > 11) ErrorMessage();
 		
 		
 #ifdef VERSION_SYSCALL
@@ -905,6 +913,61 @@ void main(int argc, char *argv[]) {
 					
 					exit(0);
 					
+					
+					
+			case 30:	TStringListCreate(&all_list);
+					TStringListCreate(&file_list);
+					all_list.SetDelDUP(&all_list, true);
+					all_list.LoadFromFile(&all_list, argv[2]);
+					
+					if (all_list.TStringList_Lines == -1) ErrorMessage();
+					
+					for (s64 n = 0; n < all_list.TStringList_Lines; n++) {
+						if (strncmp(all_list.TStringList[n], "a:", 2) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+						
+						if (strncmp(all_list.TStringList[n], "d:", 2) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+						
+						if (strncmp(all_list.TStringList[n], "ga:", 3) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+						
+						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+						}
+					}
+					
+					if (file_list.TStringList_Lines == -1 ) { printf("ERROR: NO ELEMENT IN LIST\n"); exit(1); }
+					
+					file_list.Sort(&file_list);
+					TStringListCreate(&work_list);
+					//char str_len [19];
+					sprintf(str_len, "%u", file_list.TStringList_Lines);	/* int to string */
+					work_list.Add(&work_list, str_len);
+					for (s64 n = 0; n < file_list.TStringList_Lines; n++) {
+						work_list.Add(&work_list, file_list.TStringList[n]);
+					}
+					
+					for (s64 n = 0; n < work_list.TStringList_Lines; n++) {
+						printf("%s\n", work_list.TStringList[n]);
+					}
+					
+					exit(0);
+
 			ErrorMessage();
 		}
 	}

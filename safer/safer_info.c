@@ -13,6 +13,12 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+  I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
+  Admirable ballet dancers.
+
  */
 
 
@@ -28,7 +34,7 @@
 
 
 	Makefile
-	obj-y				+= safer_info.o
+	obj-y		+= safer_info.o
 */
 
 
@@ -43,15 +49,13 @@
 
 
 
-
-
 /* decl. */
-struct info_safer_struct {
+struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
-	bool safer_root_list_in_kernel;
-	bool no_change;
-	u8 search_mode;
+	bool learning_mode;
+	bool no_change_mode;
+	bool safer_root_list_in_kernel_mode;
 	long file_list_max;
 	long folder_list_max;
 	char **file_list;
@@ -60,17 +64,20 @@ struct info_safer_struct {
 
 
 
-static struct info_safer_struct info;
-extern void info_safer(struct info_safer_struct *info);
+
+
+
+static struct safer_info_struct info;
+extern void safer_info(struct safer_info_struct *info);
 
 
 
 
-static int info_safer_show(struct seq_file *proc_show, void *v)
+static int safer_info_display(struct seq_file *proc_show, void *v)
 {
 	long n;
 
-	info_safer(&info);
+	safer_info(&info);
 	seq_printf(proc_show, "INFO SAFER\n\n");
 
 	if (info.safer_mode == true)
@@ -81,13 +88,18 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE PRINTK                 : ON\n");
 	else	seq_printf(proc_show, "MODE PRINTK                 : OFF\n");
 
-	if (info.safer_root_list_in_kernel == true)
+	if (info.safer_root_list_in_kernel_mode == true)
 		seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : OFF\n");
 
-	if (info.no_change == true)
+	if (info.learning_mode == true)
+		seq_printf(proc_show, "MODE LEARNING               : ON\n");
+	else	seq_printf(proc_show, "MODE LEARNING               : OFF\n");
+
+	if (info.no_change_mode == true)
 		seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
+
 
 	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.file_list_max);
 	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.folder_list_max);
@@ -112,10 +124,10 @@ static int info_safer_show(struct seq_file *proc_show, void *v)
 
 
 
-static int __init safer_info(void)
+static int __init safer_info_show(void)
 {
-	proc_create_single("info.safer", 0, NULL, info_safer_show);
+	proc_create_single("safer.info", 0, NULL, safer_info_display);
 	return 0;
 }
-fs_initcall(safer_info);
+fs_initcall(safer_info_show);
 
