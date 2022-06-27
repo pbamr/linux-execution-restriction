@@ -68,8 +68,8 @@
 
 			: 999909 = LOCK changes
 
-			: 999910 = History ON
-			: 999911 = History OFF
+			: 999910 = learning ON
+			: 999911 = learning OFF
 
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
@@ -118,14 +118,14 @@
 static bool	safer_mode = true;
 static bool	printk_mode = true;
 static bool	safer_root_list_in_kernel_mode = true;
-static bool	history_mode = true;
+static bool	learning_mode = true;
 static bool	no_change_mode = false;
 
 static char	**file_list = NULL;
 static char	**proc_file_list = NULL;
-static char	**file_history_list = NULL;
+static char	**file_learning_list = NULL;
 static char	**file_argv_list = NULL;
-static long	file_history_list_max = 0;
+static long	file_learning_list_max = 0;
 static long	file_argv_list_max = 0;
 static long	file_list_max = 0;
 
@@ -142,7 +142,7 @@ static void	*data = NULL;
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
-	bool history_mode;
+	bool learning_mode;
 	bool no_change_mode;
 	bool safer_root_list_in_kernel_mode;
 	long file_list_max;
@@ -157,7 +157,7 @@ void safer_info(struct safer_info_struct *info)
 {
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
-	info->history_mode = history_mode;
+	info->learning_mode = learning_mode;
 	info->no_change_mode = no_change_mode;
 	info->safer_root_list_in_kernel_mode = safer_root_list_in_kernel_mode;
 	info->file_list_max = file_list_max;
@@ -170,9 +170,9 @@ void safer_info(struct safer_info_struct *info)
 
 
 /* decl. */
-struct  safer_history_struct {
-	long file_history_list_max;
-	char **file_history_list;
+struct  safer_learning_struct {
+	long file_learning_list_max;
+	char **file_learning_list;
 	long file_argv_list_max;
 	char **file_argv_list;
 };
@@ -180,12 +180,12 @@ struct  safer_history_struct {
 
 
 /* DATA: Only over function */
-void safer_history(struct safer_history_struct *history)
+void safer_learning(struct safer_learning_struct *learning)
 {
-	history->file_history_list_max = file_history_list_max;
-	history->file_history_list = file_history_list;
-	history->file_argv_list_max = file_argv_list_max;
-	history->file_argv_list = file_argv_list;
+	learning->file_learning_list_max = file_learning_list_max;
+	learning->file_learning_list = file_learning_list;
+	learning->file_argv_list_max = file_argv_list_max;
+	learning->file_argv_list = file_argv_list;
 
 }
 
@@ -281,9 +281,10 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 	user_id = get_current_user()->uid.val;
 
-	if (history_mode == true) {
+	if (learning_mode == true) {
 		parameter_max = count_strings_kernel(argv);
 		if (parameter_max > 16) parameter_max = 16;
+
 
 		for (n = 1; n < parameter_max; n++) {
 			ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
@@ -307,8 +308,8 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				strcat(str_file_name, ";");					/* + semmicolon */
 				strcat(str_file_name, argv[n]);					/* + filename */
 
-				if (file_history_list_max > 0) {
-					if (search(str_file_name, file_history_list, file_history_list_max) == 0) continue;
+				if (file_learning_list_max > 0) {
+					if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
 				}
 
 				if (file_argv_list_max > 0) {
@@ -319,6 +320,48 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				file_argv_list = krealloc(file_argv_list, file_argv_list_max * sizeof(char *), GFP_KERNEL);
 				file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 				strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
+			}
+		}
+
+		if (strstr(filename, "/python") != NULL || \
+		strstr(filename, "/insmod") != NULL || \
+		strstr(filename, "/perl") != NULL || \
+		strstr(filename, "/ruby") != NULL || \
+		strstr(filename, "/julia") != NULL || \
+		strstr(filename, "/Rscript") != NULL || \
+		strstr(filename, "/java") != NULL || \
+		strstr(filename, "/lua") != NULL)  {
+			for (n = 1; n < parameter_max; n++) {
+				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
+				if (ret == 0) {
+					sprintf(str_user_id, "%u", user_id);				/* int to string */
+					sprintf(str_file_size, "%lu", file_size);			/* int to string */
+					str_length = strlen(str_user_id);				/* str_user_id len*/
+					str_length += strlen(str_file_size);				/* str_user_id len*/
+					str_length += strlen(argv[n]) + 4;				/* plus 2 semikolon + a: */
+
+					if (str_file_name != NULL) {
+						kfree(str_file_name);
+						str_file_name = NULL;
+					}
+					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+					strcpy(str_file_name, "a:");
+					strcat(str_file_name, str_user_id);				/* str_user_id */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, str_file_size);				/* str_file_size */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, argv[n]);					/* + filename */
+
+					if (file_learning_list_max > 0) {
+						if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
+					}
+
+					file_learning_list_max += 1;
+					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
+					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+				}
 			}
 		}
 	}
@@ -960,8 +1003,8 @@ prog_allowed:
 				}
 			}
 		}
-/* END SCRIPTS CHECK */
 
+/* END SCRIPTS CHECK */
 /*-----------------------------------------------------------------*/
 	}
 
@@ -994,7 +1037,7 @@ static int allowed_deny_exec_sec(const char *filename)
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 	user_id = get_current_user()->uid.val;
 
-	if (history_mode == true) {
+	if (learning_mode == true) {
 		if (ret == 0) {
 			sprintf(str_user_id, "%u", user_id);				/* int to string */
 			sprintf(str_file_size, "%lu", file_size);			/* int to string */
@@ -1015,19 +1058,19 @@ static int allowed_deny_exec_sec(const char *filename)
 			strcat(str_file_name, ";");					/* + semmicolon */
 			strcat(str_file_name, filename);				/* + filename */
 
-			if (file_history_list_max > 0) {
-				if (search(str_file_name, file_history_list, file_history_list_max) != 0) {
-					file_history_list_max += 1;
-					file_history_list = krealloc(file_history_list, file_history_list_max * sizeof(char *), GFP_KERNEL);
-					file_history_list[file_history_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(file_history_list[file_history_list_max -1], str_file_name);
+			if (file_learning_list_max > 0) {
+				if (search(str_file_name, file_learning_list, file_learning_list_max) != 0) {
+					file_learning_list_max += 1;
+					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
+					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(file_learning_list[file_learning_list_max -1], str_file_name);
 				}
 			}
 			else {
-				file_history_list_max += 1;
-				file_history_list = krealloc(file_history_list, file_history_list_max * sizeof(char *), GFP_KERNEL);
-				file_history_list[file_history_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-				strcpy(file_history_list[file_history_list_max - 1], str_file_name);
+				file_learning_list_max += 1;
+				file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
+				file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
 			}
 		}
 	}
@@ -1419,9 +1462,9 @@ SYSCALL_DEFINE5(execve,
 				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
-				printk("MODE: history ON\n");
+				printk("MODE: learning ON\n");
 #endif
-				history_mode = true;
+				learning_mode = true;
 
 				return(0);
 
@@ -1430,9 +1473,9 @@ SYSCALL_DEFINE5(execve,
 				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
-				printk("MODE: history OFF\n");
+				printk("MODE: learning OFF\n");
 #endif
-				history_mode = false;
+				learning_mode = false;
 
 				return(0);
 

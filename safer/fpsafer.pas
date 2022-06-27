@@ -143,7 +143,7 @@ begin
 	writeln;
 	writeln('Parameter   :  0 Safer ON');
 	writeln('Parameter   :  1 Safer OFF');
-	writeln('Parameter   :  2 Safer STATE');
+	//writeln('Parameter   :  2 Safer STATE');
 	writeln('Parameter   :  3 Safer Printk ON');
 	writeln('Parameter   :  4 Safer Printk OFF');
 	writeln;
@@ -156,10 +156,8 @@ begin
 	writeln('Parameter   :  9 Safer DO NOT allowed any more changes');
 	writeln;
 
-	writeln('Parameter   :  10 Safer HISTORY ON');
-	writeln;
-
-	writeln('Parameter   :  11 Safer HISTORY ON');
+	writeln('Parameter   :  10 Safer LEARNING ON');
+	writeln('Parameter   :  11 Safer LEARNING OFF');
 	writeln;
 
 	writeln('Parameter   : 20 Safer SET FILE LIST');

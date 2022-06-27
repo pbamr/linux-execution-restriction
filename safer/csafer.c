@@ -722,7 +722,6 @@ int ErrorMessage()
 	printf("\n");
 	printf("Parameter   :  0 Safer ON\n");
 	printf("Parameter   :  1 Safer OFF\n");
-	printf("Parameter   :  2 Safer STATE\n");
 	printf("Parameter   :  3 Safer Printk ON\n");
 	printf("Parameter   :  4 Safer Printk OFF\n");
 	printf("\n");
@@ -734,9 +733,8 @@ int ErrorMessage()
 	printf("\n");
 	printf("Parameter   :  9 Safer DO NOT allowed any more changes\n");
 	printf("\n");
-	printf("Parameter   : 10 Safer MODE: HISTORY ON\n");
-	printf("\n");
-	printf("Parameter   : 11 Safer MODE: HISTORY OFF\n");
+	printf("Parameter   : 10 Safer MODE: LEARNING ON\n");
+	printf("Parameter   : 11 Safer MODE: LEARNING OFF\n");
 	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
