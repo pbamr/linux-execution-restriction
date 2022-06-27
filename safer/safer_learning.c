@@ -66,7 +66,13 @@ extern void safer_learning(struct safer_learning_struct *learning);
 
 static int safer_learning_display(struct seq_file *proc_show, void *v)
 {
-	long n;
+	long	n;
+	uid_t	user_id;
+
+
+	user_id = get_current_user()->uid.val;
+	if (user_id != 0) return(0);
+
 
 	safer_learning(&learning);
 

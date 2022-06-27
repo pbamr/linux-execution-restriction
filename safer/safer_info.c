@@ -76,6 +76,10 @@ extern void safer_info(struct safer_info_struct *info);
 static int safer_info_display(struct seq_file *proc_show, void *v)
 {
 	long n;
+	uid_t	user_id;
+
+	user_id = get_current_user()->uid.val;
+	if (user_id != 0) return(0);
 
 	safer_info(&info);
 	seq_printf(proc_show, "INFO SAFER\n\n");
