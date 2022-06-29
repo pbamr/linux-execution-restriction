@@ -53,6 +53,14 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
+			:  7 = ROOT LIST IN KERNEL ON
+			:  8 = ROOT LIST IN KERNEL OFF
+
+			:  9 = LOCK changes
+
+			: 10 = learning ON
+			: 11 = learning OFF
+
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 	
@@ -113,11 +121,18 @@ Uses
 	
 	
 	
+//{$define SYSCALL_VERSION}
 	
 	
 	
 const
-	SYSCALL_NR	= 59;		//59;		//syscall execv
+	{$ifdef SYSCALL_VERSION}
+		SYSCALL_NR	= 459;
+	{$else SYSCALLVERSION}
+		SYSCALL_NR	= 59;
+	{$endif SYSCALL_VERSION}
+
+	
 	
 	
 var
@@ -189,13 +204,20 @@ end;
 	
 	
 	
+	
+	
+	
 //simple
 begin
 	if ParamCount = 1 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
 		if NUMBER > 11 then ErrorMessage;
 		
+{$ifdef SYSCALL_VERSION}
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+{$else SYSCALLVERSION}
+		writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+{$endif SYSCALL_VERSION}
 		halt(0);
 	end;
 	
@@ -260,7 +282,11 @@ begin
 						writeln(WORK_LIST[n+1]);
 					end;
 					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					{$ifdef SYSCALL_VERSION}
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+					{$else SYSCALLVERSION}
+					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
 			
@@ -319,7 +345,11 @@ begin
 						writeln(WORK_LIST[n+1]);
 					end;
 					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					{$ifdef SYSCALL_VERSION}
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+					{$else SYSCALLVERSION}
+					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
 				
