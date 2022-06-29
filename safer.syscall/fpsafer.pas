@@ -53,6 +53,14 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
+			:  7 = ROOT LIST IN KERNEL ON
+			:  8 = ROOT LIST IN KERNEL OFF
+
+			:  9 = LOCK changes
+
+			: 10 = learning ON
+			: 11 = learning OFF
+
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 	
@@ -113,11 +121,18 @@ Uses
 	
 	
 	
+//{$define SYSCALL_VERSION}
 	
 	
 	
 const
-	SYSCALL_NR	= 59;		//59;		//syscall execv
+	{$ifdef SYSCALL_VERSION}
+		SYSCALL_NR	= 459;
+	{$else SYSCALLVERSION}
+		SYSCALL_NR	= 59;
+	{$endif SYSCALL_VERSION}
+
+	
 	
 	
 var
@@ -143,7 +158,7 @@ begin
 	writeln;
 	writeln('Parameter   :  0 Safer ON');
 	writeln('Parameter   :  1 Safer OFF');
-	writeln('Parameter   :  2 Safer STATE');
+	//writeln('Parameter   :  2 Safer STATE');
 	writeln('Parameter   :  3 Safer Printk ON');
 	writeln('Parameter   :  4 Safer Printk OFF');
 	writeln;
@@ -156,11 +171,21 @@ begin
 	writeln('Parameter   :  9 Safer DO NOT allowed any more changes');
 	writeln;
 
+	writeln('Parameter   :  10 Safer LEARNING ON');
+	writeln('Parameter   :  11 Safer LEARNING OFF');
+	writeln;
+
 	writeln('Parameter   : 20 Safer SET FILE LIST');
 	writeln('            :    <safer list>');
 	writeln;
 	writeln('Parameter   : 21 Safer SET FOLDER LIST');
 	writeln('            :    <safer list>');
+	writeln;
+	writeln('Parameter   : 30 Safer SORT LIST');
+	writeln('            :    <safer list>');
+
+	writeln;
+
 	writeln;
 	writeln;
 	halt(1);
@@ -179,13 +204,20 @@ end;
 	
 	
 	
+	
+	
+	
 //simple
 begin
 	if ParamCount = 1 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 9 then ErrorMessage;
+		if NUMBER > 11 then ErrorMessage;
 		
+{$ifdef SYSCALL_VERSION}
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+{$else SYSCALLVERSION}
+		writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+{$endif SYSCALL_VERSION}
 		halt(0);
 	end;
 	
@@ -250,7 +282,11 @@ begin
 						writeln(WORK_LIST[n+1]);
 					end;
 					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					{$ifdef SYSCALL_VERSION}
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+					{$else SYSCALLVERSION}
+					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
 			
@@ -309,9 +345,73 @@ begin
 						writeln(WORK_LIST[n+1]);
 					end;
 					
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					{$ifdef SYSCALL_VERSION}
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+					{$else SYSCALLVERSION}
+					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
+				
+			//FILES
+			30:	begin
+					LIST := TStringList.Create;
+					LIST.Sorted := TRUE;
+					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
+					List.CaseSensitive := TRUE;
+					try
+						LIST.LoadFromFile(ParamStr(2));
+					except
+						LIST.Free;
+						ErrorMessage;
+					end;
+					
+					
+					N_LIST := TStringList.Create;
+					N_LIST.Sorted := TRUE;
+					N_LIST.Duplicates := dupIgnore;
+					N_List.CaseSensitive := TRUE;
+					
+					for n := 0 to LIST.Count - 1 do begin
+						if copy(LIST[n], 0, 2) = 'a:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 2) = 'd:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						if copy(List[n], 0, 3) = 'ga:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 3) = 'gd:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+						end;
+					end;
+					
+					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
+					
+					setlength(WORK_LIST, N_LIST.COUNT + 1);					//RESERVIEREN
+					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));		//elements
+					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));				
+					
+					writeln(WORK_LIST[0]);
+					for n := 0 to N_LIST.COUNT - 1 do begin
+						WORK_LIST[n+1] := StrAlloc(length(N_LIST[n]) + 1);
+						StrpCopy(WORK_LIST[n+1], N_LIST[n]);
+						writeln(WORK_LIST[n+1]);
+					end;
+					
+					halt(0);
+				end;
+			
 			
 			else ErrorMessage;
 		end;

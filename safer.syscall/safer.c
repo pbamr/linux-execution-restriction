@@ -71,6 +71,9 @@
 
 			: 999909 = LOCK CHANGES
 
+			: 999910 = learning ON
+			: 999911 = learning OFF
+
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
 
@@ -107,7 +110,9 @@
 
 	Thanks		: Linus Torvalds and others
 
-	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
+	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
+	Admirable ballet dancers.
+
 
 */
 
@@ -117,32 +122,37 @@
 
 
 
+
 static bool	safer_mode = true;
 static bool	printk_mode = true;
-static u8	search_mode = 0;
-static bool	safer_root_list_in_kernel = true;
+static bool	safer_root_list_in_kernel_mode = true;
+static bool	learning_mode = true;
+static bool	no_change_mode = false;
 
-static char	**file_list;
-static char	**proc_file_list;
+static char	**file_list = NULL;
+static char	**proc_file_list = NULL;
+static char	**file_learning_list = NULL;
+static char	**file_argv_list = NULL;
+static long	file_learning_list_max = 0;
+static long	file_argv_list_max = 0;
 static long	file_list_max = 0;
+
 
 static char	**folder_list;
 static char	**proc_folder_list;
 static long	folder_list_max = 0;
-
-static bool	no_change = true;
 
 static void	*data = NULL;
 
 
 
 /* decl. */
-struct info_safer_struct {
+struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
-	bool safer_root_list_in_kernel;
-	bool no_change;
-	u8 search_mode;
+	bool learning_mode;
+	bool no_change_mode;
+	bool safer_root_list_in_kernel_mode;
 	long file_list_max;
 	long folder_list_max;
 	char **file_list;
@@ -150,22 +160,42 @@ struct info_safer_struct {
 };
 
 
-
-
 /* DATA: Only over function */
-void info_safer(struct info_safer_struct *info)
+void safer_info(struct safer_info_struct *info)
 {
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
-	info->search_mode = search_mode;
-	info->safer_root_list_in_kernel = safer_root_list_in_kernel;
-	info->no_change = no_change;
+	info->learning_mode = learning_mode;
+	info->no_change_mode = no_change_mode;
+	info->safer_root_list_in_kernel_mode = safer_root_list_in_kernel_mode;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
 	info->file_list = proc_file_list;
 	info->folder_list = proc_folder_list;
 }
 
+
+
+
+/* decl. */
+struct  safer_learning_struct {
+	long file_learning_list_max;
+	char **file_learning_list;
+	long file_argv_list_max;
+	char **file_argv_list;
+};
+
+
+
+/* DATA: Only over function */
+void safer_learning(struct safer_learning_struct *learning)
+{
+	learning->file_learning_list_max = file_learning_list_max;
+	learning->file_learning_list = file_learning_list;
+	learning->file_argv_list_max = file_argv_list_max;
+	learning->file_argv_list = file_argv_list;
+
+}
 
 
 
@@ -223,7 +253,22 @@ static int besearch_folder(char *str_search, char **list, long elements)
 
 
 
-static int allowed_deny_exec(const char *filename, const char __user *const __user *argv) 
+static long search(char *str_search, char **list, long elements)
+{
+	long n;
+
+	for (n = 0; n < elements; n++) {
+		if (strncmp(list[n], str_search, strlen(list[n])) == 0) return(0);
+	}
+
+	return(-1);
+}
+
+
+
+
+
+static int allowed_deny_exec(const char *filename, const char __user *const __user *argv)
 {
 	uid_t	user_id;
 	u32	n, n0;
@@ -242,10 +287,94 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 	int	ret;
 
 
-
-	/* Hash in the next? */
-	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 	user_id = get_current_user()->uid.val;
+
+	if (learning_mode == true) {
+		parameter_max = count_strings_kernel(argv);
+		if (parameter_max > 16) parameter_max = 16;
+
+
+		for (n = 1; n < parameter_max; n++) {
+			ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
+			if (ret == 0) {
+				sprintf(str_user_id, "%u", user_id);				/* int to string */
+				sprintf(str_file_size, "%lu", file_size);			/* int to string */
+				str_length = strlen(str_user_id);				/* str_user_id len*/
+				str_length += strlen(str_file_size);				/* str_user_id len*/
+				str_length += strlen(argv[n]) + 4;				/* plus 2 semikolon + a: */
+
+				if (str_file_name != NULL) {
+					kfree(str_file_name);
+					str_file_name = NULL;
+				}
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+				strcpy(str_file_name, "a:");
+				strcat(str_file_name, str_user_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, argv[n]);					/* + filename */
+
+				if (file_learning_list_max > 0) {
+					if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
+				}
+
+				if (file_argv_list_max > 0) {
+					if (search(str_file_name, file_argv_list, file_argv_list_max) == 0) continue;
+				}
+
+				file_argv_list_max += 1;
+				file_argv_list = krealloc(file_argv_list, file_argv_list_max * sizeof(char *), GFP_KERNEL);
+				file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
+			}
+		}
+
+		if (strstr(filename, "/python") != NULL || \
+		strstr(filename, "/insmod") != NULL || \
+		strstr(filename, "/perl") != NULL || \
+		strstr(filename, "/ruby") != NULL || \
+		strstr(filename, "/julia") != NULL || \
+		strstr(filename, "/Rscript") != NULL || \
+		strstr(filename, "/java") != NULL || \
+		strstr(filename, "/lua") != NULL)  {
+			for (n = 1; n < parameter_max; n++) {
+				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
+				if (ret == 0) {
+					sprintf(str_user_id, "%u", user_id);				/* int to string */
+					sprintf(str_file_size, "%lu", file_size);			/* int to string */
+					str_length = strlen(str_user_id);				/* str_user_id len*/
+					str_length += strlen(str_file_size);				/* str_user_id len*/
+					str_length += strlen(argv[n]) + 4;				/* plus 2 semikolon + a: */
+
+					if (str_file_name != NULL) {
+						kfree(str_file_name);
+						str_file_name = NULL;
+					}
+					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+					strcpy(str_file_name, "a:");
+					strcat(str_file_name, str_user_id);				/* str_user_id */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, str_file_size);				/* str_file_size */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, argv[n]);					/* + filename */
+
+					if (file_learning_list_max > 0) {
+						if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
+					}
+
+					file_learning_list_max += 1;
+					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
+					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+				}
+			}
+		}
+	}
+
+	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 
 	if (printk_mode == true) {
 		/* max. argv */
@@ -263,7 +392,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
-			if (safer_root_list_in_kernel == true) {
+			if (safer_root_list_in_kernel_mode == true) {
 				if (strncmp("/bin/", filename, 5) == 0) goto prog_exit_allowed;
 				if (strncmp("/sbin/", filename, 6) == 0) goto prog_exit_allowed;
 				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_exit_allowed;
@@ -400,7 +529,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		/* allowed groups file */
 		group_info = get_current_groups();
 		for (n = 0; n < group_info->ngroups; n++) {
-			//if (group_info->gid[n].val == 0) continue;				/* group root not allowed. My choice! */
+			/* if (group_info->gid[n].val == 0) continue; */				/* group root not allowed. My choice! */
 
 			/* allowed groups file */
 			if (file_list_max > 0) {
@@ -514,7 +643,7 @@ prog_allowed:
 				/* HASH */
 				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
 				if (ret == 0) {
-					//group_info = get_current_groups();
+					/* group_info = get_current_groups(); */
 
 					/* deny ---------------------------------------------------------------------- */
 					/* deny user folder */
@@ -573,7 +702,7 @@ prog_allowed:
 
 					/* deny group folder */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/* if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -602,7 +731,7 @@ prog_allowed:
 
 					/* deny group file */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/*if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -656,7 +785,7 @@ prog_allowed:
 
 					/* allowed group file */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/*if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -707,7 +836,7 @@ prog_allowed:
 
 					/* allowed group folder */
 					for (n0 = 0; n0 < group_info->ngroups; n0++) {
-						//if (group_info->gid[n0].val == 0) continue;			/* group root not allowed. My choice! */
+						/* if (group_info->gid[n0].val == 0) continue; */			/* group root not allowed. My choice! */
 
 						sprintf(str_group_id, "%u", group_info->gid[n0].val);		/* int to string */
 						str_length = strlen(str_group_id);				/* str_group id len*/
@@ -752,7 +881,7 @@ prog_allowed:
 			if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
 
 
-			//test "-classpath" */
+			/* test "-classpath" */
 			if (parameter_max == 4) {
 				if (strcmp(argv[1], "-classpath") == 0) {
 					if (str_java_name != NULL) {
@@ -828,7 +957,7 @@ prog_allowed:
 			}
 		}
 
-		//test "-jar" */
+		/* test "-jar" */
 		if (parameter_max == 3) {
 			if (strcmp(argv[1], "-jar") == 0) {
 				ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
@@ -882,8 +1011,8 @@ prog_allowed:
 				}
 			}
 		}
-/* END SCRIPTS CHECK */
 
+/* END SCRIPTS CHECK */
 /*-----------------------------------------------------------------*/
 	}
 
@@ -892,7 +1021,6 @@ prog_exit_allowed:
 	return(0);
 
 }
-
 
 
 
@@ -917,12 +1045,50 @@ static int allowed_deny_exec_sec(const char *filename)
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 	user_id = get_current_user()->uid.val;
 
+	if (learning_mode == true) {
+		if (ret == 0) {
+			sprintf(str_user_id, "%u", user_id);				/* int to string */
+			sprintf(str_file_size, "%lu", file_size);			/* int to string */
+			str_length = strlen(str_user_id);				/* str_user_id len*/
+			str_length += strlen(str_file_size);				/* str_user_id len*/
+			str_length += strlen(filename) + 4;				/* plus 2 semikolon + a: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "a:");
+			strcat(str_file_name, str_user_id);				/* str_user_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, str_file_size);				/* str_file_size */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			if (file_learning_list_max > 0) {
+				if (search(str_file_name, file_learning_list, file_learning_list_max) != 0) {
+					file_learning_list_max += 1;
+					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
+					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					strcpy(file_learning_list[file_learning_list_max -1], str_file_name);
+				}
+			}
+			else {
+				file_learning_list_max += 1;
+				file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
+				file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+			}
+		}
+	}
+
 
 	if (safer_mode == true) {
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
-			if (safer_root_list_in_kernel == true) {
+			if (safer_root_list_in_kernel_mode == true) {
 				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
 				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
 				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
@@ -1153,6 +1319,10 @@ prog_allowed:
 	return(0);
 
 }
+
+
+
+
 
 
 
