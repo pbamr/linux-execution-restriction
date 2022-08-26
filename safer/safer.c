@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2022.06.11, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2022.06.11, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2022.08.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2022.08.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.23, 2022.06.11
+	Date		: 2022.04.23, 2022.08.26
 
 	Program		: safer.c
 	Path		: fs/
@@ -111,7 +111,7 @@
 
 #define PRINTK
 #define MAX_DYN 100000
-
+#define RET_SHELL -2
 
 
 
@@ -378,7 +378,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		if (ret != 0) printk("URGENT: PROG. NOT EXIST\n");
 	}
 
-	if (ret != 0) return(-2);
+	if (ret != 0) return(RET_SHELL);
 
 	if (safer_mode == true) {
 		/* --------------------------------------------------------------------------------- */
@@ -409,7 +409,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 				/* NOT allowed. */
 				printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -435,7 +435,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 			/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -444,7 +444,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 				/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -475,7 +475,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-					return(-2);
+					return(RET_SHELL);
 				}
 			}
 
@@ -485,7 +485,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-					return(-2);
+					return(RET_SHELL);
 				}
 			}
 		}
@@ -607,7 +607,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
 		printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-		return(-2);
+		return(RET_SHELL);
 	}
 
 prog_allowed:
@@ -661,7 +661,7 @@ prog_allowed:
 						if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-							return(-2);
+							return(RET_SHELL);
 						}
 					}
 
@@ -687,7 +687,7 @@ prog_allowed:
 						if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-							return(-2);
+							return(RET_SHELL);
 						}
 					}
 
@@ -716,7 +716,7 @@ prog_allowed:
 							if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 								/* Not allowed */
 								printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-								return(-2);
+								return(RET_SHELL);
 							}
 						}
 					}
@@ -745,7 +745,7 @@ prog_allowed:
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 								/* Not allowed */
 								printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-								return(-2);
+								return(RET_SHELL);
 							}
 						}
 					}
@@ -859,7 +859,7 @@ prog_allowed:
 				if (ret == 0) printk("ALLOWED LIST: <USER/SCRIPT/MODULE> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, argv[n]);
 				else printk("URGENT: <SCRIPT/MODULE> NOT EXIST %u;0;%s\n", user_id, argv[n]);
 			}
-			return(-2);
+			return(RET_SHELL);
 
 		}
 			/* simple */
@@ -942,7 +942,7 @@ prog_allowed:
 
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 							printk("ALLOWED LIST: USER/PROG. <CLASS> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-							return(-2);
+							return(RET_SHELL);
 						}
 					}
 				}
@@ -998,7 +998,7 @@ prog_allowed:
 
 						if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 						printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-						return(-2);
+						return(RET_SHELL);
 					}
 				}
 			}
@@ -1105,7 +1105,7 @@ static int allowed_deny_exec_sec(const char *filename)
 
 				/* NOT allowed. */
 				printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -1131,7 +1131,7 @@ static int allowed_deny_exec_sec(const char *filename)
 			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 			/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -1140,7 +1140,7 @@ static int allowed_deny_exec_sec(const char *filename)
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 				/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -1171,7 +1171,7 @@ static int allowed_deny_exec_sec(const char *filename)
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-					return(-2);
+					return(RET_SHELL);
 				}
 			}
 
@@ -1181,7 +1181,7 @@ static int allowed_deny_exec_sec(const char *filename)
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-					return(-2);
+					return(RET_SHELL);
 				}
 			}
 		}
@@ -1243,7 +1243,7 @@ static int allowed_deny_exec_sec(const char *filename)
 		for (n = 0; n < group_info->ngroups; n++) {
 			if (group_info->gid[n].val == 0) {
 				printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);			/* group root not allowed. My choice! */
+				return(RET_SHELL);			/* group root not allowed. My choice! */
 			}
 
 			if (folder_list_max > 0) {
@@ -1296,7 +1296,7 @@ static int allowed_deny_exec_sec(const char *filename)
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
 		printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-		return(-2);
+		return(RET_SHELL);
 	}
 
 prog_allowed:
@@ -1620,7 +1620,7 @@ SYSCALL_DEFINE5(execve,
 	}
 
 
-	if (allowed_deny_exec(filename, argv) == -2) return(-2);
+	if (allowed_deny_exec(filename, argv) == RET_SHELL) return(RET_SHELL);
 
 	return do_execve(getname(filename), argv, envp);
 
