@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2022.08.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2022.08.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.23, 2022.08.26
+	Date		: 2022.04.23, 2022.09.17
 
 	Program		: safer.c
 	Path		: fs/
@@ -122,17 +122,19 @@ static bool	learning_mode = true;
 static bool	no_change_mode = false;
 
 static char	**file_list = NULL;
-static char	**proc_file_list = NULL;
-static char	**file_learning_list = NULL;
-static char	**file_argv_list = NULL;
-static long	file_learning_list_max = 0;
-static long	file_argv_list_max = 0;
 static long	file_list_max = 0;
 
+static char	**file_learning_list = NULL;
+static long	file_learning_list_max = 0;
 
-static char	**folder_list;
-static char	**proc_folder_list;
+static char	**file_argv_list = NULL;
+static long	file_argv_list_max = 0;
+
+static char	**folder_list = NULL;
 static long	folder_list_max = 0;
+
+static char	**proc_folder_list = NULL;
+static char	**proc_file_list = NULL;
 
 static void	*data = NULL;
 
@@ -323,14 +325,14 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			}
 		}
 
-		if (strstr(filename, "/python") != NULL || \
-		strstr(filename, "/insmod") != NULL || \
-		strstr(filename, "/perl") != NULL || \
-		strstr(filename, "/ruby") != NULL || \
-		strstr(filename, "/julia") != NULL || \
-		strstr(filename, "/Rscript") != NULL || \
-		strstr(filename, "/java") != NULL || \
-		strstr(filename, "/lua") != NULL)  {
+		if (strstr(filename, "/usr/bin/python") != NULL || \
+		strstr(filename, "/sbin/insmod") != NULL || \
+		strstr(filename, "/usr/bin/perl") != NULL || \
+		strstr(filename, "/usr/bin/ruby") != NULL || \
+		strstr(filename, "/usr/bin/julia") != NULL || \
+		strstr(filename, "/usr/bin/Rscript") != NULL || \
+		strstr(filename, "/usr/bin/java") != NULL || \
+		strstr(filename, "/usr/bin/lua") != NULL)  {
 			for (n = 1; n < parameter_max; n++) {
 				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
 				if (ret == 0) {
@@ -375,7 +377,10 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				printk("USER ID:%u, PROG:%s, SIZE:%lu, argv[%d]:%s\n", user_id, filename, file_size, n, argv[n]);
 			else break;
 		}
-		if (ret != 0) printk("URGENT: PROG. NOT EXIST\n");
+		if (ret != 0) {
+			printk("URGENT: PROG. NOT EXIST, OR NO RIGHTS\n");
+			//return(RET_SHELL);
+		}
 	}
 
 	if (ret != 0) return(RET_SHELL);
@@ -619,13 +624,13 @@ prog_allowed:
 	/* The full path is necessary */
 
 	if (safer_mode == true) {
-		if (strstr(filename, "/python") != NULL || \
-		strstr(filename, "/insmod") != NULL || \
-		strstr(filename, "/perl") != NULL || \
-		strstr(filename, "/ruby") != NULL || \
-		strstr(filename, "/julia") != NULL || \
-		strstr(filename, "/Rscript") != NULL || \
-		strstr(filename, "/lua") != NULL)  {
+		if (strstr(filename, "/usr/bin/python") != NULL || \
+		strstr(filename, "/sbin/insmod") != NULL || \
+		strstr(filename, "/usr/bin/perl") != NULL || \
+		strstr(filename, "/usr/bin/ruby") != NULL || \
+		strstr(filename, "/usr/bin/julia") != NULL || \
+		strstr(filename, "/usr/bin/Rscript") != NULL || \
+		strstr(filename, "/usr/bin/lua") != NULL)  {
 
 			parameter_max = count_strings_kernel(argv);
 			if (parameter_max == 1) goto prog_exit_allowed;
@@ -868,7 +873,7 @@ prog_allowed:
 			/* this form will test: "java -classpath PATH name" IMPORTANT: PATH without last "/" */
 			/*                    : "java -jar /PATH/name.jar */
 			/* other not allowed */
-		if (strstr(filename, "/java") != NULL) {
+		if (strstr(filename, "/usr/bin/java") != NULL) {
 			parameter_max = count_strings_kernel(argv);				/* check Parameter */
 			if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
 
