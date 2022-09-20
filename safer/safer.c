@@ -325,14 +325,14 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			}
 		}
 
-		if (strstr(filename, "/usr/bin/python") != NULL || \
-		strstr(filename, "/sbin/insmod") != NULL || \
-		strstr(filename, "/usr/bin/perl") != NULL || \
-		strstr(filename, "/usr/bin/ruby") != NULL || \
-		strstr(filename, "/usr/bin/julia") != NULL || \
-		strstr(filename, "/usr/bin/Rscript") != NULL || \
-		strstr(filename, "/usr/bin/java") != NULL || \
-		strstr(filename, "/usr/bin/lua") != NULL)  {
+		if (strncmp(filename, "/usr/bin/python", 15 ) == 0 || \
+		strncmp(filename, "/sbin/insmod", 12 ) == 0 || \
+		strncmp(filename, "/usr/bin/perl", 13) == 0 || \
+		strncmp(filename, "/usr/bin/ruby", 13) == 0 || \
+		strncmp(filename, "/usr/bin/julia", 14) == 0 || \
+		strncmp(filename, "/usr/bin/Rscript", 16) == 0 || \
+		strncmp(filename, "/usr/bin/java", 13) == 0 || \
+		strncmp(filename, "/usr/bin/lua", 12) == 0)  {
 			for (n = 1; n < parameter_max; n++) {
 				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
 				if (ret == 0) {
@@ -619,18 +619,17 @@ prog_allowed:
 
 	/* simple */
 	/* test script files.max 10 param. */
-	/* only user, no groups */
 	/* this form will test: python "/abc/def/prog". name only is not allowed. "python hello" etc. is not allowed */
 	/* The full path is necessary */
 
 	if (safer_mode == true) {
-		if (strstr(filename, "/usr/bin/python") != NULL || \
-		strstr(filename, "/sbin/insmod") != NULL || \
-		strstr(filename, "/usr/bin/perl") != NULL || \
-		strstr(filename, "/usr/bin/ruby") != NULL || \
-		strstr(filename, "/usr/bin/julia") != NULL || \
-		strstr(filename, "/usr/bin/Rscript") != NULL || \
-		strstr(filename, "/usr/bin/lua") != NULL)  {
+		if (strncmp(filename, "/usr/bin/python", 15) == 0 || \
+		strncmp(filename, "/sbin/insmod", 12) == 0 || \
+		strncmp(filename, "/usr/bin/perl", 13) == 0 || \
+		strncmp(filename, "/usr/bin/ruby", 13) == 0 || \
+		strncmp(filename, "/usr/bin/julia", 14) == 0 || \
+		strncmp(filename, "/usr/bin/Rscript", 16) == 0 || \
+		strncmp(filename, "/usr/bin/lua",12) == 0)  {
 
 			parameter_max = count_strings_kernel(argv);
 			if (parameter_max == 1) goto prog_exit_allowed;
@@ -873,7 +872,7 @@ prog_allowed:
 			/* this form will test: "java -classpath PATH name" IMPORTANT: PATH without last "/" */
 			/*                    : "java -jar /PATH/name.jar */
 			/* other not allowed */
-		if (strstr(filename, "/usr/bin/java") != NULL) {
+		if (strncmp(filename, "/usr/bin/java", 13) == 0) {
 			parameter_max = count_strings_kernel(argv);				/* check Parameter */
 			if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
 
