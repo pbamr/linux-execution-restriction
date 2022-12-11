@@ -30,7 +30,7 @@
 			: in x86_64/amd64 syscall_64.tbl
 			: 459	common	set_execve		sys_set_execve
 
-	Test		: Kerne. 6.0, Lenovo X230
+	Test		: Kernel 6.0, Lenovo X230
 
 	Functionality	: Program execution restriction
 			: Like Windows Feature "Safer"
