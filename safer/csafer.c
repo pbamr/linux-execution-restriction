@@ -116,6 +116,12 @@ typedef int bool;
 
 
 
+/* #define VERSION_SYSCALL */
+#ifdef VERSION_SYSCALL
+#define SYSCALL_NR 459
+#else
+#define SYSCALL_NR 59
+#endif
 
 
 
@@ -726,6 +732,8 @@ int ErrorMessage()
 	printf("VERSION            : C, LINUX VERSION\n");
 	printf("\n");
 	printf("\n");
+	printf("SYSCALL     :  %ld\n", SYSCALL_NR);
+	printf("\n");
 	printf("Parameter   :  0 Safer ON\n");
 	printf("Parameter   :  1 Safer OFF\n");
 	printf("Parameter   :  3 Safer Printk ON\n");
@@ -772,12 +780,6 @@ int ErrorMessage()
 //--------------------------------------------------------------------------------------------------
 void main(int argc, char *argv[]) {
 
-/* #define VERSION_SYSCALL */
-#ifdef VERSION_SYSCALL
-#define SYSCALL_NR 459
-#else
-#define SYSCALL_NR 59
-#endif
 
 
 	s64 NUMBER = 0;

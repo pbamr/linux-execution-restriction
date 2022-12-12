@@ -53,14 +53,6 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
-			:  7 = ROOT LIST IN KERNEL ON
-			:  8 = ROOT LIST IN KERNEL OFF
-
-			:  9 = LOCK changes
-
-			: 10 = learning ON
-			: 11 = learning OFF
-
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 	
@@ -121,15 +113,17 @@ Uses
 	
 	
 	
-//{$define SYSCALL_VERSION}
+//{$define SYSCALLVERSION}
+{$define SYSCALL_VERSION}
+
 	
 	
 	
 const
 	{$ifdef SYSCALL_VERSION}
-		SYSCALL_NR	= 459;
-	{$else SYSCALLVERSION}
 		SYSCALL_NR	= 59;
+	{$else SYSCALLVERSION}
+		SYSCALL_NR	= 459;
 	{$endif SYSCALL_VERSION}
 
 	
@@ -155,6 +149,8 @@ begin
 	writeln('FreePascal Project : www.freepascal.org');
 	writeln('LGPL               : www.gnu.org');
 	writeln('Special Thanks     : Niklaus Wirth');
+	writeln;
+	writeln('SYSCALL     :  ',  SYSCALL_NR);
 	writeln;
 	writeln('Parameter   :  0 Safer ON');
 	writeln('Parameter   :  1 Safer OFF');
@@ -213,6 +209,8 @@ begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
 		if NUMBER > 11 then ErrorMessage;
 		
+		
+		
 {$ifdef SYSCALL_VERSION}
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
 {$else SYSCALLVERSION}
@@ -220,7 +218,6 @@ begin
 {$endif SYSCALL_VERSION}
 		halt(0);
 	end;
-	
 	
 	if ParamCount = 2 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
@@ -283,9 +280,9 @@ begin
 					end;
 					
 					{$ifdef SYSCALL_VERSION}
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
 					{$else SYSCALLVERSION}
-					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER, qword(WORK_LIST)));
 					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
@@ -346,9 +343,9 @@ begin
 					end;
 					
 					{$ifdef SYSCALL_VERSION}
-					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
 					{$else SYSCALLVERSION}
-					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER, qword(WORK_LIST)));
 					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
