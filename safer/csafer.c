@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.05.12
+	Date		: 2022.05.12 2023.05.24
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -818,6 +818,14 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
+						if (strncmp(all_list.TStringList[n], "as:", 3) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
+
 						if (strncmp(all_list.TStringList[n], "d:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
@@ -831,6 +839,17 @@ void main(int argc, char *argv[]) {
 							file_list.Add(&file_list, all_list.TStringList[n]);
 							continue;
 						}
+
+						if (strncmp(all_list.TStringList[n], "gas:", 4) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
+
+
+
 
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
@@ -936,6 +955,13 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
+						if (strncmp(all_list.TStringList[n], "as:", 3) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
 						if (strncmp(all_list.TStringList[n], "d:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
@@ -944,6 +970,13 @@ void main(int argc, char *argv[]) {
 						}
 
 						if (strncmp(all_list.TStringList[n], "ga:", 3) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
+						if (strncmp(all_list.TStringList[n], "gas:", 4) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
 							file_list.Add(&file_list, all_list.TStringList[n]);

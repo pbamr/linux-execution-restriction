@@ -28,7 +28,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.23
+	Date		: 2022.04.23 2023.05.24
 	
 	Program		: fpsafer.pas
 			: Simple Frontend
@@ -249,12 +249,25 @@ begin
 							continue;
 						end;
 						
+						if copy(LIST[n], 0, 3) = 'as:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
 						if copy(List[n], 0, 2) = 'd:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
 						end;
+						
 						if copy(List[n], 0, 3) = 'ga:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 4) = 'gas:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
@@ -317,6 +330,7 @@ begin
 							N_LIST.add(List[n]);
 							continue;
 						end;
+						
 						if copy(List[n], 0, 3) = 'ga:' then begin
 							if LIST[n][length(LIST[n])] <> '/' then continue;
 							N_LIST.add(List[n]);
@@ -376,12 +390,26 @@ begin
 							continue;
 						end;
 						
+						if copy(LIST[n], 0, 3) = 'as:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						
 						if copy(List[n], 0, 2) = 'd:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
 						end;
+						
 						if copy(List[n], 0, 3) = 'ga:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 4) = 'gas:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;

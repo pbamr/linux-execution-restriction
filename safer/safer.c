@@ -21,12 +21,12 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.23, 2022.12.06
+	Date		: 2022.04.22, 2023.05.23
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0
+	TEST		: Kernel 6.0 - 6.3
 			  Lenovo X230, T460
 
 	Functionality	: Programm execution restriction
@@ -98,6 +98,43 @@
 			: string = GROUP-ID;FILE-SIZEPATH
 			: string = File Size
 
+			: string = allow:USER-ID;FILE-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
+
+			: a:USER-ID;Path
+			: d:USER-ID;Path
+
+			: ga:GROUP-ID;Path
+			: gd:GROUP-ID;Path
+
+			: Example: user
+			: a:100;1224;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
+			: a:100;/usr/sbin/		= allow Folder
+
+			: Example: user
+			: d:100;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/		= deny folder
+
+			: Example: Group
+			: ga:100;/usr/sbin/		= allow group folder
+			: gd:100;/usr/bin/		= deny group folder
+			: gd:101;/usr/bin/mc		= deny group file
+			: ga:101;1234;/usr/bin/mc	= allow group file
+
+			: Example: User
+			: user
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program
+
+			: Example: Group
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program
+
+			: Important:
+			: java is special
+			: java need no "as or gas"
+
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
 
@@ -115,6 +152,8 @@
 #define PRINTK
 #define MAX_DYN 100000
 #define RET_SHELL -2
+
+static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer";
 
 
 
@@ -329,48 +368,6 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
 			}
 		}
-
-		if (strncmp(filename, "/usr/bin/python", 15 ) == 0 || \
-		strncmp(filename, "/sbin/insmod", 12 ) == 0 || \
-		strncmp(filename, "/usr/bin/perl", 13) == 0 || \
-		strncmp(filename, "/usr/bin/ruby", 13) == 0 || \
-		strncmp(filename, "/usr/bin/julia", 14) == 0 || \
-		strncmp(filename, "/usr/bin/Rscript", 16) == 0 || \
-		strncmp(filename, "/usr/bin/java", 13) == 0 || \
-		strncmp(filename, "/usr/bin/lua", 12) == 0)  {
-			for (n = 1; n < parameter_max; n++) {
-				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
-				if (ret == 0) {
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					sprintf(str_file_size, "%lu", file_size);			/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(str_file_size);				/* str_user_id len*/
-					str_length += strlen(argv[n]) + 4;				/* plus 2 semikolon + a: */
-
-					if (str_file_name != NULL) {
-						kfree(str_file_name);
-						str_file_name = NULL;
-					}
-					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, str_file_size);				/* str_file_size */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, argv[n]);					/* + filename */
-
-					if (file_learning_list_max > 0) {
-						if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
-					}
-
-					file_learning_list_max += 1;
-					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
-					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
-				}
-			}
-		}
 	}
 
 
@@ -529,6 +526,33 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 		}
 
+		/* first allowed files */
+		/* allowed user file scripts languages, like python etc. */
+		if (file_list_max > 0) {
+			sprintf(str_user_id, "%u", user_id);				/* int to string */
+			sprintf(str_file_size, "%lu", file_size);			/* int to string */
+			str_length = strlen(str_user_id);				/* str_user_id len*/
+			str_length += strlen(str_file_size);				/* str_user_id len*/
+			str_length += strlen(filename) + 5;				/* plus 2 semikolon + a: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "as:");
+			strcat(str_file_name, str_user_id);				/* str_user_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, str_file_size);				/* str_file_size */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			/* Importend! Need qsorted list */
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+		}
+
 
 		/* allowed groups file */
 		group_info = get_current_groups();
@@ -551,6 +575,38 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
 				strcpy(str_file_name, "ga:");
+				strcat(str_file_name, str_group_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, filename);				/* + filename */
+
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+			}
+		}
+
+		/* allowed groups file scripts languages, like python */
+		group_info = get_current_groups();
+		for (n = 0; n < group_info->ngroups; n++) {
+			/* if (group_info->gid[n].val == 0) continue; */				/* group root not allowed. My choice! */
+
+			/* allowed groups file */
+			if (file_list_max > 0) {
+				sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+				sprintf(str_file_size, "%lu", file_size);			/* int to string */
+				str_length = strlen(str_group_id);				/* str_user_id len*/
+				str_length += strlen(str_file_size);				/* str_user_id len*/
+				str_length += strlen(filename) + 6;				/* plus 2 semikolon + ga: */
+
+				if (str_file_name != NULL) {
+					kfree(str_file_name);
+					str_file_name = NULL;
+				}
+
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+				strcpy(str_file_name, "gas:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
 				strcat(str_file_name, ";");					/* + semmicolon */
 				strcat(str_file_name, str_file_size);				/* str_file_size */
@@ -630,14 +686,8 @@ prog_allowed:
 	/* The full path is necessary */
 
 	if (safer_mode == true) {
-		if (strncmp(filename, "/usr/bin/python", 15) == 0 || \
-		strncmp(filename, "/sbin/insmod", 12) == 0 || \
-		strncmp(filename, "/usr/bin/perl", 13) == 0 || \
-		strncmp(filename, "/usr/bin/ruby", 13) == 0 || \
-		strncmp(filename, "/usr/bin/julia", 14) == 0 || \
-		strncmp(filename, "/usr/bin/Rscript", 16) == 0 || \
-		strncmp(filename, "/usr/bin/lua",12) == 0)  {
-
+		if (strncmp(str_file_name, "as:", 3) == 0 || \
+		strncmp(str_file_name, "gas:", 4) == 0) {
 			//parameter_max = count_strings_kernel(argv);
 			if (parameter_max == 1) goto prog_exit_allowed;
 
@@ -871,14 +921,16 @@ prog_allowed:
 				else printk("URGENT: <SCRIPT/MODULE> NOT EXIST %u;0;%s\n", user_id, argv[n]);
 			}
 			return(RET_SHELL);
-
 		}
-			/* simple */
-			/* java special */
-			/* only user no group */
-			/* this form will test: "java -classpath PATH name" IMPORTANT: PATH without last "/" */
-			/*                    : "java -jar /PATH/name.jar */
-			/* other not allowed */
+
+
+
+		/* simple */
+		/* java special */
+		/* only user no group */
+		/* this form will test: "java -classpath PATH name" IMPORTANT: PATH without last "/" */
+		/*                    : "java -jar /PATH/name.jar */
+		/* other not allowed */
 		if (strncmp(filename, "/usr/bin/java", 13) == 0) {
 			//parameter_max = count_strings_kernel(argv);				/* check Parameter */
 			if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
@@ -957,62 +1009,67 @@ prog_allowed:
 					}
 				}
 			}
-		}
 
-		/* test "-jar" */
-		if (parameter_max == 3) {
-			if (strcmp(argv[1], "-jar") == 0) {
-				ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
-				if (ret == 0) {
-					/* folder test */
-					if (folder_list_max > 0) {
-						sprintf(str_user_id, "%u", user_id);				/* int to string */
-						str_length = strlen(str_user_id);				/* str_user_id len*/
-						str_length += strlen(argv[2]) + 3;				/* plus 1 = semikolon + a: */
+			/* test "-jar" */
+			if (parameter_max == 3) {
+				if (strcmp(argv[1], "-jar") == 0) {
+					ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
+					if (ret == 0) {
+						/* folder test */
+						if (folder_list_max > 0) {
+							sprintf(str_user_id, "%u", user_id);				/* int to string */
+							str_length = strlen(str_user_id);				/* str_user_id len*/
+							str_length += strlen(argv[2]) + 3;				/* plus 1 = semikolon + a: */
 
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
+							if (str_file_name != NULL) {
+								kfree(str_file_name);
+								str_file_name = NULL;
+							}
+
+							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+							strcpy(str_file_name, "a:");
+							strcat(str_file_name, str_user_id);				/* str_user_id */
+							strcat(str_file_name, ";");					/* + semmicolon */
+							strcat(str_file_name, argv[2]);					/* + filename */
+
+							if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 						}
 
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (file_list_max > 0) {
+							/* file test */
+							sprintf(str_user_id, "%u", user_id);				/* int to string */
+							sprintf(str_file_size, "%lu", file_size);			/* int to string */
+							str_length = strlen(str_user_id);				/* str_user_id len*/
+							str_length += strlen(str_file_size);
+							str_length += strlen(argv[2]) + 4;				/* plus 1 = semikolon + a: */
 
-						strcpy(str_file_name, "a:");
-						strcat(str_file_name, str_user_id);				/* str_user_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, argv[2]);					/* + filename */
+							if (str_file_name != NULL) {
+								kfree(str_file_name);
+								str_file_name = NULL;
+							}
 
-						if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_exit_allowed; /* OK in list */
-					}
+							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							strcpy(str_file_name, "a:");
+							strcat(str_file_name, str_user_id);				/* str_user_id */
+							strcat(str_file_name, ";");					/* + semmicolon */
+							strcat(str_file_name, str_file_size);
+							strcat(str_file_name, ";");
+							strcat(str_file_name, argv[2]);					/* + filename */
 
-					if (file_list_max > 0) {
-						/* file test */
-						sprintf(str_user_id, "%u", user_id);				/* int to string */
-						sprintf(str_file_size, "%lu", file_size);			/* int to string */
-						str_length = strlen(str_user_id);				/* str_user_id len*/
-						str_length += strlen(str_file_size);
-						str_length += strlen(argv[2]) + 4;				/* plus 1 = semikolon + a: */
-
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
+							if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
+							printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
+							return(RET_SHELL);
 						}
-
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-						strcpy(str_file_name, "a:");
-						strcat(str_file_name, str_user_id);				/* str_user_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, str_file_size);
-						strcat(str_file_name, ";");
-						strcat(str_file_name, argv[2]);					/* + filename */
-
-						if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
-						printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-						return(RET_SHELL);
 					}
 				}
 			}
+
+
+			printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
+			return(RET_SHELL);
 		}
+
 
 /* END SCRIPTS CHECK */
 /*-----------------------------------------------------------------*/
@@ -1254,6 +1311,37 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 		}
 
+
+		if (file_list_max > 0) {
+			sprintf(str_user_id, "%u", user_id);				/* int to string */
+			sprintf(str_file_size, "%lu", file_size);			/* int to string */
+			str_length = strlen(str_user_id);				/* str_user_id len*/
+			str_length += strlen(str_file_size);				/* str_user_id len*/
+			str_length += strlen(filename) + 5;				/* plus 2 semikolon + a: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+			strcpy(str_file_name, "as:");
+			strcat(str_file_name, str_user_id);				/* str_user_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, str_file_size);				/* str_file_size */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			/* Importend! Need qsorted list */
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+		}
+
+
+
+
+
+
 		/* -------------------------------------------------------------------------------------------------- */
 		/* allowed groups */
 		group_info = get_current_groups();
@@ -1309,6 +1397,33 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				/* Importend! Need qsorted list */
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 			}
+
+			if (file_list_max > 0) {
+				sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+				sprintf(str_file_size, "%lu", file_size);			/* int to string */
+				str_length = strlen(str_group_id);				/* str_user_id len*/
+				str_length += strlen(str_file_size);				/* str_user_id len*/
+				str_length += strlen(filename) + 6;				/* plus 2 semikolon + ga: */
+
+				if (str_file_name != NULL) {
+					kfree(str_file_name);
+					str_file_name = NULL;
+				}
+
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+
+				strcpy(str_file_name, "gas:");
+				strcat(str_file_name, str_group_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, filename);				/* + filename */
+
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+			}
+
+
 		}
 
 		/* ------------------------------------------------------------------------------------------------- */
