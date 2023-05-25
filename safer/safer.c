@@ -182,7 +182,7 @@ static void	*data = NULL;
 
 
 
-/* decl. */
+/* def. */
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
@@ -213,7 +213,7 @@ void safer_info(struct safer_info_struct *info)
 
 
 
-/* decl. */
+/* def. */
 struct  safer_learning_struct {
 	long file_learning_list_max;
 	char **file_learning_list;
