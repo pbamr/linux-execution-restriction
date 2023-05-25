@@ -50,7 +50,7 @@
 
 
 
-/* decl. */
+/* def. */
 struct  safer_learning_struct {
 	long file_learning_list_max;
 	char **file_learning_list;
