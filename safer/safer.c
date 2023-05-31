@@ -141,8 +141,8 @@
 	Thanks		: Linus Torvalds and others
 
 
-
-	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
+	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 	Admirable ballet dancers.
 
 
@@ -153,7 +153,8 @@
 #define MAX_DYN 100000
 #define RET_SHELL -2
 
-static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer";
+/* test */
+/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
 
 
 
@@ -182,7 +183,7 @@ static void	*data = NULL;
 
 
 
-/* def. */
+/* decl. */
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
@@ -213,7 +214,7 @@ void safer_info(struct safer_info_struct *info)
 
 
 
-/* def. */
+/* decl. */
 struct  safer_learning_struct {
 	long file_learning_list_max;
 	char **file_learning_list;
@@ -689,7 +690,11 @@ prog_allowed:
 		if (strncmp(str_file_name, "as:", 3) == 0 || \
 		strncmp(str_file_name, "gas:", 4) == 0) {
 			//parameter_max = count_strings_kernel(argv);
-			if (parameter_max == 1) goto prog_exit_allowed;
+			if (parameter_max == 1) {			/*goto prog_exit_allowed; */
+				printk("ALLOWED LIST: <PROGRAM> NOT ALLOWED WITHOUT SCRIPT: %u;%s\n", user_id, filename);
+				return(RET_SHELL);
+			}
+
 
 			for ( n = 1; n < parameter_max; n++) {
 				file_size = 0;
