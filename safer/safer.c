@@ -691,7 +691,7 @@ prog_allowed:
 		strncmp(str_file_name, "gas:", 4) == 0) {
 			//parameter_max = count_strings_kernel(argv);
 			if (parameter_max == 1) {			/*goto prog_exit_allowed; */
-				printk("ALLOWED LIST: <PROGRAM> NOT ALLOWED WITHOUT SCRIPT: %u;%s\n", user_id, filename);
+				printk("ALLOWED LIST: <PROGRAM> NOT ALLOWED WITHOUT SCRIPT: %u;%lu;%s\n", user_id, file_size, filename);
 				return(RET_SHELL);
 			}
 
