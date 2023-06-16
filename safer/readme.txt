@@ -121,8 +121,6 @@ Autor/Urheber	: Peter Boettcher
 	Thanks		: Linus Torvalds and others
 			: Florian Klaempfl and others
 
-	Thanks		: Linus Torvalds and others
-
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
 	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
