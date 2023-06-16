@@ -14,8 +14,7 @@ Autor/Urheber	: Peter Boettcher
 			: Control only works as root
 
 			: USER and GROUPS
-			  IMPORTANT: file size will test
-
+			
 			: Extension of SYSCALL <execve>
 			  You found <replaces> under "pb_safer"
 
