@@ -122,8 +122,7 @@
 
 
 	Thanks		: Linus Torvalds and others
-			: Florian Klaempfl and others
-
+		
 
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
