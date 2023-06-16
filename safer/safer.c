@@ -124,12 +124,12 @@
 
 			: Example: User
 			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
 			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
 			: Important:
 			: java is special
