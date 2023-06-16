@@ -9,6 +9,9 @@
 	TEST		: Kernel 6.0 - 6.3
 			  Lenovo X230, T460
 
+	Attention	: Do not use safer.syscall. This version has yet to be edited.
+
+
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer/applocker"
 			: Control only works as root
@@ -104,12 +107,12 @@
 
 			: Example: User
 			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script-file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script-file is not allow
 
 			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script-file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script-file is not allow
 
 			: Important:
 			: java is special
@@ -121,7 +124,6 @@
 	Thanks		: Linus Torvalds and others
 			: Florian Klaempfl and others
 
-	Thanks		: Linus Torvalds and others
 
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
