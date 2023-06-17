@@ -1160,15 +1160,15 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				str_file_name = NULL;
 			}
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
-
-			strcpy(str_file_name, "a:");
-			strcat(str_file_name, str_user_id);				/* str_user_id */
-			strcat(str_file_name, ";");					/* + semmicolon */
-			strcat(str_file_name, str_file_size);				/* str_file_size */
-			strcat(str_file_name, ";");					/* + semmicolon */
-			strcat(str_file_name, filename);				/* + filename */
-
+			if (str_file_name != NULL) {
+				strcpy(str_file_name, "a:");
+				strcat(str_file_name, str_user_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, filename);				/* + filename */
+			}
+			
 			if (file_learning_list_max > 0) {
 				if (search(str_file_name, file_learning_list, file_learning_list_max) != 0) {
 					file_learning_list_max += 1;
