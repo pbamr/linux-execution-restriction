@@ -1159,6 +1159,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				kfree(str_file_name);
 				str_file_name = NULL;
 			}
+
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 			if (str_file_name != NULL) {
 				strcpy(str_file_name, "a:");
