@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23
+	Date		: 2022.04.22, 2023.06.17
 
 	Program		: safer.c
 	Path		: fs/
@@ -178,6 +178,7 @@ static long	folder_list_max = 0;
 
 static void	*data = NULL;
 
+static void	*ptr = NULL;
 
 
 
@@ -345,14 +346,16 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 					kfree(str_file_name);
 					str_file_name = NULL;
 				}
-				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
-				strcpy(str_file_name, "a:");
-				strcat(str_file_name, str_user_id);				/* str_user_id */
-				strcat(str_file_name, ";");					/* + semmicolon */
-				strcat(str_file_name, str_file_size);				/* str_file_size */
-				strcat(str_file_name, ";");					/* + semmicolon */
-				strcat(str_file_name, argv[n]);					/* + filename */
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name != NULL) {
+					strcpy(str_file_name, "a:");
+					strcat(str_file_name, str_user_id);				/* str_user_id */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, str_file_size);				/* str_file_size */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, argv[n]);					/* + filename */
+				}
 
 				if (file_learning_list_max > 0) {
 					if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
@@ -363,9 +366,14 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				}
 
 				file_argv_list_max += 1;
+				ptr = file_argv_list;
 				file_argv_list = krealloc(file_argv_list, file_argv_list_max * sizeof(char *), GFP_KERNEL);
-				file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-				strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
+
+				if (file_argv_list != NULL) {
+					file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (file_argv_list[file_argv_list_max - 1] != NULL) strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
+				}
+				else file_argv_list = ptr;
 			}
 		}
 	}
@@ -433,6 +441,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 		}
 
 		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+		if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 		strcpy(str_file_name, "d:");
 		strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -473,6 +482,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "gd:");
 			strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -514,6 +524,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -541,6 +552,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "as:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -573,6 +585,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -605,6 +618,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				strcpy(str_file_name, "gas:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -633,6 +647,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -661,6 +676,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -715,6 +731,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 					strcpy(str_file_name, "d:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -742,6 +759,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 					strcpy(str_file_name, "d:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -771,6 +789,7 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 						strcpy(str_file_name, "gd:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -800,6 +819,7 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 						strcpy(str_file_name, "gd:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -829,6 +849,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 					strcpy(str_file_name, "a:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -854,6 +875,8 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 
 						strcpy(str_file_name, "ga:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -880,6 +903,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 					strcpy(str_file_name, "a:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -905,6 +929,7 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 						strcpy(str_file_name, "ga:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -955,6 +980,8 @@ prog_allowed:
 					str_length += strlen(".class");						/* extension */
 
 					str_java_name = kmalloc((str_length + 1)  * sizeof(char), GFP_KERNEL);
+					if (str_java_name == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 
 					strcpy(str_java_name, argv[2]);						/* path */
 					if (argv[2][strlen(argv[2]) - 1] != '/') strcat(str_java_name, "/");
@@ -976,6 +1003,7 @@ prog_allowed:
 							}
 
 							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 							strcpy(str_file_name, "a:");
 							strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -998,6 +1026,8 @@ prog_allowed:
 							}
 
 							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 
 							strcpy(str_file_name, "a:");
 							strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1031,6 +1061,7 @@ prog_allowed:
 							}
 
 							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 							strcpy(str_file_name, "a:");
 							strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1054,6 +1085,8 @@ prog_allowed:
 							}
 
 							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 							strcpy(str_file_name, "a:");
 							strcat(str_file_name, str_user_id);				/* str_user_id */
 							strcat(str_file_name, ";");					/* + semmicolon */
@@ -1127,6 +1160,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				str_file_name = NULL;
 			}
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1138,16 +1172,27 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			if (file_learning_list_max > 0) {
 				if (search(str_file_name, file_learning_list, file_learning_list_max) != 0) {
 					file_learning_list_max += 1;
+					ptr = file_learning_list;
 					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
-					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(file_learning_list[file_learning_list_max -1], str_file_name);
+
+					if (file_learning_list != NULL) {
+						file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (file_learning_list[file_learning_list_max - 1] != NULL) strcpy(file_learning_list[file_learning_list_max -1], str_file_name);
+					}
+					else file_learning_list = ptr;
 				}
 			}
 			else {
 				file_learning_list_max += 1;
+				ptr = file_learning_list;
 				file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
-				file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-				strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+
+				if (file_learning_list != NULL) {
+					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (file_learning_list[file_learning_list_max - 1] != NULL) strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+				}
+				else file_learning_list = ptr;
+
 			}
 		}
 	}
@@ -1199,6 +1244,8 @@ static int allowed_deny_exec_sec_step(const char *filename)
 		}
 
 		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+		if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 
 		strcpy(str_file_name, "d:");
 		strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1239,6 +1286,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "gd:");
 			strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -1279,6 +1327,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1303,6 +1352,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1329,6 +1379,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 			strcpy(str_file_name, "as:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1367,6 +1418,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -1390,6 +1442,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -1415,6 +1468,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				strcpy(str_file_name, "gas:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -1478,6 +1532,8 @@ static int allowed_deny_exec(const char *filename,
 	/* filename -> kernel space */
 	str_len = strnlen_user(filename, MAX_ARG_STRLEN);
 	kernel_filename = kmalloc((str_len + 1) * sizeof(char *), GFP_KERNEL);
+	if (kernel_filename == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 	ret = copy_from_user(kernel_filename, filename, str_len );
 
 
@@ -1487,12 +1543,16 @@ static int allowed_deny_exec(const char *filename,
 	if (argv_list_max > argv_max) argv_list_max = argv_max;
 
 	argv_list = kmalloc(argv_list_max * sizeof(char *), GFP_KERNEL);
+	if (argv_list == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 
 	for (n = 0; n < argv_list_max; n++) {
 		str = get_user_arg_ptr(argv, n);
 		str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 		argv_list[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+		if (argv_list[n] == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 		ret = copy_from_user(argv_list[n], str, str_len);
 	}
 
@@ -1712,6 +1772,7 @@ SYSCALL_DEFINE5(execve,
 
 				if (list_string != NULL) kfree(list_string);		/* sicher ist sicher */
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				if (list_string == NULL) panic("SAFER: Could not allocate buffer!\n");
 				int_ret = copy_from_user(list_string, str, str_len);
 
 				int_ret = kstrtol(list_string, 10, &file_list_max);
@@ -1740,12 +1801,16 @@ SYSCALL_DEFINE5(execve,
 
 				/* dyn array */
 				file_list = kmalloc(file_list_max * sizeof(char *), GFP_KERNEL);
-				if (file_list == NULL) { file_list_max = 0; return -1; }
+				/* if (file_list == NULL) { file_list_max = 0; return -1; } */
+				if (file_list == NULL) panic("SAFER: Could not allocate buffer!\n");
 
 				for (n = 0; n < file_list_max; n++) {
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
+
 					file_list[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					if (file_list[n] == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 					int_ret = copy_from_user(file_list[n], str, str_len);
 				}
 
@@ -1783,7 +1848,10 @@ SYSCALL_DEFINE5(execve,
 				if (str_len < 1) return -1;
 
 				if (list_string != NULL) kfree(list_string);		/* sicher ist sicher */
+
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				if (list_string == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 				int_ret = copy_from_user(list_string, str, str_len);
 
 				int_ret = kstrtol(list_string, 10, &folder_list_max);
@@ -1812,12 +1880,17 @@ SYSCALL_DEFINE5(execve,
 
 				/* dyn array */
 				folder_list = kmalloc(folder_list_max * sizeof(char *), GFP_KERNEL);
-				if (folder_list == NULL) { folder_list_max = 0; return -1; }
+				/* if (folder_list == NULL) { folder_list_max = 0; return -1; } */
+				if (folder_list == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 
 				for (n = 0; n < folder_list_max; n++) {
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
+
 					folder_list[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					if (folder_list[n] == NULL) panic("SAFER: Could not allocate buffer!\n");
+
 					int_ret = copy_from_user(folder_list[n], str, str_len);
 				}
 
