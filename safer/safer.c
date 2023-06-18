@@ -453,7 +453,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 			/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				if (str_file_name != NULL) kfree(str_file_name);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 				return(RET_SHELL);
 			}
 		}
@@ -463,7 +463,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 				/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-				if (str_file_name != NULL) kfree(str_file_name);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 				return(RET_SHELL);
 			}
 		}
@@ -496,7 +496,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-					if (str_file_name != NULL) kfree(str_file_name);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 					return(RET_SHELL);
 				}
 			}
@@ -507,7 +507,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-					if (str_file_name != NULL) kfree(str_file_name);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 					return(RET_SHELL);
 				}
 			}
@@ -695,7 +695,7 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
 		printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-		if (str_file_name != NULL) kfree(str_file_name);
+		if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 		return(RET_SHELL);
 	}
 
@@ -712,7 +712,7 @@ prog_allowed:
 			//parameter_max = count_strings_kernel(argv);
 			if (parameter_max == 1) {			/*goto prog_exit_allowed; */
 				printk("ALLOWED LIST: <PROGRAM> NOT ALLOWED WITHOUT SCRIPT: %u;%lu;%s\n", user_id, file_size, filename);
-				if (str_file_name != NULL) kfree(str_file_name);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 				return(RET_SHELL);
 			}
 
@@ -749,7 +749,7 @@ prog_allowed:
 						if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-							if (str_file_name != NULL) kfree(str_file_name);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 							return(RET_SHELL);
 						}
 					}
@@ -777,7 +777,7 @@ prog_allowed:
 						if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-							if (str_file_name != NULL) kfree(str_file_name);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 							return(RET_SHELL);
 						}
 					}
@@ -808,7 +808,7 @@ prog_allowed:
 							if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 								/* Not allowed */
 								printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-								if (str_file_name != NULL) kfree(str_file_name);
+								if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 								return(RET_SHELL);
 							}
 						}
@@ -839,7 +839,7 @@ prog_allowed:
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 								/* Not allowed */
 								printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-								if (str_file_name != NULL) kfree(str_file_name);
+								if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 								return(RET_SHELL);
 							}
 						}
@@ -959,7 +959,7 @@ prog_allowed:
 				if (ret == 0) printk("ALLOWED LIST: <USER/SCRIPT/MODULE> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, argv[n]);
 				else printk("URGENT: <SCRIPT/MODULE> NOT EXIST %u;0;%s\n", user_id, argv[n]);
 			}
-			if (str_file_name != NULL) kfree(str_file_name);
+			if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 			return(RET_SHELL);
 		}
 
@@ -1049,7 +1049,7 @@ prog_allowed:
 
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 							printk("ALLOWED LIST: USER/PROG. <CLASS> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-							if (str_file_name != NULL) kfree(str_file_name);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 							return(RET_SHELL);
 						}
 					}
@@ -1108,7 +1108,7 @@ prog_allowed:
 
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 							printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-							if (str_file_name != NULL) kfree(str_file_name);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 							return(RET_SHELL);
 						}
 					}
@@ -1117,7 +1117,7 @@ prog_allowed:
 
 
 			printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-			if (str_file_name != NULL) kfree(str_file_name);
+			if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 			return(RET_SHELL);
 		}
 
@@ -1127,7 +1127,7 @@ prog_allowed:
 	}
 
 prog_exit_allowed:
-	if (str_file_name != NULL) kfree(str_file_name);
+	if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 	return(0);
 
 }
@@ -1271,7 +1271,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 			/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				if (str_file_name != NULL) kfree(str_file_name);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 				return(RET_SHELL);
 			}
 		}
@@ -1281,7 +1281,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 				/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-				if (str_file_name != NULL) kfree(str_file_name);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 				return(RET_SHELL);
 			}
 		}
@@ -1314,7 +1314,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-					if (str_file_name != NULL) kfree(str_file_name);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 					return(RET_SHELL);
 				}
 			}
@@ -1325,7 +1325,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-					if (str_file_name != NULL) kfree(str_file_name);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 					return(RET_SHELL);
 				}
 			}
@@ -1505,7 +1505,7 @@ static int allowed_deny_exec_sec_step(const char *filename)
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
 		printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-		if (str_file_name != NULL) kfree(str_file_name);
+		if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 		return(RET_SHELL);
 	}
 
@@ -1517,7 +1517,7 @@ prog_allowed:
 		printk("ALLOWED LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
 	}
 
-	if (str_file_name != NULL) kfree(str_file_name);
+	if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 	return(0);
 
 }
@@ -1580,11 +1580,11 @@ static int allowed_deny_exec(const char *filename,
 
 
 	for (n = 0; n < argv_list_max; n++) {
-		if (argv_list[n] != NULL) kfree(argv_list[n]);
+		if (argv_list[n] != NULL) { kfree(argv_list[n]); argv_list[n] = NULL; }
 	}
 
-	if (argv_list != NULL) kfree(argv_list);
-	if (kernel_filename != NULL) kfree(kernel_filename);
+	if (argv_list != NULL) { kfree(argv_list); argv_list = NULL; }
+	if (kernel_filename != NULL) { kfree(kernel_filename); kernel_filename = NULL; }
 
 	return ret;
 
@@ -1684,9 +1684,9 @@ SYSCALL_DEFINE5(execve,
 #endif
 				if (file_list_max != 0) {
 					for (n = 0; n < file_list_max; n++) {
-						if (file_list[n] != NULL) kfree(file_list[n]);
+						if (file_list[n] != NULL) { kfree(file_list[n]); file_list[n] = NULL; }
 					}
-					if (file_list != NULL) kfree(file_list);
+					if (file_list != NULL) { kfree(file_list); file_list = NULL; }
 					file_list_max = 0;
 				}
 				return(0);
@@ -1700,9 +1700,9 @@ SYSCALL_DEFINE5(execve,
 #endif
 				if (folder_list_max != 0) {
 					for (n = 0; n < folder_list_max; n++) {
-						if (folder_list[n] != NULL) kfree(folder_list[n]);
+						if (folder_list[n] != NULL) { kfree(folder_list[n]); folder_list[n] = NULL; }
 					}
-					if (folder_list != NULL) kfree(folder_list);
+					if (folder_list != NULL) { kfree(folder_list); folder_list = NULL; }
 					folder_list_max = 0;
 				}
 				return(0);
@@ -1775,9 +1775,9 @@ SYSCALL_DEFINE5(execve,
 				/* clear */
 				if (file_list_max > 0) {
 					for (n = 0; n < file_list_max; n++) {
-						if (file_list[n] != NULL) kfree(file_list[n]);
+						if (file_list[n] != NULL) { kfree(file_list[n]); file_list[n] = NULL; }
 					}
-					if (file_list != NULL) kfree(file_list);
+					if (file_list != NULL) { kfree(file_list); file_list = NULL; }
 				}
 
 
@@ -1789,13 +1789,13 @@ SYSCALL_DEFINE5(execve,
 				str_len = strnlen_user(str, MAX_ARG_STRLEN);
 				if (str_len < 1) return -1;
 
-				if (list_string != NULL) kfree(list_string);		/* sicher ist sicher */
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) panic("SAFER: Could not allocate buffer!\n");
 				int_ret = copy_from_user(list_string, str, str_len);
 
 				int_ret = kstrtol(list_string, 10, &file_list_max);
-				if (list_string != NULL) kfree(list_string);
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 				if (int_ret != 0) return -1;
 
 
@@ -1851,9 +1851,9 @@ SYSCALL_DEFINE5(execve,
 				/* clear */
 				if (folder_list_max > 0) {
 					for (n = 0; n < folder_list_max; n++) {
-						if (folder_list[n] != NULL) kfree(folder_list[n]);
+						if (folder_list[n] != NULL) { kfree(folder_list[n]); folder_list[n] = NULL; }
 					}
-					if (folder_list != NULL) kfree(folder_list);
+					if (folder_list != NULL) { kfree(folder_list); folder_list = NULL; }
 				}
 
 
@@ -1866,7 +1866,7 @@ SYSCALL_DEFINE5(execve,
 				str_len = strnlen_user(str, MAX_ARG_STRLEN);
 				if (str_len < 1) return -1;
 
-				if (list_string != NULL) kfree(list_string);		/* sicher ist sicher */
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
 
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) panic("SAFER: Could not allocate buffer!\n");
@@ -1874,7 +1874,7 @@ SYSCALL_DEFINE5(execve,
 				int_ret = copy_from_user(list_string, str, str_len);
 
 				int_ret = kstrtol(list_string, 10, &folder_list_max);
-				if (list_string != NULL) kfree(list_string);
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; };
 				if (int_ret != 0) return -1;
 
 
