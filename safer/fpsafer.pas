@@ -28,7 +28,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.23 2023.05.24
+	Date		: 2023.07.03
 	
 	Program		: fpsafer.pas
 			: Simple Frontend
@@ -83,6 +83,19 @@
 			: ga:101;1234;/usr/bin/mc	= allow group file
 	
 	
+			: Example: User
+			: user
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Example: Group
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Important:
+			: java is special
+			: java need no "as or gas"
+
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 	
 	
@@ -90,7 +103,8 @@
 	Thanks		: Niklaus Wirth
 			: Florian Klaempfl and others
 	
-	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
+	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 
 
 *)

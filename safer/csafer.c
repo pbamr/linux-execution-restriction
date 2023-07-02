@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.05.12 2023.05.24
+	Date		: 2023.07.03
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -86,13 +86,26 @@
 			: gd:101;/usr/bin/mc		= deny group file
 			: ga:101;1234;/usr/bin/mc	= allow group file
 
+			: Example: User
+			: user
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Example: Group
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Important:
+			: java is special
+			: java need no "as or gas"
+
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
 
+	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 
-
-	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
 */
 
 
@@ -181,7 +194,7 @@ int TryStrToInt64 (char *STRING_NUMBER, s64 *NUMBER, int ZAHLEN_SYSTEM) {
 		else return(0);
 	}
 
-	/* Warning gcc: -922337203685477588 */
+	/* Warning gcc: -922337203685477508 */
 	if (*NUMBER + 1 == -9223372036854775807) {
 		if (strncmp(STRING_NUMBER, "-9223372036854775808", 20) != 0) return(-1);
 		else return(0);
@@ -845,10 +858,6 @@ void main(int argc, char *argv[]) {
 							file_list.Add(&file_list, all_list.TStringList[n]);
 							continue;
 						}
-
-
-
-
 
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);

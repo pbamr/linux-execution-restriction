@@ -333,7 +333,6 @@ static int allowed_deny_exec_first_step(const char *filename, char **argv, int p
 		//parameter_max = count_strings_kernel(argv);
 		//if (parameter_max > 16) parameter_max = 16;
 
-
 		for (n = 1; n < parameter_max; n++) {
 
 			ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
