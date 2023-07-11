@@ -1,7 +1,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23
+	Date		: 2022.04.22, 2023.07.11
 
 	Program		: safer.c
 	Path		: fs/
@@ -9,8 +9,7 @@
 	TEST		: Kernel 6.0 - 6.3
 			  Lenovo X230, T460
 
-	Attention	: Do not use safer.syscall. This version has yet to be edited.
-
+	
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer/applocker"
