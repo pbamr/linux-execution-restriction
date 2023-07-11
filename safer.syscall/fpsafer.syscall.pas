@@ -28,7 +28,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.17
+	Date		: 2023.07.03
 	
 	Program		: fpsafer.pas
 			: Simple Frontend
@@ -53,9 +53,6 @@
 			:  5 = Clear FILE List
 			:  6 = Clear FOLDER List
 			
-			:  7 = ROOT LIST IN KERNEL ON
-			:  8 = ROOT LIST IN KERNEL OFF
-			
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
 	
@@ -63,8 +60,8 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 	
-			: string = allow/deny:USER-ID;PATH
-			: string = allow/deny:GROUP-ID;PATH
+			: string = allow:USER-ID;FILE-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
 	
 			: a:USER-ID;Path
 			: d:USER-ID;Path
@@ -73,8 +70,8 @@
 			: gd:GROUP-ID;Path
 	
 			: Example:
-			: a:100;/bin/test		= allow file
-			: a:100;/bin/test1		= allow file
+			: a:100;1234;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
 			: a:100;/usr/sbin/		= allow Folder
 	
 			: d:100;/usr/sbin/test		= deny file
@@ -83,11 +80,22 @@
 			: ga:100;/usr/sbin/		= allow group folder
 			: gd:100;/usr/bin/		= deny group folder
 			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;/usr/bin/mc		= allow group file
+			: ga:101;1234;/usr/bin/mc	= allow group file
 	
-			: The program turns it into USER-ID;PATH
-			: 100;/bin/test1
 	
+			: Example: User
+			: user
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Example: Group
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Important:
+			: java is special
+			: java need no "as or gas"
+
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 	
 	
@@ -95,7 +103,8 @@
 	Thanks		: Niklaus Wirth
 			: Florian Klaempfl and others
 	
-	I would like to remember ALICIA ALONSO and MAYA PLISETSKAYA. Two admirable ballet dancers.
+	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 
 
 *)
@@ -118,11 +127,20 @@ Uses
 	
 	
 	
+{$define SYSCALLVERSION}
+//{$define SYSCALL_VERSION}
+
 	
 	
 	
 const
-	SYSCALL_NR	= 459;		//59;		//syscall execv
+	{$ifdef SYSCALL_VERSION}
+		SYSCALL_NR	= 59;
+	{$else SYSCALLVERSION}
+		SYSCALL_NR	= 459;
+	{$endif SYSCALL_VERSION}
+
+	
 	
 	
 var
@@ -146,9 +164,11 @@ begin
 	writeln('LGPL               : www.gnu.org');
 	writeln('Special Thanks     : Niklaus Wirth');
 	writeln;
+	writeln('SYSCALL     :  ',  SYSCALL_NR);
+	writeln;
 	writeln('Parameter   :  0 Safer ON');
 	writeln('Parameter   :  1 Safer OFF');
-	writeln('Parameter   :  2 Safer STATE');
+	//writeln('Parameter   :  2 Safer STATE');
 	writeln('Parameter   :  3 Safer Printk ON');
 	writeln('Parameter   :  4 Safer Printk OFF');
 	writeln;
@@ -158,12 +178,25 @@ begin
 	writeln('Parameter   :  7 Safer ROOT LIST IN KERNEL ON');
 	writeln('Parameter   :  8 Safer ROOT LIST IN KERNEL OFF');
 	writeln;
+	writeln('Parameter   :  9 Safer DO NOT allowed any more changes');
+	writeln;
+
+	writeln('Parameter   :  10 Safer LEARNING ON');
+	writeln('Parameter   :  11 Safer LEARNING OFF');
+	writeln;
+
 	writeln('Parameter   : 20 Safer SET FILE LIST');
 	writeln('            :    <safer list>');
 	writeln;
 	writeln('Parameter   : 21 Safer SET FOLDER LIST');
 	writeln('            :    <safer list>');
+	writeln;
+	writeln('Parameter   : 30 Safer SORT LIST');
+	writeln('            :    <safer list>');
 
+	writeln;
+
+	writeln;
 	writeln;
 	halt(1);
 end;
@@ -181,16 +214,24 @@ end;
 	
 	
 	
+	
+	
+	
 //simple
 begin
 	if ParamCount = 1 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 8 then ErrorMessage;
+		if NUMBER > 11 then ErrorMessage;
 		
+		
+		
+{$ifdef SYSCALL_VERSION}
+		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
+{$else SYSCALLVERSION}
 		writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
+{$endif SYSCALL_VERSION}
 		halt(0);
 	end;
-	
 	
 	if ParamCount = 2 then begin
 		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
@@ -222,12 +263,25 @@ begin
 							continue;
 						end;
 						
+						if copy(LIST[n], 0, 3) = 'as:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
 						if copy(List[n], 0, 2) = 'd:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
 						end;
+						
 						if copy(List[n], 0, 3) = 'ga:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 4) = 'gas:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
@@ -252,7 +306,11 @@ begin
 						writeln(WORK_LIST[n+1]);
 					end;
 					
+					{$ifdef SYSCALL_VERSION}
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					{$else SYSCALLVERSION}
 					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER, qword(WORK_LIST)));
+					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
 			
@@ -286,6 +344,7 @@ begin
 							N_LIST.add(List[n]);
 							continue;
 						end;
+						
 						if copy(List[n], 0, 3) = 'ga:' then begin
 							if LIST[n][length(LIST[n])] <> '/' then continue;
 							N_LIST.add(List[n]);
@@ -311,9 +370,87 @@ begin
 						writeln(WORK_LIST[n+1]);
 					end;
 					
+					{$ifdef SYSCALL_VERSION}
+					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
+					{$else SYSCALLVERSION}
 					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER, qword(WORK_LIST)));
+					{$endif SYSCALL_VERSION}
 					halt(0);
 				end;
+				
+			//FILES
+			30:	begin
+					LIST := TStringList.Create;
+					LIST.Sorted := TRUE;
+					LIST.Duplicates := dupIgnore;		//dupIgnore, dupAccept, dupError
+					List.CaseSensitive := TRUE;
+					try
+						LIST.LoadFromFile(ParamStr(2));
+					except
+						LIST.Free;
+						ErrorMessage;
+					end;
+					
+					
+					N_LIST := TStringList.Create;
+					N_LIST.Sorted := TRUE;
+					N_LIST.Duplicates := dupIgnore;
+					N_List.CaseSensitive := TRUE;
+					
+					for n := 0 to LIST.Count - 1 do begin
+						if copy(LIST[n], 0, 2) = 'a:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(LIST[n], 0, 3) = 'as:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						
+						if copy(List[n], 0, 2) = 'd:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 3) = 'ga:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 4) = 'gas:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+						if copy(List[n], 0, 3) = 'gd:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+						end;
+					end;
+					
+					if N_LIST.count = 0 then begin writeln('ERROR: NO ELEMENT IN LIST'); halt(0); end;
+					
+					setlength(WORK_LIST, N_LIST.COUNT + 1);					//RESERVIEREN
+					WORK_LIST[0] := StrAlloc(length(IntToStr(N_LIST.COUNT)));		//elements
+					StrpCopy(WORK_LIST[0], IntToStr(N_LIST.COUNT));				
+					
+					writeln(WORK_LIST[0]);
+					for n := 0 to N_LIST.COUNT - 1 do begin
+						WORK_LIST[n+1] := StrAlloc(length(N_LIST[n]) + 1);
+						StrpCopy(WORK_LIST[n+1], N_LIST[n]);
+						writeln(WORK_LIST[n+1]);
+					end;
+					
+					halt(0);
+				end;
+			
 			
 			else ErrorMessage;
 		end;

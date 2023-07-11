@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2022.06.11, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2022.06.11, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,27 +16,25 @@
  */
 
 
+
 /*
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.03.28, 2022.06.11
+	Date		: 2022.04.22, 2023.05.23
 
 	Program		: safer.c
 	Path		: fs/
 
-			: Program with SYSCALL
+	TEST		: Kernel 6.0 - 6.3
+			  Lenovo X230, T460
 
-			: in x86_64/amd64 syscall_64.tbl
-			: 459	common	set_execve		sys_set_execve
-
-	Test		: Kernel 6.0, Lenovo X230
-
-	Functionality	: Program execution restriction
+	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
 			: Control only works as root
 
 			: USER and GROUPS
+			  IMPORTANT: file size will test
 
 			: Extension of SYSCALL <execve>
 			  You found <replaces> under "pb_safer"
@@ -71,7 +69,7 @@
 			: 999907 = ROOT LIST IN KERNEL ON
 			: 999908 = ROOT LIST IN KERNEL OFF
 
-			: 999909 = LOCK CHANGES
+			: 999909 = LOCK changes
 
 			: 999910 = learning ON
 			: 999911 = learning OFF
@@ -97,54 +95,94 @@
 			: String 0 = Number of strings
 
 			: string = USER-ID;FILE-SIZE;PATH
-			: string = GROUP-ID;FILE-SIZE;PATH
+			: string = GROUP-ID;FILE-SIZEPATH
 			: string = File Size
 
-			: example:
-				a:0;1234;/path
-				d:0;/path
-				ga:0;1234;path
-				d:0;/path
-				gd:0;path
+			: string = allow:USER-ID;FILE-SIZE;PATH
+			: string = deny:GROUP-ID;PATH
+
+			: a:USER-ID;Path
+			: d:USER-ID;Path
+
+			: ga:GROUP-ID;Path
+			: gd:GROUP-ID;Path
+
+			: Example: user
+			: a:100;1224;/bin/test		= allow file
+			: a:100;1234;/bin/test1		= allow file
+			: a:100;/usr/sbin/		= allow Folder
+
+			: Example: user
+			: d:100;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/		= deny folder
+
+			: Example: Group
+			: ga:100;/usr/sbin/		= allow group folder
+			: gd:100;/usr/bin/		= deny group folder
+			: gd:101;/usr/bin/mc		= deny group file
+			: ga:101;1234;/usr/bin/mc	= allow group file
+
+			: Example: User
+			: user
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Example: Group
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Important:
+			: java is special
+			: java need no "as or gas"
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
 
 	Thanks		: Linus Torvalds and others
 
-	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
-	Admirable ballet dancers.
 
+	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
+	
 
 */
 
 
 #define PRINTK
 #define MAX_DYN 100000
+#define RET_SHELL -2
+
+#define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
+
+
+/* test */
+/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
 
 
 
-
-static bool	safer_mode = true;
-static bool	printk_mode = true;
-static bool	safer_root_list_in_kernel_mode = true;
+static bool	safer_mode = false;
+static bool	printk_mode = false;
+static bool	safer_root_list_in_kernel_mode = false;
 static bool	learning_mode = true;
 static bool	no_change_mode = false;
 
 static char	**file_list = NULL;
-static char	**proc_file_list = NULL;
-static char	**file_learning_list = NULL;
-static char	**file_argv_list = NULL;
-static long	file_learning_list_max = 0;
-static long	file_argv_list_max = 0;
 static long	file_list_max = 0;
 
+static char	**file_learning_list = NULL;
+static long	file_learning_list_max = 0;
 
-static char	**folder_list;
-static char	**proc_folder_list;
+static char	**file_argv_list = NULL;
+static long	file_argv_list_max = 0;
+
+static char	**folder_list = NULL;
 static long	folder_list_max = 0;
 
+
 static void	*data = NULL;
+
+static void	*ptr = NULL;
+
 
 
 
@@ -172,8 +210,8 @@ void safer_info(struct safer_info_struct *info)
 	info->safer_root_list_in_kernel_mode = safer_root_list_in_kernel_mode;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
-	info->file_list = proc_file_list;
-	info->folder_list = proc_folder_list;
+	info->file_list = file_list;
+	info->folder_list = folder_list;
 }
 
 
@@ -270,7 +308,9 @@ static long search(char *str_search, char **list, long elements)
 
 
 
-static int allowed_deny_exec(const char *filename, const char __user *const __user *argv)
+
+
+static int allowed_deny_exec_first_step(const char *filename, char **argv, int parameter_max)
 {
 	uid_t	user_id;
 	u32	n, n0;
@@ -281,23 +321,24 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 	u64	str_length;
 	char	*str_file_name = NULL;
 	char	*str_java_name = NULL;
-	s64	parameter_max;
+	//s64	parameter_max;
 
 	struct group_info *group_info;
 
 	size_t	file_size = 0;
-	int	ret;
+	ssize_t	ret;
 
 
 	user_id = get_current_user()->uid.val;
 
 	if (learning_mode == true) {
-		parameter_max = count_strings_kernel(argv);
-		if (parameter_max > 16) parameter_max = 16;
-
+		//parameter_max = count_strings_kernel(argv);
+		//if (parameter_max > 16) parameter_max = 16;
 
 		for (n = 1; n < parameter_max; n++) {
+
 			ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
+
 			if (ret == 0) {
 				sprintf(str_user_id, "%u", user_id);				/* int to string */
 				sprintf(str_file_size, "%lu", file_size);			/* int to string */
@@ -309,14 +350,16 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 					kfree(str_file_name);
 					str_file_name = NULL;
 				}
-				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
 
-				strcpy(str_file_name, "a:");
-				strcat(str_file_name, str_user_id);				/* str_user_id */
-				strcat(str_file_name, ";");					/* + semmicolon */
-				strcat(str_file_name, str_file_size);				/* str_file_size */
-				strcat(str_file_name, ";");					/* + semmicolon */
-				strcat(str_file_name, argv[n]);					/* + filename */
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name != NULL) {
+					strcpy(str_file_name, "a:");
+					strcat(str_file_name, str_user_id);				/* str_user_id */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, str_file_size);				/* str_file_size */
+					strcat(str_file_name, ";");					/* + semmicolon */
+					strcat(str_file_name, argv[n]);					/* + filename */
+				}
 
 				if (file_learning_list_max > 0) {
 					if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
@@ -327,74 +370,42 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				}
 
 				file_argv_list_max += 1;
+				ptr = file_argv_list;
 				file_argv_list = krealloc(file_argv_list, file_argv_list_max * sizeof(char *), GFP_KERNEL);
-				file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-				strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
-			}
-		}
 
-		if (strstr(filename, "/python") != NULL || \
-		strstr(filename, "/insmod") != NULL || \
-		strstr(filename, "/perl") != NULL || \
-		strstr(filename, "/ruby") != NULL || \
-		strstr(filename, "/julia") != NULL || \
-		strstr(filename, "/Rscript") != NULL || \
-		strstr(filename, "/java") != NULL || \
-		strstr(filename, "/lua") != NULL)  {
-			for (n = 1; n < parameter_max; n++) {
-				ret = kernel_read_file_from_path(argv[n], 0, &data, 0, &file_size, READING_POLICY);
-				if (ret == 0) {
-					sprintf(str_user_id, "%u", user_id);				/* int to string */
-					sprintf(str_file_size, "%lu", file_size);			/* int to string */
-					str_length = strlen(str_user_id);				/* str_user_id len*/
-					str_length += strlen(str_file_size);				/* str_user_id len*/
-					str_length += strlen(argv[n]) + 4;				/* plus 2 semikolon + a: */
-
-					if (str_file_name != NULL) {
-						kfree(str_file_name);
-						str_file_name = NULL;
-					}
-					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-
-					strcpy(str_file_name, "a:");
-					strcat(str_file_name, str_user_id);				/* str_user_id */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, str_file_size);				/* str_file_size */
-					strcat(str_file_name, ";");					/* + semmicolon */
-					strcat(str_file_name, argv[n]);					/* + filename */
-
-					if (file_learning_list_max > 0) {
-						if (search(str_file_name, file_learning_list, file_learning_list_max) == 0) continue;
-					}
-
-					file_learning_list_max += 1;
-					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
-					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+				if (file_argv_list != NULL) {
+					file_argv_list[file_argv_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (file_argv_list[file_argv_list_max - 1] != NULL) strcpy(file_argv_list[file_argv_list_max - 1], str_file_name);
 				}
+				else file_argv_list = ptr;
 			}
 		}
 	}
+
 
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
 
 	if (printk_mode == true) {
 		/* max. argv */
-		for ( n = 0; n <= 32; n++) {
-			if (argv[n] != NULL)
+		for ( n = 0; n < parameter_max; n++) {
 				printk("USER ID:%u, PROG:%s, SIZE:%lu, argv[%d]:%s\n", user_id, filename, file_size, n, argv[n]);
-			else break;
 		}
-		if (ret != 0) printk("URGENT: PROG. NOT EXIST\n");
+		if (ret != 0) {
+			printk("URGENT: PROG. NOT EXIST, OR NO RIGHTS\n");
+			return(RET_SHELL);
+		}
 	}
 
-	if (ret != 0) return(-2);
+	if (ret != 0) return(RET_SHELL);
 
 	if (safer_mode == true) {
 		/* --------------------------------------------------------------------------------- */
 		/* my choice */
 		if (user_id == 0) {
 			if (safer_root_list_in_kernel_mode == true) {
+				//goto prog_exit_allowed;
+
+
 				if (strncmp("/bin/", filename, 5) == 0) goto prog_exit_allowed;
 				if (strncmp("/sbin/", filename, 6) == 0) goto prog_exit_allowed;
 				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_exit_allowed;
@@ -419,7 +430,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 
 				/* NOT allowed. */
 				printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -434,6 +445,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		}
 
 		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+		if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 		strcpy(str_file_name, "d:");
 		strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -445,7 +457,8 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 			/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+				return(RET_SHELL);
 			}
 		}
 
@@ -454,7 +467,8 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 				/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-				return(-2);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+				return(RET_SHELL);
 			}
 		}
 
@@ -474,6 +488,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "gd:");
 			strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -485,7 +500,8 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-					return(-2);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+					return(RET_SHELL);
 				}
 			}
 
@@ -495,7 +511,8 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-					return(-2);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+					return(RET_SHELL);
 				}
 			}
 		}
@@ -515,8 +532,37 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "a:");
+			strcat(str_file_name, str_user_id);				/* str_user_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, str_file_size);				/* str_file_size */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			/* Importend! Need qsorted list */
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+		}
+
+		/* first allowed files */
+		/* allowed user file scripts languages, like python etc. */
+		if (file_list_max > 0) {
+			sprintf(str_user_id, "%u", user_id);				/* int to string */
+			sprintf(str_file_size, "%lu", file_size);			/* int to string */
+			str_length = strlen(str_user_id);				/* str_user_id len*/
+			str_length += strlen(str_file_size);				/* str_user_id len*/
+			str_length += strlen(filename) + 5;				/* plus 2 semikolon + a: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
+			strcpy(str_file_name, "as:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
 			strcat(str_file_name, ";");					/* + semmicolon */
 			strcat(str_file_name, str_file_size);				/* str_file_size */
@@ -547,8 +593,42 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 				strcpy(str_file_name, "ga:");
+				strcat(str_file_name, str_group_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, filename);				/* + filename */
+
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+			}
+		}
+
+		/* allowed groups file scripts languages, like python */
+		group_info = get_current_groups();
+		for (n = 0; n < group_info->ngroups; n++) {
+			/* if (group_info->gid[n].val == 0) continue; */				/* group root not allowed. My choice! */
+
+			/* allowed groups file */
+			if (file_list_max > 0) {
+				sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+				sprintf(str_file_size, "%lu", file_size);			/* int to string */
+				str_length = strlen(str_group_id);				/* str_user_id len*/
+				str_length += strlen(str_file_size);				/* str_user_id len*/
+				str_length += strlen(filename) + 6;				/* plus 2 semikolon + ga: */
+
+				if (str_file_name != NULL) {
+					kfree(str_file_name);
+					str_file_name = NULL;
+				}
+
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
+				strcpy(str_file_name, "gas:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
 				strcat(str_file_name, ";");					/* + semmicolon */
 				strcat(str_file_name, str_file_size);				/* str_file_size */
@@ -575,6 +655,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -603,6 +684,7 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -617,28 +699,27 @@ static int allowed_deny_exec(const char *filename, const char __user *const __us
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
 		printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-		return(-2);
+		if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+		return(RET_SHELL);
 	}
 
 prog_allowed:
 
 	/* simple */
 	/* test script files.max 10 param. */
-	/* only user, no groups */
 	/* this form will test: python "/abc/def/prog". name only is not allowed. "python hello" etc. is not allowed */
 	/* The full path is necessary */
 
 	if (safer_mode == true) {
-		if (strstr(filename, "/python") != NULL || \
-		strstr(filename, "/insmod") != NULL || \
-		strstr(filename, "/perl") != NULL || \
-		strstr(filename, "/ruby") != NULL || \
-		strstr(filename, "/julia") != NULL || \
-		strstr(filename, "/Rscript") != NULL || \
-		strstr(filename, "/lua") != NULL)  {
+		if (strncmp(str_file_name, "as:", 3) == 0 || \
+		strncmp(str_file_name, "gas:", 4) == 0) {
+			//parameter_max = count_strings_kernel(argv);
+			if (parameter_max == 1) {			/*goto prog_exit_allowed; */
+				printk("ALLOWED LIST: <PROGRAM> NOT ALLOWED WITHOUT SCRIPT: %u;%lu;%s\n", user_id, file_size, filename);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+				return(RET_SHELL);
+			}
 
-			parameter_max = count_strings_kernel(argv);
-			if (parameter_max == 1) goto prog_exit_allowed;
 
 			for ( n = 1; n < parameter_max; n++) {
 				file_size = 0;
@@ -660,6 +741,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 					strcpy(str_file_name, "d:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -671,7 +753,8 @@ prog_allowed:
 						if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-							return(-2);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+							return(RET_SHELL);
 						}
 					}
 
@@ -687,6 +770,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 					strcpy(str_file_name, "d:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -697,7 +781,8 @@ prog_allowed:
 						if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 							/* Not allowed */
 							printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-							return(-2);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+							return(RET_SHELL);
 						}
 					}
 
@@ -716,6 +801,7 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 						strcpy(str_file_name, "gd:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -726,7 +812,8 @@ prog_allowed:
 							if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 								/* Not allowed */
 								printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-								return(-2);
+								if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+								return(RET_SHELL);
 							}
 						}
 					}
@@ -745,6 +832,7 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 						strcpy(str_file_name, "gd:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -755,7 +843,8 @@ prog_allowed:
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 								/* Not allowed */
 								printk("DENY LIST: <USER/SCRIPT/MODULE> IN LIST: %u;%lu;%s\n", user_id,  file_size, argv[n]);
-								return(-2);
+								if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+								return(RET_SHELL);
 							}
 						}
 					}
@@ -774,6 +863,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 					strcpy(str_file_name, "a:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -799,6 +889,8 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
 
 						strcpy(str_file_name, "ga:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -825,6 +917,7 @@ prog_allowed:
 					}
 
 					str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 					strcpy(str_file_name, "a:");
 					strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -850,6 +943,7 @@ prog_allowed:
 						}
 
 						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 						strcpy(str_file_name, "ga:");
 						strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -869,17 +963,20 @@ prog_allowed:
 				if (ret == 0) printk("ALLOWED LIST: <USER/SCRIPT/MODULE> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, argv[n]);
 				else printk("URGENT: <SCRIPT/MODULE> NOT EXIST %u;0;%s\n", user_id, argv[n]);
 			}
-			return(-2);
-
+			if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+			return(RET_SHELL);
 		}
-			/* simple */
-			/* java special */
-			/* only user no group */
-			/* this form will test: "java -classpath PATH name" IMPORTANT: PATH without last "/" */
-			/*                    : "java -jar /PATH/name.jar */
-			/* other not allowed */
-		if (strstr(filename, "/java") != NULL) {
-			parameter_max = count_strings_kernel(argv);				/* check Parameter */
+
+
+
+		/* simple */
+		/* java special */
+		/* only user no group */
+		/* this form will test: "java -classpath PATH name" IMPORTANT: PATH without last "/" */
+		/*                    : "java -jar /PATH/name.jar */
+		/* other not allowed */
+		if (strncmp(filename, "/usr/bin/java", 13) == 0) {
+			//parameter_max = count_strings_kernel(argv);				/* check Parameter */
 			if (parameter_max == 1) goto prog_exit_allowed;				/* without Parameters */
 
 
@@ -898,6 +995,8 @@ prog_allowed:
 					str_length += strlen(".class");						/* extension */
 
 					str_java_name = kmalloc((str_length + 1)  * sizeof(char), GFP_KERNEL);
+					if (str_java_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
 
 					strcpy(str_java_name, argv[2]);						/* path */
 					if (argv[2][strlen(argv[2]) - 1] != '/') strcat(str_java_name, "/");
@@ -906,7 +1005,6 @@ prog_allowed:
 
 
 					ret = kernel_read_file_from_path(str_java_name, 0, &data, 0, &file_size, READING_POLICY);
-
 					if (ret == 0) {
 						/* folder test */
 						if (folder_list_max > 0) {
@@ -920,6 +1018,7 @@ prog_allowed:
 							}
 
 							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 							strcpy(str_file_name, "a:");
 							strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -942,6 +1041,8 @@ prog_allowed:
 							}
 
 							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
 
 							strcpy(str_file_name, "a:");
 							strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -952,81 +1053,97 @@ prog_allowed:
 
 							if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 							printk("ALLOWED LIST: USER/PROG. <CLASS> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-							return(-2);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+							return(RET_SHELL);
 						}
 					}
 				}
 			}
-		}
 
-		/* test "-jar" */
-		if (parameter_max == 3) {
-			if (strcmp(argv[1], "-jar") == 0) {
-				ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
-				if (ret == 0) {
-					/* folder test */
-					if (folder_list_max > 0) {
-						sprintf(str_user_id, "%u", user_id);				/* int to string */
-						str_length = strlen(str_user_id);				/* str_user_id len*/
-						str_length += strlen(argv[2]) + 3;				/* plus 1 = semikolon + a: */
+			/* test "-jar" */
+			if (parameter_max == 3) {
+				if (strcmp(argv[1], "-jar") == 0) {
+					ret = kernel_read_file_from_path(argv[2], 0, &data, 0, &file_size, READING_POLICY);
+					if (ret == 0) {
+						/* folder test */
+						if (folder_list_max > 0) {
+							sprintf(str_user_id, "%u", user_id);				/* int to string */
+							str_length = strlen(str_user_id);				/* str_user_id len*/
+							str_length += strlen(argv[2]) + 3;				/* plus 1 = semikolon + a: */
 
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
+							if (str_file_name != NULL) {
+								kfree(str_file_name);
+								str_file_name = NULL;
+							}
+
+							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
+							strcpy(str_file_name, "a:");
+							strcat(str_file_name, str_user_id);				/* str_user_id */
+							strcat(str_file_name, ";");					/* + semmicolon */
+							strcat(str_file_name, argv[2]);					/* + filename */
+
+							if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_exit_allowed; /* OK in list */
 						}
 
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (file_list_max > 0) {
+							/* file test */
+							sprintf(str_user_id, "%u", user_id);				/* int to string */
+							sprintf(str_file_size, "%lu", file_size);			/* int to string */
+							str_length = strlen(str_user_id);				/* str_user_id len*/
+							str_length += strlen(str_file_size);
+							str_length += strlen(argv[2]) + 4;				/* plus 1 = semikolon + a: */
 
-						strcpy(str_file_name, "a:");
-						strcat(str_file_name, str_user_id);				/* str_user_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, argv[2]);					/* + filename */
+							if (str_file_name != NULL) {
+								kfree(str_file_name);
+								str_file_name = NULL;
+							}
 
-						if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) goto prog_exit_allowed; /* OK in list */
-					}
+							str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+							if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
-					if (file_list_max > 0) {
-						/* file test */
-						sprintf(str_user_id, "%u", user_id);				/* int to string */
-						sprintf(str_file_size, "%lu", file_size);			/* int to string */
-						str_length = strlen(str_user_id);				/* str_user_id len*/
-						str_length += strlen(str_file_size);
-						str_length += strlen(argv[2]) + 4;				/* plus 1 = semikolon + a: */
+							strcpy(str_file_name, "a:");
+							strcat(str_file_name, str_user_id);				/* str_user_id */
+							strcat(str_file_name, ";");					/* + semmicolon */
+							strcat(str_file_name, str_file_size);
+							strcat(str_file_name, ";");
+							strcat(str_file_name, argv[2]);					/* + filename */
 
-						if (str_file_name != NULL) {
-							kfree(str_file_name);
-							str_file_name = NULL;
+							if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
+							printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
+							if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+							return(RET_SHELL);
 						}
-
-						str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-						strcpy(str_file_name, "a:");
-						strcat(str_file_name, str_user_id);				/* str_user_id */
-						strcat(str_file_name, ";");					/* + semmicolon */
-						strcat(str_file_name, str_file_size);
-						strcat(str_file_name, ";");
-						strcat(str_file_name, argv[2]);					/* + filename */
-
-						if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_exit_allowed; /* OK in list */
-						printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-						return(-2);
 					}
 				}
 			}
+
+
+			printk("ALLOWED LIST: USER/PROG. <CLASS/JAR> NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
+			if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+			return(RET_SHELL);
 		}
+
 
 /* END SCRIPTS CHECK */
 /*-----------------------------------------------------------------*/
 	}
 
 prog_exit_allowed:
-
+	if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 	return(0);
 
 }
 
 
 
-static int allowed_deny_exec_sec(const char *filename)
+
+
+
+
+
+static int allowed_deny_exec_sec_step(const char *filename)
 {
 	uid_t	user_id;
 	u32	n;
@@ -1041,7 +1158,8 @@ static int allowed_deny_exec_sec(const char *filename)
 
 	size_t	file_size = 0;
 
-	int	ret;
+	ssize_t	ret;
+
 
 
 	ret = kernel_read_file_from_path(filename, 0, &data, 0, &file_size, READING_POLICY);
@@ -1060,6 +1178,7 @@ static int allowed_deny_exec_sec(const char *filename)
 				str_file_name = NULL;
 			}
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1071,16 +1190,27 @@ static int allowed_deny_exec_sec(const char *filename)
 			if (file_learning_list_max > 0) {
 				if (search(str_file_name, file_learning_list, file_learning_list_max) != 0) {
 					file_learning_list_max += 1;
+					ptr = file_learning_list;
 					file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
-					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(file_learning_list[file_learning_list_max -1], str_file_name);
+
+					if (file_learning_list != NULL) {
+						file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+						if (file_learning_list[file_learning_list_max - 1] != NULL) strcpy(file_learning_list[file_learning_list_max -1], str_file_name);
+					}
+					else file_learning_list = ptr;
 				}
 			}
 			else {
 				file_learning_list_max += 1;
+				ptr = file_learning_list;
 				file_learning_list = krealloc(file_learning_list, file_learning_list_max * sizeof(char *), GFP_KERNEL);
-				file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
-				strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+
+				if (file_learning_list != NULL) {
+					file_learning_list[file_learning_list_max - 1] = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+					if (file_learning_list[file_learning_list_max - 1] != NULL) strcpy(file_learning_list[file_learning_list_max - 1], str_file_name);
+				}
+				else file_learning_list = ptr;
+
 			}
 		}
 	}
@@ -1091,6 +1221,8 @@ static int allowed_deny_exec_sec(const char *filename)
 		/* my choice */
 		if (user_id == 0) {
 			if (safer_root_list_in_kernel_mode == true) {
+				//goto prog_allowed;
+
 				if (strncmp("/bin/", filename, 5) == 0) goto prog_allowed;
 				if (strncmp("/sbin/", filename, 6) == 0) goto prog_allowed;
 				if (strncmp("/usr/bin/", filename, 9) == 0) goto prog_allowed;
@@ -1115,7 +1247,7 @@ static int allowed_deny_exec_sec(const char *filename)
 
 				/* NOT allowed. */
 				printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				return(RET_SHELL);
 			}
 		}
 
@@ -1130,6 +1262,8 @@ static int allowed_deny_exec_sec(const char *filename)
 		}
 
 		str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+		if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
 
 		strcpy(str_file_name, "d:");
 		strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1141,7 +1275,8 @@ static int allowed_deny_exec_sec(const char *filename)
 			if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 			/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+				return(RET_SHELL);
 			}
 		}
 
@@ -1150,7 +1285,8 @@ static int allowed_deny_exec_sec(const char *filename)
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 				/* Not allowed */
 				printk("DENY LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-				return(-2);
+				if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+				return(RET_SHELL);
 			}
 		}
 
@@ -1170,6 +1306,7 @@ static int allowed_deny_exec_sec(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "gd:");
 			strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -1181,7 +1318,8 @@ static int allowed_deny_exec_sec(const char *filename)
 				if (besearch_folder(str_file_name, folder_list, folder_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id,  file_size, filename);
-					return(-2);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+					return(RET_SHELL);
 				}
 			}
 
@@ -1191,7 +1329,8 @@ static int allowed_deny_exec_sec(const char *filename)
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) {
 					/* Not allowed */
 					printk("DENY GROUP LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-					return(-2);
+					if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+					return(RET_SHELL);
 				}
 			}
 		}
@@ -1210,6 +1349,7 @@ static int allowed_deny_exec_sec(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1234,6 +1374,7 @@ static int allowed_deny_exec_sec(const char *filename)
 			}
 
 			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 			strcpy(str_file_name, "a:");
 			strcat(str_file_name, str_user_id);				/* str_user_id */
@@ -1246,6 +1387,38 @@ static int allowed_deny_exec_sec(const char *filename)
 			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 		}
 
+
+		if (file_list_max > 0) {
+			sprintf(str_user_id, "%u", user_id);				/* int to string */
+			sprintf(str_file_size, "%lu", file_size);			/* int to string */
+			str_length = strlen(str_user_id);				/* str_user_id len*/
+			str_length += strlen(str_file_size);				/* str_user_id len*/
+			str_length += strlen(filename) + 5;				/* plus 2 semikolon + a: */
+
+			if (str_file_name != NULL) {
+				kfree(str_file_name);
+				str_file_name = NULL;
+			}
+
+			str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+			if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
+			strcpy(str_file_name, "as:");
+			strcat(str_file_name, str_user_id);				/* str_user_id */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, str_file_size);				/* str_file_size */
+			strcat(str_file_name, ";");					/* + semmicolon */
+			strcat(str_file_name, filename);				/* + filename */
+
+			/* Importend! Need qsorted list */
+			if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+		}
+
+
+
+
+
+
 		/* -------------------------------------------------------------------------------------------------- */
 		/* allowed groups */
 		group_info = get_current_groups();
@@ -1253,7 +1426,7 @@ static int allowed_deny_exec_sec(const char *filename)
 		for (n = 0; n < group_info->ngroups; n++) {
 			if (group_info->gid[n].val == 0) {
 				printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-				return(-2);			/* group root not allowed. My choice! */
+				return(RET_SHELL);			/* group root not allowed. My choice! */
 			}
 
 			if (folder_list_max > 0) {
@@ -1267,6 +1440,7 @@ static int allowed_deny_exec_sec(const char *filename)
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_group_id */
@@ -1290,6 +1464,7 @@ static int allowed_deny_exec_sec(const char *filename)
 				}
 
 				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
 
 				strcpy(str_file_name, "ga:");
 				strcat(str_file_name, str_group_id);				/* str_user_id */
@@ -1301,28 +1476,125 @@ static int allowed_deny_exec_sec(const char *filename)
 				/* Importend! Need qsorted list */
 				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
 			}
+
+			if (file_list_max > 0) {
+				sprintf(str_group_id, "%u", group_info->gid[n].val);		/* int to string */
+				sprintf(str_file_size, "%lu", file_size);			/* int to string */
+				str_length = strlen(str_group_id);				/* str_user_id len*/
+				str_length += strlen(str_file_size);				/* str_user_id len*/
+				str_length += strlen(filename) + 6;				/* plus 2 semikolon + ga: */
+
+				if (str_file_name != NULL) {
+					kfree(str_file_name);
+					str_file_name = NULL;
+				}
+
+				str_file_name = kmalloc((str_length + 1) * sizeof(char), GFP_KERNEL);
+				if (str_file_name == NULL) panic(NO_SECURITY_GUARANTEED);
+
+				strcpy(str_file_name, "gas:");
+				strcat(str_file_name, str_group_id);				/* str_user_id */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, str_file_size);				/* str_file_size */
+				strcat(str_file_name, ";");					/* + semmicolon */
+				strcat(str_file_name, filename);				/* + filename */
+
+				/* Importend! Need qsorted list */
+				if (besearch_file(str_file_name, file_list, file_list_max) == 0) goto prog_allowed;
+			}
+
+
 		}
 
 		/* ------------------------------------------------------------------------------------------------- */
 		/* Not allowed */
 		printk("ALLOWED LIST: USER/PROG. NOT IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
-		return(-2);
+		if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
+		return(RET_SHELL);
 	}
 
 prog_allowed:
 /*-----------------------------------------------------------------*/
 
 
-	if (printk_mode == 1) {
+	if (printk_mode == true) {
 		printk("ALLOWED LIST: USER/PROG. IN LIST: %u;%lu;%s\n", user_id, file_size, filename);
 	}
 
-
+	if (str_file_name != NULL) { kfree(str_file_name); str_file_name = NULL; }
 	return(0);
 
 }
 
 
+
+
+
+
+
+static int allowed_deny_exec(const char *filename,
+	const char __user *const __user *_argv)
+{
+
+	struct user_arg_ptr argv = { .ptr.native = _argv };
+
+	const char __user	*str;
+	char			**argv_list = NULL;
+	int			argv_list_max = 0;
+	int			n;
+	long			str_len;
+
+	int			ret = 0;
+	long			argv_max = 16;
+
+	char			*kernel_filename;
+
+
+	if(IS_ERR(filename)) return RET_SHELL;
+
+	/* filename -> kernel space */
+	str_len = strnlen_user(filename, MAX_ARG_STRLEN);
+	kernel_filename = kmalloc((str_len + 1) * sizeof(char *), GFP_KERNEL);
+	if (kernel_filename == NULL) panic(NO_SECURITY_GUARANTEED);
+
+	ret = copy_from_user(kernel_filename, filename, str_len );
+
+
+
+	/* argv -> kernel space */
+	argv_list_max = count(argv, MAX_ARG_STRINGS);
+	if (argv_list_max > argv_max) argv_list_max = argv_max;
+
+	argv_list = kmalloc(argv_list_max * sizeof(char *), GFP_KERNEL);
+	if (argv_list == NULL) panic(NO_SECURITY_GUARANTEED);
+
+
+	for (n = 0; n < argv_list_max; n++) {
+		str = get_user_arg_ptr(argv, n);
+		str_len = strnlen_user(str, MAX_ARG_STRLEN);
+
+		argv_list[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+		if (argv_list[n] == NULL) panic(NO_SECURITY_GUARANTEED);
+
+		ret = copy_from_user(argv_list[n], str, str_len);
+	}
+
+
+	ret = allowed_deny_exec_first_step(kernel_filename, argv_list, argv_list_max);
+
+
+	for (n = 0; n < argv_list_max; n++) {
+		if (argv_list[n] != NULL) { kfree(argv_list[n]); argv_list[n] = NULL; }
+	}
+
+	if (argv_list != NULL) { kfree(argv_list); argv_list = NULL; }
+	if (kernel_filename != NULL) { kfree(kernel_filename); kernel_filename = NULL; }
+
+	return ret;
+
+
+
+}
 
 
 
@@ -1337,19 +1609,23 @@ SYSCALL_DEFINE2(set_execve,
 {
 
 	uid_t	user_id;
-	u32	n, error_n;
-	long	int_ret;
+	u32	n;
+	int	int_ret;
+	int	str_len = 0;
+	char	*list_string = NULL;
 
-
+	struct user_arg_ptr _list = { .ptr.native = list };
+	const char __user *str;
 
 
 	user_id = get_current_user()->uid.val;
+
 
 	/* command part, future ? */
 	switch(number) {
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ON\n");
@@ -1360,7 +1636,7 @@ SYSCALL_DEFINE2(set_execve,
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
@@ -1371,7 +1647,7 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
@@ -1381,7 +1657,7 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ON\n");
@@ -1392,7 +1668,7 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
@@ -1404,205 +1680,244 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("CLEAR FILE LIST!\n");
 #endif
 				if (file_list_max != 0) {
 					for (n = 0; n < file_list_max; n++) {
-						kfree(file_list[n]);
-						kfree(proc_file_list[n]);
+						if (file_list[n] != NULL) { kfree(file_list[n]); file_list[n] = NULL; }
 					}
-					kfree(file_list);
-					kfree(proc_file_list);
+					if (file_list != NULL) { kfree(file_list); file_list = NULL; }
 					file_list_max = 0;
 				}
 				return(0);
 
 		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("CLEAR FOLDER LIST!\n");
 #endif
 				if (folder_list_max != 0) {
 					for (n = 0; n < folder_list_max; n++) {
-						kfree(folder_list[n]);
-						kfree(proc_file_list[n]);
+						if (folder_list[n] != NULL) { kfree(folder_list[n]); folder_list[n] = NULL; }
 					}
-					kfree(folder_list);
+					if (folder_list != NULL) { kfree(folder_list); folder_list = NULL; }
 					folder_list_max = 0;
 				}
 				return(0);
 
 		case 999907:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
 #endif
-				safer_root_list_in_kernel = true;
+				safer_root_list_in_kernel_mode = true;
 				return(0);
 
 
 		case 999908:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
 #endif
-				safer_root_list_in_kernel = false;
+				safer_root_list_in_kernel_mode = false;
 				return(0);
 
 
 		case 999909:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1);
+				if (no_change_mode == true) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
-				no_change = false;
+				no_change_mode = true;
+				return(0);
+
+		case 999910:	if (user_id != 0) return(-1);
+				if (no_change_mode == true) return(-1);
+
+#ifdef PRINTK
+				printk("MODE: learning ON\n");
+#endif
+				learning_mode = true;
+
+				return(0);
+
+
+		case 999911:	if (user_id != 0) return(-1);
+				if (no_change_mode == true) return(-1);
+
+#ifdef PRINTK
+				printk("MODE: learning OFF\n");
+#endif
+				learning_mode = false;
+
 				return(0);
 
 
 		/* set all list */
-		case 999920:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+		case 999920:
+
+				if (user_id != 0) return -1;
+				if (no_change_mode == true) return -1;
+
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: FILE LIST\n"); 
+					printk("ERROR: FILE LIST\n");
 #endif
-					return(-1); 
+					return(-1);
 				} /* check!? */
 
 				/* clear */
 				if (file_list_max > 0) {
 					for (n = 0; n < file_list_max; n++) {
-						kfree(file_list[n]);
-						kfree(proc_file_list[n]);
+						if (file_list[n] != NULL) { kfree(file_list[n]); file_list[n] = NULL; }
 					}
-					kfree(file_list);
-					kfree(proc_file_list);
+					if (file_list != NULL) { kfree(file_list); file_list = NULL; }
 				}
 
-				int_ret = kstrtol(list[0], 10, &file_list_max);
-				if (int_ret != 0) return(-1);
+
+
+				int_ret = count(_list, MAX_ARG_STRINGS);
+				if (int_ret == 0) return -1;
+
+				str = get_user_arg_ptr(_list, 0);		/* String 0 */
+				str_len = strnlen_user(str, MAX_ARG_STRLEN);
+				if (str_len < 1) return -1;
+
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
+				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				if (list_string == NULL) panic(NO_SECURITY_GUARANTEED);
+				int_ret = copy_from_user(list_string, str, str_len);
+
+				int_ret = kstrtol(list_string, 10, &file_list_max);
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
+				if (int_ret != 0) return -1;
+
 
 				if (file_list_max < 1) {
 #ifdef PRINTK
 					printk("NO FILE LIST\n");
 #endif
-					return(-1); 
+					return(-1);
 				}
 
 				if (file_list_max > MAX_DYN) {
 #ifdef PRINTK
 					printk("FILE LIST TO BIG!\n");
 #endif
-					return(-1); 
+					return(-1);
 				}
 
 #ifdef PRINTK
 				printk("FILE LIST ELEMENTS: %ld\n", file_list_max);
 #endif
 
+
 				/* dyn array */
 				file_list = kmalloc(file_list_max * sizeof(char *), GFP_KERNEL);
-				if (file_list == NULL) { file_list_max = 0; return(-1); }
+				/* if (file_list == NULL) { file_list_max = 0; return -1; } */
+				if (file_list == NULL) panic(NO_SECURITY_GUARANTEED);
 
 				for (n = 0; n < file_list_max; n++) {
-					file_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (file_list[n] == NULL) {
-						for (error_n = 0; error_n < n; error_n++) {
-							kfree(file_list[error_n]);
-						}
-						kfree(file_list);
-						file_list_max = 0;
-						return(-1);
-					}
-					strcpy(file_list[n], list[n+1]);
-				}
+					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
+					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-				proc_file_list = kmalloc(file_list_max * sizeof(char *), GFP_KERNEL);
-				if (proc_file_list == NULL) { file_list_max = 0; return(-1); }
+					file_list[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					if (file_list[n] == NULL) panic(NO_SECURITY_GUARANTEED);
 
-				for (n = 0; n < file_list_max; n++) {
-					proc_file_list[n] = kmalloc((strlen(file_list[n]) + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(proc_file_list[n], file_list[n]);
+					int_ret = copy_from_user(file_list[n], str, str_len);
 				}
 
 				return(file_list_max);
 
 		/* set all folder list */
-		case 999921:	if (user_id != 0) return(-1);
-				if (no_change == false) return(-1); 
+		case 999921:
+				if (user_id != 0) return -1;
+				if (no_change_mode == true) return -1;
+
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
-				printk("ERROR: FOLDER LIST\n"); 
+					printk("ERROR: FOLDER LIST\n");
 #endif
-					return(-1); 
+					return(-1);
 				} /* check!? */
 
 				/* clear */
 				if (folder_list_max > 0) {
 					for (n = 0; n < folder_list_max; n++) {
-						kfree(folder_list[n]);
-						kfree(proc_folder_list[n]);
+						if (folder_list[n] != NULL) { kfree(folder_list[n]); folder_list[n] = NULL; }
 					}
-					kfree(folder_list);
-					kfree(proc_folder_list);
+					if (folder_list != NULL) { kfree(folder_list); folder_list = NULL; }
 				}
 
-				int_ret = kstrtol(list[0], 10, &folder_list_max);
-				if (int_ret != 0) return(-1);
+
+
+				/* No Syscall Parameter 6 necessary */
+				int_ret = count(_list, MAX_ARG_STRINGS);
+				if (int_ret == 0) return -1;
+
+				str = get_user_arg_ptr(_list, 0);		/* String 0 */
+				str_len = strnlen_user(str, MAX_ARG_STRLEN);
+				if (str_len < 1) return -1;
+
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
+
+				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				if (list_string == NULL) panic(NO_SECURITY_GUARANTEED);
+
+				int_ret = copy_from_user(list_string, str, str_len);
+
+				int_ret = kstrtol(list_string, 10, &folder_list_max);
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; };
+				if (int_ret != 0) return -1;
 
 
 				if (folder_list_max < 1) {
 #ifdef PRINTK
 					printk("NO FOLDER LIST\n");
 #endif
-					return(-1); 
+					return(-1);
 				}
 
 				if (folder_list_max > MAX_DYN) {
 #ifdef PRINTK
 					printk("FOLDER LIST TO BIG!\n");
 #endif
-					return(-1); 
+					return(-1);
 				}
 
 #ifdef PRINTK
 				printk("FOLDER LIST ELEMENTS: %ld\n", folder_list_max);
 #endif
 
+
 				/* dyn array */
 				folder_list = kmalloc(folder_list_max * sizeof(char *), GFP_KERNEL);
-				if (folder_list == NULL) { folder_list_max = 0; return(-1); }
+				/* if (folder_list == NULL) { folder_list_max = 0; return -1; } */
+				if (folder_list == NULL) panic(NO_SECURITY_GUARANTEED);
+
 
 				for (n = 0; n < folder_list_max; n++) {
-					folder_list[n] = kmalloc((strlen(list[n+1]) + 1) * sizeof(char), GFP_KERNEL);
-					if (folder_list[n] == NULL) {
-						for (error_n = 0; error_n < n; error_n++) {
-							kfree(folder_list[error_n]);
-						}
-						kfree(folder_list);
-						folder_list_max = 0;
-						return(-1);
-					}
-					strcpy(folder_list[n], list[n+1]);
-				}
+					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
+					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-				proc_folder_list = kmalloc(folder_list_max * sizeof(char *), GFP_KERNEL);
-				for (n = 0; n < folder_list_max; n++) {
-					proc_folder_list[n] = kmalloc((strlen(folder_list[n]) + 1) * sizeof(char), GFP_KERNEL);
-					strcpy(proc_folder_list[n], folder_list[n]);
+					folder_list[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					if (folder_list[n] == NULL) panic(NO_SECURITY_GUARANTEED);
+
+					int_ret = copy_from_user(folder_list[n], str, str_len);
 				}
 
 				return(folder_list_max);
+
 
 		default:	printk("ERROR: COMMAND NOT IN LIST\n");
 				return(-1);
