@@ -1937,7 +1937,7 @@ SYSCALL_DEFINE3(execve,
 		const char __user *const __user *, argv,
 		const char __user *const __user *, envp)
 {
-	if (allowed_deny_exec(filename, argv) == -2) return(-2);
+	if (allowed_deny_exec(filename, argv) == RET_SHELL) return RET_SHELL;
 
 	return do_execve(getname(filename), argv, envp);
 }
