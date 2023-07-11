@@ -6,7 +6,7 @@
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.3
+	TEST		: Kernel 6.0 - 6.4.2
 			  Lenovo X230, T460
 
 	
