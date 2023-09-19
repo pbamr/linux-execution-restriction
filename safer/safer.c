@@ -26,8 +26,8 @@
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.3
-			  Lenovo X230, T460
+	TEST		: Kernel 6.0 - 6.5
+			  Lenovo X230, T460, T470
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
@@ -162,9 +162,9 @@
 
 static bool	safer_mode = false;
 static bool	printk_mode = false;
-static bool	safer_root_list_in_kernel_mode = true;
+static bool	safer_root_list_in_kernel_mode = false;
 static bool	learning_mode = true;
-static bool	no_change_mode = false;
+static bool	change_mode = true;
 
 static char	**file_list = NULL;
 static long	file_list_max = 0;
@@ -191,7 +191,7 @@ struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
 	bool learning_mode;
-	bool no_change_mode;
+	bool change_mode;
 	bool safer_root_list_in_kernel_mode;
 	long file_list_max;
 	long folder_list_max;
@@ -206,7 +206,7 @@ void safer_info(struct safer_info_struct *info)
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
 	info->learning_mode = learning_mode;
-	info->no_change_mode = no_change_mode;
+	info->change_mode = change_mode;
 	info->safer_root_list_in_kernel_mode = safer_root_list_in_kernel_mode;
 	info->file_list_max = file_list_max;
 	info->folder_list_max = folder_list_max;
@@ -1624,7 +1624,7 @@ SYSCALL_DEFINE5(execve,
 	switch(number) {
 		/* safer on */
 		case 999900:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ON\n");
@@ -1635,7 +1635,7 @@ SYSCALL_DEFINE5(execve,
 
 			/* safer off */
 		case 999901:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
@@ -1646,7 +1646,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* stat */
 		case 999902:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
@@ -1656,7 +1656,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk on */
 		case 999903:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ON\n");
@@ -1667,7 +1667,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* printk off */
 		case 999904:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
@@ -1679,7 +1679,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all file list */
 		case 999905:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("CLEAR FILE LIST!\n");
@@ -1695,7 +1695,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* clear all folder list */
 		case 999906:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("CLEAR FOLDER LIST!\n");
@@ -1710,7 +1710,7 @@ SYSCALL_DEFINE5(execve,
 				return(0);
 
 		case 999907:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL ON\n");
@@ -1720,7 +1720,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999908:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: SAFER ROOT LIST IN KERNEL OFF\n");
@@ -1730,16 +1730,16 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999909:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
-				no_change_mode = true;
+				change_mode = false;
 				return(0);
 
 		case 999910:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: learning ON\n");
@@ -1750,7 +1750,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999911:	if (user_id != 0) return(-1);
-				if (no_change_mode == true) return(-1);
+				if (change_mode == false) return(-1);
 
 #ifdef PRINTK
 				printk("MODE: learning OFF\n");
@@ -1764,7 +1764,7 @@ SYSCALL_DEFINE5(execve,
 		case 999920:
 
 				if (user_id != 0) return -1;
-				if (no_change_mode == true) return -1;
+				if (change_mode == false) return -1;
 
 
 				if (list == NULL) {		/* check? */
@@ -1840,7 +1840,7 @@ SYSCALL_DEFINE5(execve,
 		/* set all folder list */
 		case 999921:
 				if (user_id != 0) return -1;
-				if (no_change_mode == true) return -1;
+				if (change_mode == false) return -1;
 
 
 				if (list == NULL) {		/* check? */
