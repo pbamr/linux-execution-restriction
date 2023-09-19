@@ -54,7 +54,7 @@ struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
 	bool learning_mode;
-	bool no_change_mode;
+	bool change_mode;
 	bool safer_root_list_in_kernel_mode;
 	long file_list_max;
 	long folder_list_max;
@@ -100,7 +100,7 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE LEARNING               : ON\n");
 	else	seq_printf(proc_show, "MODE LEARNING               : OFF\n");
 
-	if (info.no_change_mode == true)
+	if (info.change_mode == true)
 		seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
