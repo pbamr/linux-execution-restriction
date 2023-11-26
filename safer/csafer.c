@@ -47,16 +47,10 @@
 			:  3 = Log ON
 			:  4 = Log OFF
 
-			:  5 = Clear FILE List
-			:  6 = Clear FOLDER List
+			:  5 = LOCK changes
 
-			:  7 = ROOT LIST IN KERNEL ON
-			:  8 = ROOT LIST IN KERNEL OFF
-
-			:  9 = LOCK changes
-
-			: 10 = learning ON
-			: 11 = learning OFF
+			:  6 = learning ON
+			:  7 = learning OFF
 
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
@@ -88,16 +82,10 @@
 
 			: Example: User
 			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: ai:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: ai:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
-			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-
-			: Important:
-			: java is special
-			: java need no "as or gas"
+	FOLDER		: a:0;/FOLDER		SLASH at the end is Folder
 
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
@@ -751,16 +739,10 @@ int ErrorMessage()
 	printf("Parameter   :  3 Safer Printk ON\n");
 	printf("Parameter   :  4 Safer Printk OFF\n");
 	printf("\n");
-	printf("Parameter   :  5 Safer CLEAR FILE LIST\n");
-	printf("Parameter   :  6 Safer CLEAR FOLDER LIST\n");
+	printf("Parameter   :  5 Safer DO NOT allowed any more changes\n");
 	printf("\n");
-	printf("Parameter   :  7 Safer ROOT LIST IN KERNEL ON\n");
-	printf("Parameter   :  8 Safer ROOT LIST IN KERNEL OFF\n");
-	printf("\n");
-	printf("Parameter   :  9 Safer DO NOT allowed any more changes\n");
-	printf("\n");
-	printf("Parameter   : 10 Safer MODE: LEARNING ON\n");
-	printf("Parameter   : 11 Safer MODE: LEARNING OFF\n");
+	printf("Parameter   :  6 Safer MODE: LEARNING ON\n");
+	printf("Parameter   :  7 Safer MODE: LEARNING OFF\n");
 	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
@@ -799,7 +781,7 @@ void main(int argc, char *argv[]) {
 
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0 || NUMBER > 11) ErrorMessage();
+		if (NUMBER < 0 || NUMBER > 7) ErrorMessage();
 
 
 #ifdef VERSION_SYSCALL
@@ -846,13 +828,6 @@ void main(int argc, char *argv[]) {
 						}
 
 						if (strncmp(all_list.TStringList[n], "ga:", 3) == 0) {
-							s64 last = strlen(all_list.TStringList[n]);
-							if (all_list.TStringList[n][last - 1] == '/') continue;
-							file_list.Add(&file_list, all_list.TStringList[n]);
-							continue;
-						}
-
-						if (strncmp(all_list.TStringList[n], "gas:", 4) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
 							file_list.Add(&file_list, all_list.TStringList[n]);
@@ -963,7 +938,7 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
-						if (strncmp(all_list.TStringList[n], "as:", 3) == 0) {
+						if (strncmp(all_list.TStringList[n], "ai:", 3) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
 							file_list.Add(&file_list, all_list.TStringList[n]);
@@ -984,12 +959,6 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
-						if (strncmp(all_list.TStringList[n], "gas:", 4) == 0) {
-							s64 last = strlen(all_list.TStringList[n]);
-							if (all_list.TStringList[n][last - 1] == '/') continue;
-							file_list.Add(&file_list, all_list.TStringList[n]);
-							continue;
-						}
 
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
