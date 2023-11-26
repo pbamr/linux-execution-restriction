@@ -1,20 +1,41 @@
-Autor/Urheber	: Peter Boettcher
+/* Copyright (c) 2022/03/28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ */
+
+
+
+/*
+	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23
+	Date		: 2022.04.22, 2023.05.23 2023.11.26
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.3
-			  Lenovo X230, T460
+	TEST		: Kernel 6.0 - 6.6
+			  Lenovo X230, T460, T470
 
 	Functionality	: Programm execution restriction
-			: Like Windows Feature "Safer/applocker"
+			: Like Windows Feature "Safer"
 			: Control only works as root
 
 			: USER and GROUPS
-			
+			  IMPORTANT: file size will test
+
 			: Extension of SYSCALL <execve>
 			  You found <replaces> under "pb_safer"
 
@@ -42,16 +63,11 @@ Autor/Urheber	: Peter Boettcher
 			: 999903 = Log ON
 			: 999904 = Log OFF
 
-			: 999905 = Clear FILE List
-			: 999906 = Clear FOLDER List
+			: 999905 = LOCK changes
 
-			: 999907 = ROOT LIST IN KERNEL ON
-			: 999908 = ROOT LIST IN KERNEL OFF
+			: 999906 = learning on
+			: 999907 = learning off
 
-			: 999909 = LOCK changes
-
-			: 999910 = learning ON
-			: 999911 = learning OFF
 
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
@@ -73,6 +89,28 @@ Autor/Urheber	: Peter Boettcher
 	FILE/FOLDER List: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
+	PROG/FILE
+			: a: allowed
+			: d: deny
+
+			: ga: group allowed
+			: da: group deny
+
+			: ai: interpreter
+			      interpreter = arg/param/file only
+			      First allowed Interpreter
+			      Second allow Interpreter File
+
+
+		FOLDER
+			: a:  Folder allowed
+			: d:  Folder deny
+
+			: ga: group folder allowed
+			: gd: group folder deny
+
+
+		Example
 			: string = USER-ID;FILE-SIZE;PATH
 			: string = GROUP-ID;FILE-SIZEPATH
 			: string = File Size
@@ -85,6 +123,8 @@ Autor/Urheber	: Peter Boettcher
 
 			: ga:GROUP-ID;Path
 			: gd:GROUP-ID;Path
+
+			: ai:USER-ID;PATH
 
 			: Example: user
 			: a:100;1224;/bin/test		= allow file
@@ -101,18 +141,33 @@ Autor/Urheber	: Peter Boettcher
 			: gd:101;/usr/bin/mc		= deny group file
 			: ga:101;1234;/usr/bin/mc	= allow group file
 
-			: Example: User
-			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+	Folder		: Example: User Folder. IMPORTAND: SLASH at the End is Folder
+			  a:0;/Folder/			user allowed FOLDER
+			  ga:0;/Folder/			group allowed FOLDER
 
-			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			  d:0;/Folder/			user deny FOLDER
+			  gd:0/Folder/			group deny FOLDER
+
+	Interpreter
+			: Interpreter <USER> ONLY. INTERPTETER FILE <USER> <GROUP> allowed
+
+			: ai:1000;12342/usr/bin/python = allow INTERPRETER
+			: a:1000;123422/usr/bin/hello.py = allow INTERPRETER FILE
+			: ga:1000;123422/usr/bin/hello.py = allow INTERPRETER FILE
+
+			  - Interpreter not allowed
+			  - Interpreter + Interpreter File allowed
+			  - Interpreter File allowed
+
+			  python = allone = not allowed
+			  python hello.py = allowed  is python allawed and hello.py is allowed
+			  hello.py = allowed  is python allowed and hello.py allowed
+
 
 			: Important:
 			: java is special
-			: java need no "as or gas"
+			: ".jar" Files/Prog. only
+			: -classpath is not allowed
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
@@ -122,6 +177,7 @@ Autor/Urheber	: Peter Boettcher
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
 	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
-	Admirable ballet dancers.
+	
 
+*/
 

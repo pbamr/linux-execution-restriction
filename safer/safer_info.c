@@ -49,17 +49,17 @@
 
 
 
+
 /* def. */
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
 	bool learning_mode;
 	bool change_mode;
-	bool safer_root_list_in_kernel_mode;
-	long file_list_max;
-	long folder_list_max;
-	char **file_list;
-	char **folder_list;
+	long global_list_prog_len;
+	long global_list_folder_len;
+	char **global_list_prog;
+	char **global_list_folder;
 };
 
 
@@ -92,10 +92,6 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE PRINTK                 : ON\n");
 	else	seq_printf(proc_show, "MODE PRINTK                 : OFF\n");
 
-	if (info.safer_root_list_in_kernel_mode == true)
-		seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : ON\n");
-	else	seq_printf(proc_show, "MODE SAFER ROOT LIST KERNEL : OFF\n");
-
 	if (info.learning_mode == true)
 		seq_printf(proc_show, "MODE LEARNING               : ON\n");
 	else	seq_printf(proc_show, "MODE LEARNING               : OFF\n");
@@ -105,22 +101,22 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
 
-	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.file_list_max);
-	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.folder_list_max);
+	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.global_list_prog_len);
+	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.global_list_folder_len);
 
 	seq_printf(proc_show, "MODE SEARCH                 : BSEARCH\n");
 
 	seq_printf(proc_show, "\n\n");
 
 	seq_printf(proc_show, "FOLDER:\n\n");
-	for (n = 0; n < info.folder_list_max; n++) {
-		seq_printf(proc_show, "%s\n", info.folder_list[n]);
+	for (n = 0; n < info.global_list_folder_len; n++) {
+		seq_printf(proc_show, "%s\n", info.global_list_folder[n]);
 	}
 
 	seq_printf(proc_show, "\n\n");
 	seq_printf(proc_show, "FILES:\n\n");
-	for (n = 0; n < info.file_list_max; n++) {
-		seq_printf(proc_show, "%s\n", info.file_list[n]);
+	for (n = 0; n < info.global_list_prog_len; n++) {
+		seq_printf(proc_show, "%s\n", info.global_list_prog[n]);
 	}
 
 	return 0;

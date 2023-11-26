@@ -49,14 +49,14 @@
 
 
 
-
 /* def. */
 struct  safer_learning_struct {
-	long file_learning_list_max;
-	char **file_learning_list;
-	long file_argv_list_max;
-	char **file_argv_list;
+	long global_list_learning_len;
+	char **global_list_learning;
+	long global_list_learning_argv_len;
+	char **global_list_learning_argv;
 };
+
 
 
 static struct safer_learning_struct learning;
@@ -79,19 +79,22 @@ static int safer_learning_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "INFO learning\n\n");
 
 	seq_printf(proc_show, "FILES:\n\n");
-	seq_printf(proc_show, "FILE learning LIST MAX       : %ld\n", learning.file_learning_list_max);
+	seq_printf(proc_show, "FILE learning LIST MAX       : %ld\n", learning.global_list_learning_len);
 
-	for (n = 0; n < learning.file_learning_list_max; n++) {
-		seq_printf(proc_show, "%s\n", learning.file_learning_list[n]);
+	if (learning.global_list_learning_len > 0) {
+		for (n = 0; n < learning.global_list_learning_len; n++) {
+			seq_printf(proc_show, "%s\n", learning.global_list_learning[n]);
+		}
 	}
 
 	seq_printf(proc_show, "\n\nARGV:\n\n");
-	seq_printf(proc_show, "ARGV learning LIST MAX       : %ld\n", learning.file_argv_list_max);
+	seq_printf(proc_show, "ARGV learning LIST MAX       : %ld\n", learning.global_list_learning_argv_len);
 
-	for (n = 0; n < learning.file_argv_list_max; n++) {
-		seq_printf(proc_show, "%s\n", learning.file_argv_list[n]);
+	if (learning.global_list_learning_argv_len > 0) {
+		for (n = 0; n < learning.global_list_learning_argv_len; n++) {
+			seq_printf(proc_show, "%s\n", learning.global_list_learning_argv[n]);
+		}
 	}
-
 
 	return 0;
 }
