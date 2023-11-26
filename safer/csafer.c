@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.07.03
+	Date		: 2023.11.163
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -830,7 +830,7 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
-						if (strncmp(all_list.TStringList[n], "as:", 3) == 0) {
+						if (strncmp(all_list.TStringList[n], "ai:", 3) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
 							file_list.Add(&file_list, all_list.TStringList[n]);
