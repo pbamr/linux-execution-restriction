@@ -346,7 +346,7 @@ static int get_file_size(const char *filename)
 {
 	int	retval;
 	ssize_t	file_size;
-	//void	*data = NULL;
+	void	*data = NULL;
 
 	/* max read = 0. size in file_size. other 0 is error */
 	retval = kernel_read_file_from_path(	filename,
