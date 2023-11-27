@@ -209,7 +209,6 @@ static char	**global_list_folder = NULL;
 static long	global_list_folder_len = 0;
 
 
-static void	*data = NULL;
 
 
 
@@ -358,7 +357,7 @@ static int get_file_size(const char *filename)
 						READING_POLICY);
 
 	if (retval == 0) {
-		//vfree(data);
+		vfree(data);
 		return file_size;
 	}
 
