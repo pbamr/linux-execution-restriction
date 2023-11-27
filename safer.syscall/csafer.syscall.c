@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.07.03
+	Date		: 2023.11.15
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -129,8 +129,7 @@ typedef int bool;
 
 
 
-#define VERSION_SYSCALL
-
+/* #define VERSION_SYSCALL */
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 459
 #else
@@ -752,16 +751,10 @@ int ErrorMessage()
 	printf("Parameter   :  3 Safer Printk ON\n");
 	printf("Parameter   :  4 Safer Printk OFF\n");
 	printf("\n");
-	printf("Parameter   :  5 Safer CLEAR FILE LIST\n");
-	printf("Parameter   :  6 Safer CLEAR FOLDER LIST\n");
+	printf("Parameter   :  5 Safer DO NOT allowed any more changes\n");
 	printf("\n");
-	printf("Parameter   :  7 Safer ROOT LIST IN KERNEL ON\n");
-	printf("Parameter   :  8 Safer ROOT LIST IN KERNEL OFF\n");
-	printf("\n");
-	printf("Parameter   :  9 Safer DO NOT allowed any more changes\n");
-	printf("\n");
-	printf("Parameter   : 10 Safer MODE: LEARNING ON\n");
-	printf("Parameter   : 11 Safer MODE: LEARNING OFF\n");
+	printf("Parameter   :  6 Safer MODE: LEARNING ON\n");
+	printf("Parameter   :  7 Safer MODE: LEARNING OFF\n");
 	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
@@ -800,7 +793,7 @@ void main(int argc, char *argv[]) {
 
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0 || NUMBER > 11) ErrorMessage();
+		if (NUMBER < 0 || NUMBER > 7) ErrorMessage();
 
 
 #ifdef VERSION_SYSCALL
@@ -831,7 +824,14 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
-						if (strncmp(all_list.TStringList[n], "as:", 3) == 0) {
+						if (strncmp(all_list.TStringList[n], "ai:", 3) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
+						if (strncmp(all_list.TStringList[n], "aj:", 3) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
 							file_list.Add(&file_list, all_list.TStringList[n]);
