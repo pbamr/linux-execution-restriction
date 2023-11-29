@@ -209,9 +209,6 @@ static char	**global_list_folder = NULL;
 static long	global_list_folder_len = 0;
 
 
-static void	*data = NULL;
-
-
 
 
 /* def. */
@@ -347,7 +344,7 @@ static int get_file_size(const char *filename)
 {
 	int	retval;
 	ssize_t	file_size;
-	//void	*data = NULL;
+	void	*data = NULL;
 
 	/* max read = 0. size in file_size. other 0 is error */
 	retval = kernel_read_file_from_path(	filename,
@@ -358,7 +355,7 @@ static int get_file_size(const char *filename)
 						READING_POLICY);
 
 	if (retval == 0) {
-		//vfree(data);
+		vfree(data);
 		return file_size;
 	}
 
