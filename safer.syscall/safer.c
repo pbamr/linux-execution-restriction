@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2023.11.17
+	Date		: 2022.04.22, 2023.05.23 2023.11.27
 
 	Program		: safer.c
 	Path		: fs/
