@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.11.26
+	Date		: 2023.11.15
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -47,10 +47,16 @@
 			:  3 = Log ON
 			:  4 = Log OFF
 
-			:  5 = LOCK changes
+			:  5 = Clear FILE List
+			:  6 = Clear FOLDER List
 
-			:  6 = learning ON
-			:  7 = learning OFF
+			:  7 = ROOT LIST IN KERNEL ON
+			:  8 = ROOT LIST IN KERNEL OFF
+
+			:  9 = LOCK changes
+
+			: 10 = learning ON
+			: 11 = learning OFF
 
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
@@ -82,10 +88,16 @@
 
 			: Example: User
 			: user
-			: ai:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: ai:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
+			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
-	FOLDER		: a:0;/FOLDER		SLASH at the end is Folder
+			: Example: Group
+			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+
+			: Important:
+			: java is special
+			: java need no "as or gas"
 
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!

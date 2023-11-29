@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2023.11.26
+	Date		: 2022.04.22, 2023.05.23 2023.11.17
 
 	Program		: safer.c
 	Path		: fs/
@@ -141,12 +141,8 @@
 			: gd:101;/usr/bin/mc		= deny group file
 			: ga:101;1234;/usr/bin/mc	= allow group file
 
-	Folder		: Example: User Folder. IMPORTAND: SLASH at the End is Folder
-			  a:0;/Folder/			user allowed FOLDER
-			  ga:0;/Folder/			group allowed FOLDER
-
-			  d:0;/Folder/			user deny FOLDER
-			  gd:0/Folder/			group deny FOLDER
+			: Example: User
+			: user
 
 	Interpreter
 			: Interpreter <USER> ONLY. INTERPTETER FILE <USER> <GROUP> allowed
@@ -213,7 +209,7 @@ static char	**global_list_folder = NULL;
 static long	global_list_folder_len = 0;
 
 
-
+static void	*data = NULL;
 
 
 
@@ -351,7 +347,7 @@ static int get_file_size(const char *filename)
 {
 	int	retval;
 	ssize_t	file_size;
-	void	*data = NULL;
+	//void	*data = NULL;
 
 	/* max read = 0. size in file_size. other 0 is error */
 	retval = kernel_read_file_from_path(	filename,
@@ -362,7 +358,7 @@ static int get_file_size(const char *filename)
 						READING_POLICY);
 
 	if (retval == 0) {
-		vfree(data);
+		//vfree(data);
 		return file_size;
 	}
 
@@ -910,7 +906,7 @@ group_folder_allowed(	uid_t user_id,
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == 0) {
 			if (printk_mode == true)
-				printk("STAT %s: USER/PROG. ALLOWED: d:%s;%s\n", step, str_user_id, filename);
+				printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s\n", step, str_user_id, filename);
 			kfree(str_group_folder);
 			return 0;
 		}
@@ -1030,6 +1026,8 @@ user_interpreter_allowed(uid_t user_id,
 
 
 
+
+
 /* user allowed interpreter and allowed group script file*/
 /* 0 allowed */
 /* -1 deny */
@@ -1057,43 +1055,49 @@ user_interpreter_file_allowed(	uid_t user_id,
 	retval = user_interpreter_allowed(user_id,
 					filename,
 					file_size,
-					global_list_prog,
-					global_list_prog_len,
+					list,
+					list_len,
 					printk_mode,
 					step);
 
 	if (retval ==  -1) return -1;
 
 
+	if (strcmp(argv[1], "-jar") == 0) {
+		if (argv_len == 2) return -1;
 
-	/* if (argv_len > 3) argv_len = 3; */
+		argv_size = get_file_size(argv[2]);
 
-	for (int n = 1; n < argv_len; n++) {
-
-		/* check if argv is file/prog and not argument */
-		argv_size = get_file_size(argv[n]);
-		/* file not exist */
-		if (argv_size == -1) continue;
-
-		/* file exist, but empty */
-		if (argv_size == 0)
-			continue;
+		/* error file */
+		if (argv_size  == -1) return -1;
+		/* file size = 0 */
+		if (argv_size  == 0) return -1;
 
 		/* check file/prog is in list/allowed */
-		if (user_allowed(user_id, argv[n], argv_size, list, list_len, printk_mode, step) == 0) return 0;
-		if (group_allowed(user_id, argv[n], argv_size, list, list_len, printk_mode, step) == 0) return 0;
+		if (user_allowed(user_id, argv[2], argv_size, list, list_len, printk_mode, step) == 0) return 0;
+		if (group_allowed(user_id, argv[2], argv_size, list, list_len, printk_mode, step) == 0) return 0;
 
-		printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld,%s;\n", step, user_id, argv_size, argv[n]);
+		printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld,%s;\n", step, user_id, argv_size, argv[2]);
 
+		return -1;
 	}
 
-	/* not found */
+	/* other */
+	argv_size = get_file_size(argv[1]);
+	/* error file */
+	if (argv_size  == -1) return -1;
+	/* file size = 0 */
+	if (argv_size  == 0) return -1;
 
+	/* check file/prog is in list/allowed */
+	if (user_allowed(user_id, argv[1], argv_size, list, list_len, printk_mode, step) == 0) return 0;
+	if (group_allowed(user_id, argv[1], argv_size, list, list_len, printk_mode, step) == 0) return 0;
+
+	printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld,%s;\n", step, user_id, argv_size, argv[1]);
+
+	/* not found */
 	return -1;
 }
-
-
-
 
 
 
