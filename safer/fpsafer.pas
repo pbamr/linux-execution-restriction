@@ -168,21 +168,16 @@ begin
 	writeln;
 	writeln('Parameter   :  0 Safer ON');
 	writeln('Parameter   :  1 Safer OFF');
-	//writeln('Parameter   :  2 Safer STATE');
+	writeln('Parameter   :  2 Safer STATE');
 	writeln('Parameter   :  3 Safer Printk ON');
 	writeln('Parameter   :  4 Safer Printk OFF');
 	writeln;
-	writeln('Parameter   :  5 Safer CLEAR FILE LIST');
-	writeln('Parameter   :  6 Safer CLEAR FOLDER LIST');
 	writeln;
-	writeln('Parameter   :  7 Safer ROOT LIST IN KERNEL ON');
-	writeln('Parameter   :  8 Safer ROOT LIST IN KERNEL OFF');
-	writeln;
-	writeln('Parameter   :  9 Safer DO NOT allowed any more changes');
+	writeln('Parameter   :  5 Safer DO NOT allowed any more changes');
 	writeln;
 
-	writeln('Parameter   :  10 Safer LEARNING ON');
-	writeln('Parameter   :  11 Safer LEARNING OFF');
+	writeln('Parameter   :  6 Safer LEARNING ON');
+	writeln('Parameter   :  7 Safer LEARNING OFF');
 	writeln;
 
 	writeln('Parameter   : 20 Safer SET FILE LIST');
@@ -263,7 +258,7 @@ begin
 							continue;
 						end;
 						
-						if copy(LIST[n], 0, 3) = 'as:' then begin
+						if copy(LIST[n], 0, 3) = 'ai:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
@@ -276,12 +271,6 @@ begin
 						end;
 						
 						if copy(List[n], 0, 3) = 'ga:' then begin
-							if LIST[n][length(LIST[n])] = '/' then continue;
-							N_LIST.add(List[n]);
-							continue;
-						end;
-						
-						if copy(List[n], 0, 4) = 'gas:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
@@ -404,7 +393,7 @@ begin
 							continue;
 						end;
 						
-						if copy(LIST[n], 0, 3) = 'as:' then begin
+						if copy(LIST[n], 0, 3) = 'ai:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
@@ -418,12 +407,6 @@ begin
 						end;
 						
 						if copy(List[n], 0, 3) = 'ga:' then begin
-							if LIST[n][length(LIST[n])] = '/' then continue;
-							N_LIST.add(List[n]);
-							continue;
-						end;
-						
-						if copy(List[n], 0, 4) = 'gas:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;
