@@ -49,7 +49,7 @@
 
 
 
-/* def. */
+/* proto. */
 struct  safer_learning_struct {
 	long global_list_learning_len;
 	char **global_list_learning;
