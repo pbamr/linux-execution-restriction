@@ -213,7 +213,7 @@ static long	global_list_folder_len = 0;
 
 
 
-/* def. */
+/* proto. */
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
@@ -242,7 +242,7 @@ void safer_info(struct safer_info_struct *info)
 
 
 
-/* def. */
+/* proto. */
 struct  safer_learning_struct {
 	long global_list_learning_len;
 	char **global_list_learning;
