@@ -50,7 +50,7 @@
 
 
 
-/* def. */
+/* proto */
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
