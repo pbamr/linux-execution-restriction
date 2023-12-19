@@ -347,7 +347,7 @@ static int get_file_size(const char *filename)
 {
 	int	retval;
 	ssize_t	file_size;
-	//void	*data = NULL;
+	void	*data = NULL;
 
 	/* max read = 0. size in file_size. other 0 is error */
 	retval = kernel_read_file_from_path(	filename,
@@ -358,7 +358,7 @@ static int get_file_size(const char *filename)
 						READING_POLICY);
 
 	if (retval == 0) {
-		//vfree(data);
+		vfree(data);
 		return file_size;
 	}
 
@@ -452,6 +452,7 @@ static void learning_argv(uid_t user_id,
 			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[0]) {
 				kfree(str_learning);
+				kfree(*list);
 				return;
 			}
 
@@ -471,6 +472,7 @@ static void learning_argv(uid_t user_id,
 			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[*list_len]) {
 				kfree(str_learning);
+				*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
 				return;
 			}
 
@@ -547,6 +549,7 @@ static void learning(	uid_t user_id,
 			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[0]) {
 				kfree(str_learning);
+				kfree(*list);
 				return;
 			}
 
@@ -565,6 +568,7 @@ static void learning(	uid_t user_id,
 			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[*list_len]) {
 				kfree(str_learning);
+				*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
 				return;
 			}
 
@@ -1516,11 +1520,11 @@ SYSCALL_DEFINE5(execve,
 				if (user_id != 0) return -1;
 
 				if (global_list_prog_len > 0 || global_list_folder_len > 0) {
-						safer_mode = true;
+					safer_mode = true;
 #ifdef PRINTK
-						printk("MODE: SAFER ON\n");
+					printk("MODE: SAFER ON\n");
 #endif
-						return 0;
+					return 0;
 				}
 				else {
 #ifdef PRINTK
