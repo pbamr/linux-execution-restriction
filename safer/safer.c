@@ -417,8 +417,6 @@ static void learning_argv(uid_t user_id,
 	sprintf(str_argv_size, "%lu", argv_size);
 
 
-
-
 	string_length = strlen(str_user_id);
 	string_length += strlen(str_file_size);
 	string_length += strlen(filename);
@@ -427,6 +425,10 @@ static void learning_argv(uid_t user_id,
 	string_length += strlen("a:;;::;") + 1;
 
 	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	if (!str_learning)
+		panic(NO_SECURITY_GUARANTEED);
+		/* return; */
+
 
 	strcpy(str_learning, "a:");
 	strcat(str_learning, str_user_id);
@@ -440,47 +442,56 @@ static void learning_argv(uid_t user_id,
 	strcat(str_learning, argv[1]);
 
 
+	if (*list_len == 0) {
+		*list = kzalloc(sizeof(char *), GFP_KERNEL);
+		if (!*list) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
+			kfree(str_learning);
+			return;
+			*/
+		}
+
+		(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		if (!(*list)[0]) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
+			kfree(str_learning);
+			kfree(*list);
+			return;
+			*/
+		}
+
+		strcpy((*list)[0], str_learning);
+		*list_len = 1;
+		kfree(str_learning);
+		return;
+	}
+
 	if (search(str_learning, *list, *list_len) != 0) {
-
-		if (*list_len == 0) {
-			*list = kzalloc(sizeof(char *), GFP_KERNEL);
-			if (!*list) {
-				kfree(str_learning);
-				return;
-			}
-
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (!(*list)[0]) {
-				kfree(str_learning);
-				kfree(*list);
-				return;
-			}
-
-			strcpy((*list)[0], str_learning);
-			*list_len = 1;
+		*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
+		if (!*list) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
 			kfree(str_learning);
 			return;
-
+			*/
 		}
-		else {
-			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
-			if (!*list) {
-				kfree(str_learning);
-				return;
-			}
 
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (!(*list)[*list_len]) {
-				kfree(str_learning);
-				*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
-				return;
-			}
-
-			strcpy((*list)[*list_len], str_learning);
-			*list_len += 1;
+		(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		if (!(*list)[*list_len]) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
 			kfree(str_learning);
+			*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
 			return;
+			*/
 		}
+
+		strcpy((*list)[*list_len], str_learning);
+		*list_len += 1;
+		kfree(str_learning);
+		return;
 	}
 
 	kfree(str_learning);
@@ -528,6 +539,9 @@ static void learning(	uid_t user_id,
 	string_length += strlen("a:;;") + 1;
 
 	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	if (!str_learning)
+		panic(NO_SECURITY_GUARANTEED);
+		/* return; */
 
 	strcpy(str_learning, "a:");
 	strcat(str_learning, str_user_id);
@@ -537,51 +551,66 @@ static void learning(	uid_t user_id,
 	strcat(str_learning, filename);
 
 
+	if (*list_len == 0) {
+		*list = kzalloc(sizeof(char *), GFP_KERNEL);
+		if (!*list) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
+			kfree(str_learning);
+			return;
+			*/
+		}
+
+		(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		if (!(*list)[0]) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
+			kfree(str_learning);
+			kfree(*list);
+			return;
+			*/
+		}
+
+		strcpy((*list)[0], str_learning);
+		*list_len = 1;
+		kfree(str_learning);
+		return;
+	}
+
+
 	if (search(str_learning, *list, *list_len) != 0) {
-
-		if (*list_len == 0) {
-			*list = kzalloc(sizeof(char *), GFP_KERNEL);
-			if (!*list) {
-				kfree(str_learning);
-				return;
-			}
-
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (!(*list)[0]) {
-				kfree(str_learning);
-				kfree(*list);
-				return;
-			}
-
-			strcpy((*list)[0], str_learning);
-			*list_len = 1;
+		*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
+		if (!*list) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
 			kfree(str_learning);
 			return;
+			*/
 		}
-		else {
-			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
-			if (!*list) {
-				kfree(str_learning);
-				return;
-			}
 
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (!(*list)[*list_len]) {
-				kfree(str_learning);
-				*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
-				return;
-			}
-
-			strcpy((*list)[*list_len], str_learning);
-			*list_len += 1;
+		(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		if (!(*list)[*list_len]) {
+			panic(NO_SECURITY_GUARANTEED);
+			/*
 			kfree(str_learning);
+			*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
 			return;
+			*/
 		}
+
+		strcpy((*list)[*list_len], str_learning);
+		*list_len += 1;
+		kfree(str_learning);
+		return;
 	}
 
 	kfree(str_learning);
 	return;
 }
+
+
+
+
 
 
 
@@ -1424,7 +1453,8 @@ static int allowed_exec(const char *filename,
 	str_len = strnlen_user(filename, MAX_ARG_STRLEN) + 1;
 	kernel_filename = kzalloc(str_len * sizeof(char), GFP_KERNEL);
 	if (kernel_filename == NULL)
-		return RET_SHELL;
+		panic(NO_SECURITY_GUARANTEED);
+		/* return RET_SHELL; */
 
 	retval = copy_from_user(kernel_filename, filename, str_len );
 
@@ -1438,8 +1468,11 @@ static int allowed_exec(const char *filename,
 	/* pointer = NULL */
 	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_KERNEL);
 	if (!argv_list) {
+		panic(NO_SECURITY_GUARANTEED);
+		/*
 		kfree(kernel_filename);
 		return RET_SHELL;
+		*/
 	}
 
 	for (int n = 0; n < argv_list_len; n++) {
@@ -1447,11 +1480,11 @@ static int allowed_exec(const char *filename,
 		str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 		argv_list[n] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+		if (!argv_list[n])
+			panic(NO_SECURITY_GUARANTEED);
 
 		retval = copy_from_user(argv_list[n], str, str_len);
 	}
-
-
 
 
 	user_id = get_current_user()->uid.val;
