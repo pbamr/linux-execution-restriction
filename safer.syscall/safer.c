@@ -449,6 +449,7 @@ static void learning_argv(uid_t user_id,
 			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[0]) {
 				kfree(str_learning);
+				kfree(*list);
 				return;
 			}
 
@@ -467,6 +468,7 @@ static void learning_argv(uid_t user_id,
 			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[*list_len]) {
 				kfree(str_learning);
+				*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
 				return;
 			}
 
@@ -542,6 +544,7 @@ static void learning(	uid_t user_id,
 			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[0]) {
 				kfree(str_learning);
+				kfree(*list);
 				return;
 			}
 
@@ -561,6 +564,7 @@ static void learning(	uid_t user_id,
 			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if (!(*list)[*list_len]) {
 				kfree(str_learning);
+				*list = krealloc(*list, (*list_len - 1) * sizeof(char *), GFP_KERNEL);
 				return;
 			}
 
@@ -574,8 +578,6 @@ static void learning(	uid_t user_id,
 	kfree(str_learning);
 	return;
 }
-
-
 
 
 
@@ -1505,11 +1507,11 @@ SYSCALL_DEFINE2(set_execve,
 				if (user_id != 0) return -1;
 
 				if (global_list_prog_len > 0 || global_list_folder_len > 0) {
-						safer_mode = true;
+					safer_mode = true;
 #ifdef PRINTK
-						printk("MODE: SAFER ON\n");
+					printk("MODE: SAFER ON\n");
 #endif
-						return 0;
+					return 0;
 				}
 				else {
 #ifdef PRINTK
