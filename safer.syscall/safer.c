@@ -1477,7 +1477,7 @@ static int allowed_exec(const char *filename,
 
 	/* not time critical, but necessary! */
 	if (unix_epoch_time_sec == 0)
-		ktime_get_real_seconds();
+		unix_epoch_time_sec = ktime_get_real_seconds();
 
 
 	if (safer_mode == false)
@@ -1534,7 +1534,7 @@ static int allowed_exec(const char *filename,
 
 	s64 new_unix_epoch_time_sec = ktime_get_real_seconds();
 
-	if ((new_unix_epoch_time_sec - unix_epoch_time_sec) > 5)
+	if ((new_unix_epoch_time_sec - unix_epoch_time_sec) > 15)
 		if (learning_mode == true) if (argv_list_len > 1)
 		learning_argv(	user_id,
 				kernel_filename,
