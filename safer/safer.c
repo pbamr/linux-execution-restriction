@@ -344,7 +344,7 @@ static long search(char *str_search,
 
 static int get_file_size(const char *filename)
 {
-	int	retval;
+	ssize_t	retval;
 	ssize_t	file_size;
 	void	*data = NULL;
 
