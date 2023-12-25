@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2023.12.18
+	Date		: 2022.04.22, 2023.05.23 2023.11.27
 
 	Program		: safer.c
 	Path		: fs/
@@ -392,12 +392,8 @@ static void learning_argv(uid_t user_id,
 		return;
 
 	file_size = get_file_size(filename);
-	/* file not exist */
-	if (file_size == -1)
-		return;
-
-	/* file exist, but empty */
-	if (file_size == 0)
+	/* file not exist or empty */
+	if (file_size < 1)
 		return;
 
 
@@ -411,8 +407,8 @@ static void learning_argv(uid_t user_id,
 		return;
 
 	sprintf(str_user_id, "%u", user_id);
-	sprintf(str_file_size, "%lu", file_size);
-	sprintf(str_argv_size, "%lu", argv_size);
+	sprintf(str_file_size, "%ld", file_size);
+	sprintf(str_argv_size, "%ld", argv_size);
 
 
 
@@ -480,7 +476,7 @@ static void learning_argv(uid_t user_id,
 
 
 /*--------------------------------------------------------------------------------*/
-static void learning(uid_t user_id,
+static void learning(	uid_t user_id,
 			const char *filename)
 {
 
@@ -495,17 +491,13 @@ static void learning(uid_t user_id,
 
 
 	file_size = get_file_size(filename);
-	/* file not exist */
-	if (file_size == -1)
-		return;
-
-	/* file exist, but empty */
-	if (file_size == 0)
+	/* file not exist or empty */
+	if (file_size < 1)
 		return;
 
 
 	sprintf(str_user_id, "%u", user_id);
-	sprintf(str_file_size, "%lu", file_size);
+	sprintf(str_file_size, "%ld", file_size);
 
 	string_length = strlen(str_user_id);
 	string_length += strlen(str_file_size);
@@ -563,14 +555,33 @@ static void learning(uid_t user_id,
 
 
 
+static void print_prog_arguments(uid_t user_id,
+				const char *filename,
+				char **argv,
+				long argv_len)
+{
 
+	ssize_t file_size;
+
+	file_size = get_file_size(filename);
+	/* file not exist or empty*/
+	//if (file_size < 1)
+	//	return;
+
+
+	printk("USER ID:%u;%ld;%s\n", user_id, file_size, filename);
+	for (int n = 0; n < argv_len; n++) {
+		printk("argv[%d]:%s\n", n, argv[n]);
+	}
+
+}
 
 
 /*--------------------------------------------------------------------------------*/
 static int
 user_allowed(	uid_t user_id,
 		const char *filename,
-		long file_size,
+		ssize_t file_size,
 		char **list,
 		long list_len,
 		bool printk_mode,
@@ -581,7 +592,7 @@ user_allowed(	uid_t user_id,
 	char str_file_size[19];
 	char *str_user_file = NULL;
 
-	sprintf(str_user_id, "%d", user_id); 
+	sprintf(str_user_id, "%u", user_id); 
 	sprintf(str_file_size, "%ld", file_size); 
 
 	/* user allowed */
@@ -619,7 +630,7 @@ user_allowed(	uid_t user_id,
 static int
 user_deny(uid_t user_id,
 	const char *filename,
-	long file_size,
+	ssize_t file_size,
 	char **list,
 	long list_len,
 	const char *step)
@@ -666,7 +677,7 @@ user_deny(uid_t user_id,
 static int
 group_allowed(uid_t user_id,
 		const char *filename,
-		long file_size,
+		ssize_t file_size,
 		char **list,
 		long list_len,
 		bool printk_mode,
@@ -688,7 +699,7 @@ group_allowed(uid_t user_id,
 
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
-		sprintf(str_file_size, "%lu", file_size);
+		sprintf(str_file_size, "%ld", file_size);
 
 		string_length = strlen(str_group_id);
 		string_length += strlen(str_file_size);
@@ -726,7 +737,7 @@ group_allowed(uid_t user_id,
 static int
 group_deny(	uid_t user_id,
 		const char *filename,
-		long file_size,
+		ssize_t file_size,
 		char **list,
 		long list_len,
 		const char *step)
@@ -745,7 +756,7 @@ group_deny(	uid_t user_id,
 
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
-		sprintf(str_file_size, "%lu", file_size);
+		sprintf(str_file_size, "%ld", file_size);
 
 		string_length = strlen(str_group_id);
 		string_length += strlen(str_file_size);
@@ -780,7 +791,6 @@ group_deny(	uid_t user_id,
 static int
 user_folder_allowed(	uid_t user_id,
 			const char *filename,
-			long file_size,
 			char **list,
 			long list_len,
 			bool printk_mode,
@@ -824,7 +834,6 @@ user_folder_allowed(	uid_t user_id,
 static int
 user_folder_deny(uid_t user_id,
 		const char *filename,
-		long file_size,
 		char **list,
 		long list_len,
 		const char *step)
@@ -866,7 +875,6 @@ user_folder_deny(uid_t user_id,
 static int
 group_folder_allowed(	uid_t user_id,
 			const char *filename,
-			long file_size,
 			char **list,
 			long list_len,
 			bool printk_mode,
@@ -922,7 +930,6 @@ group_folder_allowed(	uid_t user_id,
 static int
 group_folder_deny(uid_t user_id,
 		const char *filename,
-		long file_size,
 		char **list,
 		long list_len,
 		const char *step)
@@ -975,7 +982,7 @@ group_folder_deny(uid_t user_id,
 static int
 user_interpreter_allowed(uid_t user_id,
 			const char *filename,
-			long file_size,
+			ssize_t file_size,
 			char **list,
 			long list_len,
 			bool printk_mode,
@@ -1033,7 +1040,7 @@ user_interpreter_allowed(uid_t user_id,
 static int
 user_interpreter_file_allowed(	uid_t user_id,
 				const char *filename,
-				long file_size,
+				ssize_t file_size,
 				char **argv,
 				long argv_len,
 				char **list,
@@ -1067,10 +1074,8 @@ user_interpreter_file_allowed(	uid_t user_id,
 
 		argv_size = get_file_size(argv[2]);
 
-		/* error file */
-		if (argv_size  == -1) return -1;
-		/* file size = 0 */
-		if (argv_size  == 0) return -1;
+		/* error file or empty */
+		if (argv_size  < 1) return -1;
 
 		/* check file/prog is in list/allowed */
 		if (user_allowed(user_id, argv[2], argv_size, list, list_len, printk_mode, step) == 0) return 0;
@@ -1082,10 +1087,8 @@ user_interpreter_file_allowed(	uid_t user_id,
 
 	/* other */
 	argv_size = get_file_size(argv[1]);
-	/* error file */
-	if (argv_size  == -1) return -1;
-	/* file size = 0 */
-	if (argv_size  == 0) return -1;
+	/* error file or empty */
+	if (argv_size  < 1) return -1;
 
 	/* check file/prog is in list/allowed */
 	if (user_allowed(user_id, argv[1], argv_size, list, list_len, printk_mode, step) == 0) return 0;
@@ -1101,7 +1104,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 static int exec_first_step(uid_t user_id, const char *filename, char **argv, long argv_len)
 {
 
-	ssize_t	file_size = 0;
+	ssize_t	file_size;
 
 
 	file_size = get_file_size(filename);
@@ -1109,20 +1112,11 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	/* file exist? */
 	if (file_size == -1) return RET_SHELL;
 
-	if (printk_mode == true) {
-		printk("USER ID:%u, PROG:%s, SIZE:%lu\n", user_id, filename, file_size);
-
-		for (int n = 0; n < argv_len; n++) {
-			printk("argv[%d]:%s\n", n, argv[n]);
-		}
-	}
-
 
 	/* group deny folder */
 	if (global_list_folder_len > 0) {
 		if (group_folder_deny(	user_id,
 					filename,
-					file_size,
 					global_list_prog,
 					global_list_prog_len,
 					"FIRST") == 1)
@@ -1133,7 +1127,6 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	if (global_list_folder_len > 0) {
 		if (user_folder_deny(	user_id,
 					filename,
-					file_size,
 					global_list_prog,
 					global_list_prog_len,
 					"FIRST") == 1)
@@ -1163,7 +1156,6 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	if (global_list_folder_len > 0) {
 		if (group_folder_allowed(user_id,
 					filename,
-					file_size,
 					global_list_prog,
 					global_list_prog_len,
 					printk_mode,
@@ -1175,7 +1167,6 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	if (global_list_folder_len > 0) {
 		if (user_folder_allowed(user_id,
 					filename,
-					file_size,
 					global_list_prog,
 					global_list_prog_len,
 					printk_mode,
@@ -1255,7 +1246,6 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (group_folder_deny(	user_id,
 						filename,
-						file_size,
 						global_list_prog,
 						global_list_prog_len,
 						"SEC  ") == 1)
@@ -1266,7 +1256,6 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (user_folder_deny(	user_id,
 						filename,
-						file_size,
 						global_list_prog,
 						global_list_prog_len,
 						"SEC  ") == 1)
@@ -1296,7 +1285,6 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (group_folder_allowed(user_id,
 						filename,
-						file_size,
 						global_list_prog,
 						global_list_prog_len,
 						printk_mode,
@@ -1308,7 +1296,6 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (user_folder_allowed(user_id,
 						filename,
-						file_size,
 						global_list_prog,
 						global_list_prog_len,
 						printk_mode,
@@ -1416,8 +1403,21 @@ static int allowed_exec(const char *filename,
 				argv_list,
 				argv_list_len);
 
+
+	if (printk_mode == true)
+		print_prog_arguments(	user_id,
+					kernel_filename,
+					argv_list,
+					argv_list_len);
+
+
 	if (safer_mode == true)
-		retval = exec_first_step(user_id, kernel_filename, argv_list, argv_list_len);
+		retval = exec_first_step(user_id,
+					kernel_filename,
+					argv_list,
+					argv_list_len);
+
+
 
 
 	for (int n = 0; n < argv_list_len; n++) {
@@ -1438,6 +1438,8 @@ static int allowed_exec(const char *filename,
 	return retval;
 
 }
+
+
 
 
 
