@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2023.11.27
+	Date		: 2022.04.22, 2023.05.23 2023.12.27
 
 	Program		: safer.c
 	Path		: fs/
@@ -341,14 +341,14 @@ static long search(char *str_search,
 
 
 
-
-static int get_file_size(const char *filename)
+/* max read = 0. size in file_size. other 0 is error */
+/*
+static ssize_t get_file_size_(const char *filename)
 {
 	ssize_t	retval;
 	ssize_t	file_size;
 	void	*data = NULL;
 
-	/* max read = 0. size in file_size. other 0 is error */
 	retval = kernel_read_file_from_path(	filename,
 						0,
 						&data,
@@ -366,6 +366,50 @@ static int get_file_size(const char *filename)
 	return -1;
 
 }
+*/
+
+
+static ssize_t get_file_size(const char *filename)
+{
+
+	loff_t	i_size;
+	struct	file *file;
+
+	file = filp_open(filename, O_RDONLY, 0);
+	if (IS_ERR(file))
+		return -1;
+
+	if (!S_ISREG(file_inode(file)->i_mode)) {
+		fput(file);
+		return -1;
+	}
+
+	if (deny_write_access(file)) {
+		fput(file);
+		return -1;
+	}
+
+	i_size = i_size_read(file_inode(file));
+	if (i_size < 1) {
+		allow_write_access(file);
+		fput(file);
+		return -1;
+	}
+
+	/* The file is too big for sane activities. */
+	if (i_size > INT_MAX) {
+		allow_write_access(file);
+		fput(file);
+		return -1;
+	}
+
+	allow_write_access(file);
+	fput(file);
+	return (ssize_t) i_size;
+
+}
+
+
 
 
 
