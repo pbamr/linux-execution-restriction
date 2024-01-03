@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2023.12.27
+	Date		: 2022.04.22, 2023.05.23 2023.11.27
 
 	Program		: safer.c
 	Path		: fs/
@@ -213,7 +213,7 @@ static long	global_list_folder_len = 0;
 
 
 
-/* proto. */
+/* def. */
 struct  safer_info_struct {
 	bool safer_mode;
 	bool printk_mode;
@@ -242,7 +242,7 @@ void safer_info(struct safer_info_struct *info)
 
 
 
-/* proto. */
+/* def. */
 struct  safer_learning_struct {
 	long global_list_learning_len;
 	char **global_list_learning;
@@ -434,6 +434,10 @@ static void learning_argv(uid_t user_id,
 
 	if (argv_len == 1)
 		return;
+
+	if (argv[1][0] != '/')
+		return;
+
 
 	file_size = get_file_size(filename);
 	/* file not exist or empty */
