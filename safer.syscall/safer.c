@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2023.12.27
+	Date		: 2022.04.22, 2023.05.23 2024.01.03
 
 	Program		: safer.c
 	Path		: fs/
@@ -341,33 +341,6 @@ static long search(char *str_search,
 
 
 
-/* max read = 0. size in file_size. other 0 is error */
-/*
-static ssize_t get_file_size_(const char *filename)
-{
-	ssize_t	retval;
-	ssize_t	file_size;
-	void	*data = NULL;
-
-	retval = kernel_read_file_from_path(	filename,
-						0,
-						&data,
-						0,
-						&file_size,
-						READING_POLICY);
-
-	if (retval == 0) {
-		vfree(data);
-
-		if (file_size < 0) return -1;
-		else return file_size;
-	}
-
-	return -1;
-
-}
-*/
-
 
 static ssize_t get_file_size(const char *filename)
 {
@@ -432,6 +405,11 @@ static void learning_argv(uid_t user_id,
 
 	if (argv_len == 1)
 		return;
+
+
+	if (argv[1][0] != '/')
+		return;
+
 
 	file_size = get_file_size(filename);
 	/* file not exist or empty */
@@ -1439,11 +1417,15 @@ static int allowed_exec(const char *filename,
 
 	user_id = get_current_user()->uid.val;
 
-	if (learning_mode == true)
+	if (learning_mode == true) {
+		learning(user_id,
+			kernel_filename);
+
 		learning_argv(user_id,
 				kernel_filename,
 				argv_list,
 				argv_list_len);
+	}
 
 
 	if (printk_mode == true)
