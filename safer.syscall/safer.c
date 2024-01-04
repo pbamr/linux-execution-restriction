@@ -740,7 +740,7 @@ group_allowed(uid_t user_id,
 
 		if (besearch_file(str_group_file, list, list_len) == 0) {
 			if (printk_mode == true)
-				printk("STAT %s: USER/PROG. ALLOWED: ga:%s;%s;%s\n", step, str_user_id, str_file_size, filename);
+				printk("STAT %s: USER/PROG. ALLOWED: ga:%s;%s;%s\n", step, str_group_id, str_file_size, filename);
 			kfree(str_group_file);
 			str_group_file = NULL;
 			return 0;
@@ -795,7 +795,7 @@ group_deny(	uid_t user_id,
 		strcat(str_group_file, filename);
 
 		if (besearch_file(str_group_file, list, list_len) == 0) {
-			printk("STAT %s: USER/PROG. DENY: gd:%s;%s;%s\n", step, str_user_id, str_file_size, filename);
+			printk("STAT %s: USER/PROG. DENY: gd:%s;%s;%s\n", step, str_group_id, str_file_size, filename);
 			kfree(str_group_file);
 
 			return -1;
@@ -935,7 +935,7 @@ group_folder_allowed(	uid_t user_id,
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == 0) {
 			if (printk_mode == true)
-				printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s\n", step, str_user_id, filename);
+				printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s\n", step, str_group_id, filename);
 			kfree(str_group_folder);
 			return 0;
 		}
@@ -987,7 +987,7 @@ group_folder_deny(uid_t user_id,
 
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == 0) {
-			printk("STAT %s: USER/PROG. ALLOWED: d:%s;%s\n", step, str_user_id, filename);
+			printk("STAT %s: USER/PROG. ALLOWED: d:%s;%s\n", step, str_group_id, filename);
 			kfree(str_group_folder);
 			return -1;
 		}
