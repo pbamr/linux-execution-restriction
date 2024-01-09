@@ -26,7 +26,7 @@
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.6
+	TEST		: Kernel 6.0 - 6.7
 			  Lenovo X230, T460, T470
 
 	Functionality	: Programm execution restriction
