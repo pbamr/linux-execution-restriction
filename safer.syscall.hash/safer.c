@@ -136,10 +136,10 @@
 			: d:100;/usr/sbin/			= deny folder
 
 			: Example: Group
-			: ga:100;/HASH;usr/sbin/		= allow group folder
+			: ga:100;HASH;/usr/sbin/		= allow group folder
 			: gd:100;HASH;/usr/bin/			= deny group folder
 			: gd:101;HASH;/usr/bin/mc		= deny group file
-			: ga:101;HASH;1234;/usr/bin/mc		= allow group file
+			: ga:101;HASH;/usr/bin/mc		= allow group file
 
 			: Example: User
 			: user
@@ -184,6 +184,11 @@
 #define KERNEL_READ_SIZE 1000
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
+
+
+/* test */
+/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
+
 
 
 
@@ -347,6 +352,7 @@ static long search(char *str_search,
 
 
 
+
 static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 {
 
@@ -405,6 +411,9 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 
 	return md5_sum;
 }
+
+
+
 
 
 
@@ -632,6 +641,9 @@ static void learning(	uid_t user_id,
 
 
 
+	if (filename[0] != '/')
+		return;
+
 	size_hash_sum = get_file_size_md5_read(filename);
 	if (size_hash_sum.retval == -1)
 		return;
@@ -695,6 +707,7 @@ static void learning(	uid_t user_id,
 	}
 
 	kfree(str_learning);
+	return;
 }
 
 
@@ -1440,8 +1453,8 @@ static int exec_second_step(const char *filename)
 
 
 	if (learning_mode == true)
-			learning(user_id,
-				filename);
+		learning(user_id,
+			filename);
 
 
 	if (safer_mode == true) {
@@ -1591,6 +1604,11 @@ static int allowed_exec(const char *filename,
 	/* do nothing */
 	retval = copy_from_user(kernel_filename, filename, str_len );
 
+	if (strlen(kernel_filename) == 0) {
+		kfree(kernel_filename);
+		return RET_SHELL;
+	}
+
 
 	/* argv -> kernel space */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
@@ -1615,11 +1633,11 @@ static int allowed_exec(const char *filename,
 
 	user_id = get_current_user()->uid.val;
 
-
-
 	if (learning_mode == true) {
+
 		learning(user_id,
 			kernel_filename);
+
 
 		learning_argv(user_id,
 				kernel_filename,
@@ -1661,6 +1679,9 @@ static int allowed_exec(const char *filename,
 	return retval;
 
 }
+
+
+
 
 
 
