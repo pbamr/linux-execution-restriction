@@ -469,6 +469,7 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 
 
 
+
 static struct md5_sum_struct get_file_size_md5_read(const char *filename)
 {
 	ssize_t				retval;
@@ -620,7 +621,7 @@ static void learning_argv(uid_t user_id,
 	string_length += strlen(argv[1]);
 	string_length += strlen("a:;;::;") + 1;
 
-	str_learning = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 
 	strcpy(str_learning, "a:");
 	strcat(str_learning, str_user_id);
@@ -637,13 +638,13 @@ static void learning_argv(uid_t user_id,
 	if (search(str_learning, *list, *list_len) != 0) {
 
 		if (*list_len == 0) {
-			*list = kzalloc(sizeof(char *), GFP_ATOMIC);
+			*list = kzalloc(sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
 				kfree(str_learning);
 				return;
 			}
 
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[0] == NULL) {
 				kfree(str_learning);
 				return;
@@ -653,13 +654,13 @@ static void learning_argv(uid_t user_id,
 			*list_len = 1;
 		}
 		else {
-			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_ATOMIC);
+			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
 				kfree(str_learning);
 				return;
 			}
 
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[*list_len] == NULL) {
 				kfree(str_learning);
 				return;
@@ -707,7 +708,7 @@ static void learning(	uid_t user_id,
 	string_length += strlen(size_hash_sum.hash_string);
 	string_length += strlen("a:;;;") + 1;
 
-	str_learning = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 
 	strcpy(str_learning, "a:");
 	strcat(str_learning, str_user_id);
@@ -722,13 +723,13 @@ static void learning(	uid_t user_id,
 	if (search(str_learning, *list, *list_len) != 0) {
 
 		if (*list_len == 0) {
-			*list = kzalloc(sizeof(char *), GFP_ATOMIC);
+			*list = kzalloc(sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
 				kfree(str_learning);
 				return;
 			}
 
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[0] == NULL) {
 				kfree(str_learning);
 				return;
@@ -738,13 +739,13 @@ static void learning(	uid_t user_id,
 			*list_len = 1;
 		}
 		else {
-			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_ATOMIC);
+			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
 				kfree(str_learning);
 				return;
 			}
 
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[*list_len] == NULL) {
 				kfree(str_learning);
 				return;
@@ -813,7 +814,7 @@ user_allowed(	uid_t user_id,
 	string_length += strlen(hash);
 	string_length += strlen("a:;;;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return -1;
 
@@ -867,7 +868,7 @@ user_deny(uid_t user_id,
 	string_length += strlen(hash);
 	string_length += strlen("d:;;;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return -1;
 
@@ -927,7 +928,7 @@ group_allowed(uid_t user_id,
 		string_length += strlen("ga:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
-		str_group_file = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
 			return -1;
 
@@ -987,7 +988,7 @@ group_deny(	uid_t user_id,
 		string_length += strlen(filename);
 		string_length += strlen("gd:;;;") +1;
 
-		str_group_file = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
 			return -1;
 
@@ -1034,7 +1035,7 @@ user_folder_allowed(	uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("a:;") + 1;
 
-	str_folder = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
 		return -1;
 
@@ -1076,7 +1077,7 @@ user_folder_deny(uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("d:;") + 1;
 
-	str_folder = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
 		return -1;
 
@@ -1128,7 +1129,7 @@ group_folder_allowed(	uid_t user_id,
 		string_length += strlen("ga:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
-		str_group_folder = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
 			return -1;
 
@@ -1181,7 +1182,7 @@ group_folder_deny(uid_t user_id,
 		string_length += strlen("gd:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
-		str_group_folder = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
 			return -1;
 
@@ -1234,7 +1235,7 @@ user_interpreter_allowed(uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("ai:;;;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_ATOMIC);
+	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (str_user_file == NULL)
 		return -1;
 
@@ -1659,7 +1660,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
 
 	if (argv_list_len > ARGV_MAX) argv_list_len = ARGV_MAX;
-	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_ATOMIC);
+	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_KERNEL);
 	if (!argv_list)
 		return 0;
 
@@ -1667,7 +1668,7 @@ static int allowed_exec(struct filename *kernel_filename,
 		str = get_user_arg_ptr(argv, n);
 		str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-		argv_list[n] = kzalloc((str_len + 1) * sizeof(char), GFP_ATOMIC);
+		argv_list[n] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 
 		/* do nothing */
 		retval = copy_from_user(argv_list[n], str, str_len);
@@ -1693,17 +1694,15 @@ static int allowed_exec(struct filename *kernel_filename,
 				&global_list_learning,
 				&global_list_learning_len);
 
+			learning_argv(	user_id,
+					kernel_filename->name,
+					argv_list,
+					argv_list_len,
+					&global_list_learning_argv,
+					&global_list_learning_argv_len);
+
 			mutex_unlock(&learning_block);
 		}
-
-
-		learning_argv(	user_id,
-				kernel_filename->name,
-				argv_list,
-				argv_list_len,
-				&global_list_learning_argv,
-				&global_list_learning_argv_len);
-
 	}
 
 
@@ -1727,6 +1726,8 @@ static int allowed_exec(struct filename *kernel_filename,
 	return retval;
 
 }
+
+
 
 
 
