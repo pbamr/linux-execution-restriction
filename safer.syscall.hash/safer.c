@@ -196,7 +196,7 @@
 
 static DEFINE_MUTEX(learning_block);
 
-static bool	safer_mode_show = false;
+static bool	safer_show_mode = false;
 static bool	safer_mode = false;
 static bool	printk_mode = false;
 static bool	learning_mode = true;
@@ -230,6 +230,7 @@ struct md5_sum_struct {
 
 /* proto. */
 struct  safer_info_struct {
+	bool safer_show_mode;
 	bool safer_mode;
 	bool printk_mode;
 	bool learning_mode;
@@ -244,6 +245,7 @@ struct  safer_info_struct {
 /* DATA: Only over function */
 void safer_info(struct safer_info_struct *info)
 {
+	info->safer_show_mode =safer_show_mode;
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
 	info->learning_mode = learning_mode;
@@ -1101,7 +1103,7 @@ user_folder_deny(uid_t user_id,
 	strcat(str_folder, str_user_id);
 	strcat(str_folder, ";");
 	strcat(str_folder, filename);
-	
+
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_mode == true)
@@ -1550,8 +1552,7 @@ static int exec_second_step(const char *filename)
 		}
 	}
 
-
-	if (safer_mode_show == true || safer_mode == true) {
+	if (safer_mode == true || (safer_show_mode == true && printk_mode == true)) {
 
 		size_hash_sum = get_file_size_md5_read(filename);
 		if (size_hash_sum.retval == -1) {
@@ -1696,7 +1697,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	uid_t			user_id;
 
 
-	if (safer_mode_show == false)
+	if (safer_show_mode == false)
 		if (safer_mode == false)
 			if (learning_mode == false)
 				if (printk_mode == false)
@@ -1752,7 +1753,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	}
 
 	retval = 0;
-	if (safer_mode_show == true || safer_mode == true)
+	if (safer_mode == true || (safer_show_mode == true && printk_mode == true))
 		retval = exec_first_step(user_id,
 					kernel_filename->name,
 					argv_list,
@@ -1773,6 +1774,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	return retval;
 
 }
+
 
 
 
