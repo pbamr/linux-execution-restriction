@@ -192,8 +192,6 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
-/* test */
-/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
 
 
 static DEFINE_MUTEX(learning_block);
@@ -481,37 +479,6 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 
 
 
-
-
-
-
-
-/* max read = 0. size in file_size. other 0 is error */
-/*
-static ssize_t get_file_size_(const char *filename)
-{
-	ssize_t	retval;
-	ssize_t	file_size;
-	void	*data = NULL;
-
-	retval = kernel_read_file_from_path(	filename,
-						0,
-						&data,
-						0,
-						&file_size,
-						READING_POLICY);
-
-	if (retval == 0) {
-		vfree(data);
-
-		if (file_size < 0) return -1;
-		else return file_size;
-	}
-
-	return -1;
-
-}
-*/
 
 
 static struct md5_sum_struct get_file_size_md5_read(const char *filename)
@@ -1124,7 +1091,7 @@ user_folder_deny(uid_t user_id,
 
 	string_length = strlen(str_user_id);
 	string_length += strlen(filename);
-	string_length += strlen("d:;/") + 1;
+	string_length += strlen("d:;") + 1;
 
 	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
@@ -1134,8 +1101,7 @@ user_folder_deny(uid_t user_id,
 	strcat(str_folder, str_user_id);
 	strcat(str_folder, ";");
 	strcat(str_folder, filename);
-	strcat(str_folder, "/");
-
+	
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_mode == true)
