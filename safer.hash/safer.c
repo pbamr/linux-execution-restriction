@@ -195,7 +195,7 @@
 
 static DEFINE_MUTEX(learning_block);
 
-static bool	safer_mode_show = false;
+static bool	safer_show_mode = false;
 static bool	safer_mode = false;
 static bool	printk_mode = false;
 static bool	learning_mode = true;
@@ -229,6 +229,7 @@ struct md5_sum_struct {
 
 /* proto. */
 struct  safer_info_struct {
+	bool safer_show_mode;
 	bool safer_mode;
 	bool printk_mode;
 	bool learning_mode;
@@ -243,6 +244,7 @@ struct  safer_info_struct {
 /* DATA: Only over function */
 void safer_info(struct safer_info_struct *info)
 {
+	info->safer_show_mode =safer_show_mode;
 	info->safer_mode = safer_mode;
 	info->printk_mode = printk_mode;
 	info->learning_mode = learning_mode;
@@ -479,36 +481,6 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 
 
 
-
-
-
-
-/* max read = 0. size in file_size. other 0 is error */
-/*
-static ssize_t get_file_size_(const char *filename)
-{
-	ssize_t	retval;
-	ssize_t	file_size;
-	void	*data = NULL;
-
-	retval = kernel_read_file_from_path(	filename,
-						0,
-						&data,
-						0,
-						&file_size,
-						READING_POLICY);
-
-	if (retval == 0) {
-		vfree(data);
-
-		if (file_size < 0) return -1;
-		else return file_size;
-	}
-
-	return -1;
-
-}
-*/
 
 
 static struct md5_sum_struct get_file_size_md5_read(const char *filename)
@@ -1580,8 +1552,7 @@ static int exec_second_step(const char *filename)
 		}
 	}
 
-
-	if (safer_mode_show == true || safer_mode == true) {
+	if (safer_mode == true || (safer_show_mode == true && printk_mode == true)) {
 
 		size_hash_sum = get_file_size_md5_read(filename);
 		if (size_hash_sum.retval == -1) {
@@ -1726,7 +1697,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	uid_t			user_id;
 
 
-	if (safer_mode_show == false)
+	if (safer_show_mode == false)
 		if (safer_mode == false)
 			if (learning_mode == false)
 				if (printk_mode == false)
@@ -1782,7 +1753,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	}
 
 	retval = 0;
-	if (safer_mode_show == true || safer_mode == true)
+	if (safer_mode == true || (safer_show_mode == true && printk_mode == true))
 		retval = exec_first_step(user_id,
 					kernel_filename->name,
 					argv_list,
@@ -1807,8 +1778,12 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-/* SYSCALL NR: 459 or other */
-SYSCALL_DEFINE2(set_execve,
+
+
+SYSCALL_DEFINE5(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -1821,11 +1796,13 @@ SYSCALL_DEFINE2(set_execve,
 	const char __user *str;
 
 
-	user_id = get_current_user()->uid.val;
 
+	user_id = get_current_user()->uid.val;
 
 	/* command part, future ? */
 	switch(number) {
+
+
 		/* safer on */
 		case 999900:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
@@ -1937,7 +1914,7 @@ SYSCALL_DEFINE2(set_execve,
 		/* safer show on */
 		case 999910:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
-				safer_mode_show = true;
+				safer_show_mode = true;
 #ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY ON\n");
 #endif
@@ -1950,7 +1927,7 @@ SYSCALL_DEFINE2(set_execve,
 #ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY OFF\n");
 #endif
-				safer_mode_show = false;
+				safer_show_mode = false;
 				return 0;
 
 
@@ -2116,7 +2093,7 @@ SYSCALL_DEFINE2(set_execve,
 
 
 				for (int n = 0; n < global_list_folder_len; n++) {
-					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
+					str = get_user_arg_ptr(_list, n + 1);
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
@@ -2125,23 +2102,22 @@ SYSCALL_DEFINE2(set_execve,
 					int_ret = copy_from_user(global_list_folder[n], str, str_len);
 				}
 
-
 				return(global_list_folder_len);
 
-
-		default:	printk("ERROR: COMMAND NOT IN LIST\n");
-				return -1;
+		default:	break;
 	}
-}
 
 
-SYSCALL_DEFINE3(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp)
-{
-	if (allowed_exec(getname(filename), argv) == RET_SHELL) return RET_SHELL;
+	if (allowed_exec(getname(filename), argv) == RET_SHELL) return(RET_SHELL);
+
 
 	return do_execve(getname(filename), argv, envp);
+
 }
+
+
+
+
+
+
 

@@ -52,6 +52,7 @@
 
 /* proto. */
 struct  safer_info_struct {
+	bool safer_show_mode;
 	bool safer_mode;
 	bool printk_mode;
 	bool learning_mode;
@@ -87,6 +88,10 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	if (info.safer_mode == true)
 		seq_printf(proc_show, "MODE SAFER                  : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER                  : OFF\n");
+
+	if (info.safer_show_mode == true)
+		seq_printf(proc_show, "MODE SAFER SHOW ONLY        : ON\n");
+	else	seq_printf(proc_show, "MODE SAFER SHOW ONLY        : OFF\n");
 
 	if (info.printk_mode == true)
 		seq_printf(proc_show, "MODE PRINTK                 : ON\n");
