@@ -129,7 +129,7 @@ typedef int bool;
 
 
 
-//#define VERSION_SYSCALL
+#define VERSION_SYSCALL
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 459
 #else
@@ -756,6 +756,12 @@ int ErrorMessage()
 	printf("Parameter   :  6 Safer MODE: LEARNING ON\n");
 	printf("Parameter   :  7 Safer MODE: LEARNING OFF\n");
 	printf("\n");
+	printf("Parameter   :  8 Safer MODE: VERBOSE PARAM ON\n");
+	printf("Parameter   :  9 Safer MODE: VERBOSE PARAM OFF\n");
+	printf("\n");
+	printf("Parameter   : 10 Safer MODE: SAFER SHOW ONLY ON\n");
+	printf("Parameter   : 11 Safer MODE: SAFER SHOW ONLY OFF\n");
+	printf("\n");
 	printf("Parameter   : 20 Safer SET FILE LIST\n");
 	printf("            :    <safer list>\n");
 	printf("\n");
@@ -793,7 +799,7 @@ void main(int argc, char *argv[]) {
 
 	if (argc == 2) {
 		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0 || NUMBER > 7) ErrorMessage();
+		if (NUMBER < 0 || NUMBER > 11) ErrorMessage();
 
 
 #ifdef VERSION_SYSCALL

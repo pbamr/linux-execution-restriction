@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2024.01.12
+	Date		: 2022.04.22, 2023.05.23 2024.01.14
 
 	Program		: safer.c
 	Path		: fs/
@@ -67,6 +67,12 @@
 
 			: 999906 = learning on
 			: 999907 = learning off
+
+			: 999908 = verbose parameter show ON
+			: 999909 = verbose parameter show OFF
+
+			: 999910 = safer show only ON
+			: 999911 = safer show only OFF
 
 
 			: 999920 = Set FILE List
@@ -186,13 +192,18 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
+/* test */
+/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
+
 
 static DEFINE_MUTEX(learning_block);
 
+static bool	safer_mode_show = false;
 static bool	safer_mode = false;
 static bool	printk_mode = false;
 static bool	learning_mode = true;
 static bool	change_mode = true;	/*true = change_mode allowed */
+static bool	verbose_param_mode = false;
 
 static char	**global_list_prog = NULL;
 static long	global_list_prog_len = 0;
@@ -468,6 +479,39 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 }
 
 
+
+
+
+
+
+
+
+/* max read = 0. size in file_size. other 0 is error */
+/*
+static ssize_t get_file_size_(const char *filename)
+{
+	ssize_t	retval;
+	ssize_t	file_size;
+	void	*data = NULL;
+
+	retval = kernel_read_file_from_path(	filename,
+						0,
+						&data,
+						0,
+						&file_size,
+						READING_POLICY);
+
+	if (retval == 0) {
+		vfree(data);
+
+		if (file_size < 0) return -1;
+		else return file_size;
+	}
+
+	return -1;
+
+}
+*/
 
 
 static struct md5_sum_struct get_file_size_md5_read(const char *filename)
@@ -775,6 +819,7 @@ static void print_prog_arguments(uid_t user_id,
 	if (size_hash_sum.retval == -1)
 		return;
 
+
 	printk("USER ID:%u;%ld;%s;%s\n",user_id,
 					size_hash_sum.file_size,
 					size_hash_sum.hash_string,
@@ -849,6 +894,7 @@ user_deny(uid_t user_id,
 	char hash[],
 	char **list,
 	long list_len,
+	bool printk_mode,
 	const char *step)
 
 {
@@ -882,7 +928,8 @@ user_deny(uid_t user_id,
 	strcat(str_user_file, filename);
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
-		printk("STAT %s: USER/PROG. DENY: a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
+		if (printk_mode == true)
+			printk("STAT %s: USER/PROG. DENY: a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
 		kfree(str_user_file);
 		return -1;
 	}
@@ -964,6 +1011,7 @@ group_deny(	uid_t user_id,
 		char hash[],
 		char **list,
 		long list_len,
+		bool printk_mode,
 		const char *step)
 {
 
@@ -1002,7 +1050,8 @@ group_deny(	uid_t user_id,
 		strcat(str_group_file, filename);
 
 		if (besearch_file(str_group_file, list, list_len) == 0) {
-			printk("STAT %s: USER/PROG. DENY: gd:%s;%s;%s;%s\n", step, str_group_id, str_file_size, hash, filename);
+			if (printk_mode == true)
+				printk("STAT %s: USER/PROG. DENY: gd:%s;%s;%s;%s\n", step, str_group_id, str_file_size, hash, filename);
 			kfree(str_group_file);
 
 			return -1;
@@ -1043,7 +1092,6 @@ user_folder_allowed(	uid_t user_id,
 	strcat(str_folder, str_user_id);
 	strcat(str_folder, ";");
 	strcat(str_folder, filename);
-
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_mode == true)
@@ -1063,6 +1111,7 @@ user_folder_deny(uid_t user_id,
 		const char *filename,
 		char **list,
 		long list_len,
+		bool printk_mode,
 		const char *step)
 
 {
@@ -1075,7 +1124,7 @@ user_folder_deny(uid_t user_id,
 
 	string_length = strlen(str_user_id);
 	string_length += strlen(filename);
-	string_length += strlen("d:;") + 1;
+	string_length += strlen("d:;/") + 1;
 
 	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
@@ -1085,10 +1134,12 @@ user_folder_deny(uid_t user_id,
 	strcat(str_folder, str_user_id);
 	strcat(str_folder, ";");
 	strcat(str_folder, filename);
+	strcat(str_folder, "/");
 
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
-		printk("STAT %s: USER/PROG. DENY: a:%s;%s;\n", step, str_user_id, filename);
+		if (printk_mode == true)
+			printk("STAT %s: USER/PROG. DENY: a:%s;%s;\n", step, str_user_id, filename);
 		kfree(str_folder);
 		return -1;
 	}
@@ -1159,6 +1210,7 @@ group_folder_deny(uid_t user_id,
 		const char *filename,
 		char **list,
 		long list_len,
+		bool printk_mode,
 		const char *step)
 
 {
@@ -1194,7 +1246,8 @@ group_folder_deny(uid_t user_id,
 
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == 0) {
-			printk("STAT %s: USER/PROG. ALLOWED: d:%s;%s\n", step, str_group_id, filename);
+			if (printk_mode == true)
+				printk("STAT %s: USER/PROG. ALLOWED: d:%s;%s\n", step, str_group_id, filename);
 			kfree(str_group_folder);
 			return -1;
 		}
@@ -1329,7 +1382,8 @@ user_interpreter_file_allowed(	uid_t user_id,
 				list, list_len,
 				 printk_mode, step) == 0) return 0;
 
-		printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
+		if (printk_mode == true)
+			printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
 										 user_id,
 										 size_hash_sum.file_size,
 										 size_hash_sum.hash_string,
@@ -1356,7 +1410,8 @@ user_interpreter_file_allowed(	uid_t user_id,
 			list, list_len,
 			printk_mode, step) == 0) return 0;
 
-	printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
+	if (printk_mode == true)
+		printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
 									 user_id,
 									 size_hash_sum.file_size,
 									 size_hash_sum.hash_string,
@@ -1374,16 +1429,23 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 
 	size_hash_sum = get_file_size_md5_read(filename);
-	if (size_hash_sum.retval == -1)
-		return RET_SHELL;
+	if (size_hash_sum.retval == -1) {
+		if (printk_mode == true)
+			printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
+										size_hash_sum.file_size,
+										size_hash_sum.hash_string,
+										filename);
+		return 0;
+	}
 
 
 	/* group deny folder */
 	if (global_list_folder_len > 0) {
 		if (group_folder_deny(	user_id,
 					filename,
-					global_list_prog,
-					global_list_prog_len,
+					global_list_folder,
+					global_list_folder_len,
+					printk_mode,
 					"FIRST") == 1)
 			return RET_SHELL;
 	}
@@ -1392,8 +1454,9 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	if (global_list_folder_len > 0) {
 		if (user_folder_deny(	user_id,
 					filename,
-					global_list_prog,
-					global_list_prog_len,
+					global_list_folder,
+					global_list_folder_len,
+					printk_mode,
 					"FIRST") == 1)
 			return RET_SHELL;
 	}
@@ -1405,6 +1468,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
+			printk_mode,
 			"FIRST") == 1)
 		return RET_SHELL;
 
@@ -1415,6 +1479,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
+			printk_mode,
 			"FIRST") == 1)
 		return RET_SHELL;
 
@@ -1423,8 +1488,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	if (global_list_folder_len > 0) {
 		if (group_folder_allowed(user_id,
 					filename,
-					global_list_prog,
-					global_list_prog_len,
+					global_list_folder,
+					global_list_folder_len,
 					printk_mode,
 					"FIRST") == 0)
 			return 0;
@@ -1434,8 +1499,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	if (global_list_folder_len > 0) {
 		if (user_folder_allowed(user_id,
 					filename,
-					global_list_prog,
-					global_list_prog_len,
+					global_list_folder,
+					global_list_folder_len,
 					printk_mode,
 					"FIRST") == 0)
 			return 0;
@@ -1479,12 +1544,15 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					"FIRST") == 0)
 		return 0;
 
-	printk("STAT END FIRST STEP: USER/PROG. FILE DENY: a:%d;%ld;%s;%s\n", user_id,
-									size_hash_sum.file_size,
-									size_hash_sum.hash_string,
-									filename);
+	if (printk_mode == true)
+		printk("STAT END FIRST STEP: USER/PROG. FILE DENY: a:%d;%ld;%s;%s\n", user_id,
+										size_hash_sum.file_size,
+										size_hash_sum.hash_string,
+										filename);
 
-	return (RET_SHELL);
+	if (safer_mode == true)
+		return (RET_SHELL);
+	else return 0;
 
 }
 
@@ -1517,19 +1585,26 @@ static int exec_second_step(const char *filename)
 	}
 
 
-	if (safer_mode == true) {
+	if (safer_mode_show == true || safer_mode == true || printk_mode == true) {
 
 		size_hash_sum = get_file_size_md5_read(filename);
-		if (size_hash_sum.retval == -1)
-			return RET_SHELL;
+		if (size_hash_sum.retval == -1) {
+			if (printk_mode == true)
+				printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
+										size_hash_sum.file_size,
+										size_hash_sum.hash_string,
+										filename);
+			return 0;
+		}
 
 
 		/* group deny folder */
 		if (global_list_folder_len > 0) {
 			if (group_folder_deny(	user_id,
 						filename,
-						global_list_prog,
-						global_list_prog_len,
+						global_list_folder,
+						global_list_folder_len,
+						printk_mode,
 						"SEC  ") == 1)
 				return RET_SHELL;
 		}
@@ -1538,8 +1613,9 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (user_folder_deny(	user_id,
 						filename,
-						global_list_prog,
-						global_list_prog_len,
+						global_list_folder,
+						global_list_folder_len,
+						printk_mode,
 						"SEC  ") == 1)
 				return RET_SHELL;
 		}
@@ -1551,6 +1627,7 @@ static int exec_second_step(const char *filename)
 				size_hash_sum.hash_string,
 				global_list_prog,
 				global_list_prog_len,
+				printk_mode,
 				"SEC  ") == 1)
 			return RET_SHELL;
 
@@ -1561,6 +1638,7 @@ static int exec_second_step(const char *filename)
 				size_hash_sum.hash_string,
 				global_list_prog,
 				global_list_prog_len,
+				printk_mode,
 				"SEC  ") == 1)
 			return RET_SHELL;
 
@@ -1569,8 +1647,8 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (group_folder_allowed(user_id,
 						filename,
-						global_list_prog,
-						global_list_prog_len,
+						global_list_folder,
+						global_list_folder_len,
 						printk_mode,
 						"SEC  ") == 0)
 				return 0;
@@ -1580,8 +1658,8 @@ static int exec_second_step(const char *filename)
 		if (global_list_folder_len > 0) {
 			if (user_folder_allowed(user_id,
 						filename,
-						global_list_prog,
-						global_list_prog_len,
+						global_list_folder,
+						global_list_folder_len,
 						printk_mode,
 						"SEC  ") == 0)
 				return 0;
@@ -1621,13 +1699,14 @@ static int exec_second_step(const char *filename)
 						"SEC  ") == 0)
 				return 0;
 
-
-		printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
-										size_hash_sum.file_size,
-										size_hash_sum.hash_string,
-										filename);
-
-		return (RET_SHELL);
+		if (printk_mode == true)
+			printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
+											size_hash_sum.file_size,
+											size_hash_sum.hash_string,
+											filename);
+		if (safer_mode == true)
+			return (RET_SHELL);
+		else return 0;
 	}
 
 	return 0;
@@ -1651,10 +1730,11 @@ static int allowed_exec(struct filename *kernel_filename,
 	uid_t			user_id;
 
 
-	if (safer_mode == false)
-		if (learning_mode == false)
-			if (printk_mode == false)
-				return 0;
+	if (safer_mode_show == false)
+		if (safer_mode == false)
+			if (learning_mode == false)
+				if (printk_mode == false)
+					return 0;
 
 	/* argv -> kernel space */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
@@ -1678,7 +1758,7 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-	if (printk_mode == true)
+	if (verbose_param_mode == true)
 		print_prog_arguments(	user_id,
 					kernel_filename->name,
 					argv_list,
@@ -1705,8 +1785,8 @@ static int allowed_exec(struct filename *kernel_filename,
 		}
 	}
 
-
-	if (safer_mode == true)
+	retval = 0;
+	if (safer_mode_show == true || safer_mode == true || printk_mode == true)
 		retval = exec_first_step(user_id,
 					kernel_filename->name,
 					argv_list,
@@ -1723,6 +1803,7 @@ static int allowed_exec(struct filename *kernel_filename,
 		argv_list = NULL;
 	}
 
+
 	return retval;
 
 }
@@ -1730,11 +1811,8 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-
-SYSCALL_DEFINE5(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp,
+/* SYSCALL NR: 459 or other */
+SYSCALL_DEFINE2(set_execve,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -1747,8 +1825,8 @@ SYSCALL_DEFINE5(execve,
 	const char __user *str;
 
 
-
 	user_id = get_current_user()->uid.val;
+
 
 	/* command part, future ? */
 	switch(number) {
@@ -1801,8 +1879,8 @@ SYSCALL_DEFINE5(execve,
 
 
 		/* printk off */
-		case 999904:	if (change_mode == false) return(-1);
-				if (user_id != 0) return(-1);
+		case 999904:	if (change_mode == false) return -1;
+				if (user_id != 0) return -1;
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK OFF\n");
 #endif
@@ -1811,7 +1889,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999905:	if (change_mode == false) return -1;
-				if (user_id != 0) return(-1);
+				if (user_id != 0) return -1;
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
@@ -1820,7 +1898,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999906:	if (change_mode == false) return -1;
-				if (user_id != 0) return(-1);
+				if (user_id != 0) return -1;
 #ifdef PRINTK
 				printk("MODE: learning ON\n");
 #endif
@@ -1830,13 +1908,57 @@ SYSCALL_DEFINE5(execve,
 
 
 		case 999907:	if (change_mode == false) return -1;
-				if (user_id != 0) return(-1);
+				if (user_id != 0) return -1;
 #ifdef PRINTK
 				printk("MODE: learning OFF\n");
 #endif
 				learning_mode = false;
 
 				return 0;
+
+
+		case 999908:	if (change_mode == false) return -1;
+				if (user_id != 0) return -1;
+#ifdef PRINTK
+				printk("MODE: verbose paramter mode ON\n");
+#endif
+				verbose_param_mode = true;
+
+				return 0;
+
+
+
+		case 999909:	if (change_mode == false) return -1;
+				if (user_id != 0) return -1;
+#ifdef PRINTK
+				printk("MODE: verbose parameter mode OFF\n");
+#endif
+				verbose_param_mode = false;
+
+				return 0;
+
+
+		/* safer show on */
+		case 999910:	if (change_mode == false) return -1;
+				if (user_id != 0) return -1;
+				safer_mode_show = true;
+#ifdef PRINTK
+				printk("MODE: SAFER SHOW ONLY ON\n");
+#endif
+				return 0;
+
+
+		/* safer show off */
+		case 999911:	if (change_mode == false) return -1;
+				if (user_id != 0) return -1;
+#ifdef PRINTK
+				printk("MODE: SAFER SHOW ONLY OFF\n");
+#endif
+				safer_mode_show = false;
+				return 0;
+
+
+
 
 
 		/* set all list */
@@ -1998,7 +2120,7 @@ SYSCALL_DEFINE5(execve,
 
 
 				for (int n = 0; n < global_list_folder_len; n++) {
-					str = get_user_arg_ptr(_list, n + 1);
+					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
@@ -2007,22 +2129,23 @@ SYSCALL_DEFINE5(execve,
 					int_ret = copy_from_user(global_list_folder[n], str, str_len);
 				}
 
+
 				return(global_list_folder_len);
 
-		default:	break;
+
+		default:	printk("ERROR: COMMAND NOT IN LIST\n");
+				return -1;
 	}
-
-
-	if (allowed_exec(getname(filename), argv) == RET_SHELL) return(RET_SHELL);
-
-
-	return do_execve(getname(filename), argv, envp);
-
 }
 
 
+SYSCALL_DEFINE3(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp)
+{
+	if (allowed_exec(getname(filename), argv) == RET_SHELL) return RET_SHELL;
 
-
-
-
+	return do_execve(getname(filename), argv, envp);
+}
 
