@@ -1581,7 +1581,7 @@ static int exec_second_step(const char *filename)
 	}
 
 
-	if (safer_mode_show == true || safer_mode == true || printk_mode == true) {
+	if (safer_mode_show == true || safer_mode == true) {
 
 		size_hash_sum = get_file_size_md5_read(filename);
 		if (size_hash_sum.retval == -1) {
@@ -1782,7 +1782,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	}
 
 	retval = 0;
-	if (safer_mode_show == true || safer_mode == true || printk_mode == true)
+	if (safer_mode_show == true || safer_mode == true)
 		retval = exec_first_step(user_id,
 					kernel_filename->name,
 					argv_list,
