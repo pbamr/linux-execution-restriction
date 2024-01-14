@@ -127,7 +127,7 @@ Uses
 	
 	
 	
-{$define SYSCALLVERSION}
+{$define NEW_SYSCALLVERSION}
 //{$define SYSCALL_VERSION}
 
 	
@@ -136,7 +136,7 @@ Uses
 const
 	{$ifdef SYSCALL_VERSION}
 		SYSCALL_NR	= 59;
-	{$else SYSCALLVERSION}
+	{$else NEW_SYSCALLVERSION}
 		SYSCALL_NR	= 459;
 	{$endif SYSCALL_VERSION}
 
@@ -178,6 +178,14 @@ begin
 
 	writeln('Parameter   :  6 Safer LEARNING ON');
 	writeln('Parameter   :  7 Safer LEARNING OFF');
+	writeln;
+
+	writeln('Parameter   :  8 Safer VERBOSE PARAM ON');
+	writeln('Parameter   :  9 Safer VERBOSE PARAM OFF');
+	writeln;
+
+	writeln('Parameter   : 10 Safer SAFER SHOW ONLY ON');
+	writeln('Parameter   : 11 Safer SAFER SHOW ONLY OFF');
 	writeln;
 
 	writeln('Parameter   : 20 Safer SET FILE LIST');
@@ -222,7 +230,7 @@ begin
 		
 {$ifdef SYSCALL_VERSION}
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
-{$else SYSCALLVERSION}
+{$else NEW_SYSCALLVERSION}
 		writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER));
 {$endif SYSCALL_VERSION}
 		halt(0);
@@ -297,7 +305,7 @@ begin
 					
 					{$ifdef SYSCALL_VERSION}
 					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
-					{$else SYSCALLVERSION}
+					{$else NEW_SYSCALLVERSION}
 					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER, qword(WORK_LIST)));
 					{$endif SYSCALL_VERSION}
 					halt(0);
@@ -361,7 +369,7 @@ begin
 					
 					{$ifdef SYSCALL_VERSION}
 					writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER, qword(WORK_LIST)));
-					{$else SYSCALLVERSION}
+					{$else NEW_SYSCALLVERSION}
 					writeln(do_SysCall(SYSCALL_NR, 999900 + NUMBER, qword(WORK_LIST)));
 					{$endif SYSCALL_VERSION}
 					halt(0);
