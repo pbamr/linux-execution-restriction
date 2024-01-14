@@ -192,9 +192,6 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
-/* test */
-/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
-
 
 static DEFINE_MUTEX(learning_block);
 
@@ -1124,7 +1121,7 @@ user_folder_deny(uid_t user_id,
 
 	string_length = strlen(str_user_id);
 	string_length += strlen(filename);
-	string_length += strlen("d:;/") + 1;
+	string_length += strlen("d:;") + 1;
 
 	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
@@ -1134,7 +1131,6 @@ user_folder_deny(uid_t user_id,
 	strcat(str_folder, str_user_id);
 	strcat(str_folder, ";");
 	strcat(str_folder, filename);
-	strcat(str_folder, "/");
 
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
