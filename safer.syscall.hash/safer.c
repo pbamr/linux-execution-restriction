@@ -1700,8 +1700,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	if (safer_show_mode == false)
 		if (safer_mode == false)
 			if (learning_mode == false)
-				if (printk_mode == false)
-					return 0;
+				return 0;
 
 	/* argv -> kernel space */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
