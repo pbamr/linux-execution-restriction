@@ -1350,7 +1350,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				list, list_len,
-				 printk_mode, step) == 0) return NOT_ALLOWED;
+				printk_mode, step) == 0) return ALLOWED;
 
 		if (printk_mode == true)
 			printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
