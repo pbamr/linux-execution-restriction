@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2024.01.14
+	Date		: 2022.04.22, 2023.05.23 2024.01.16
 
 	Program		: safer.c
 	Path		: fs/
@@ -188,6 +188,8 @@
 #define RET_SHELL -2
 #define ARGV_MAX 16
 #define KERNEL_READ_SIZE 1000
+#define ALLOWED 0
+#define NOT_ALLOWED 1
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
@@ -301,13 +303,15 @@ static int besearch_file(char *str_search,
 
 		int_ret = strcmp(list[middle], str_search);
 
-		if (int_ret == 0) return(0);
+		if (int_ret == 0) return 0;
 		else if (int_ret < 0) left = middle + 1;
 		else if (int_ret > 0) right = middle - 1;
 	}
 
-	return(-1);
+	return -1;
 }
+
+
 
 
 
@@ -476,9 +480,6 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 
 	return md5_sum;
 }
-
-
-
 
 
 
@@ -830,7 +831,7 @@ user_allowed(	uid_t user_id,
 
 	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
-		return -1;
+		return NOT_ALLOWED;
 
 	strcpy(str_user_file, "a:");
 	strcat(str_user_file, str_user_id);
@@ -846,12 +847,12 @@ user_allowed(	uid_t user_id,
 			printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
 		kfree(str_user_file);
 		str_user_file = NULL;
-		return 0;
+		return ALLOWED;
 	}
 
 	kfree(str_user_file);
 	str_user_file = NULL;
-	return -1;
+	return NOT_ALLOWED;
 }
 
 
@@ -885,7 +886,7 @@ user_deny(uid_t user_id,
 
 	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
-		return -1;
+		return RET_SHELL;
 
 	strcpy(str_user_file, "d:");
 	strcat(str_user_file, str_user_id);
@@ -900,11 +901,11 @@ user_deny(uid_t user_id,
 		if (printk_mode == true)
 			printk("STAT %s: USER/PROG. DENY: a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
 		kfree(str_user_file);
-		return -1;
+		return RET_SHELL;
 	}
 
 	kfree(str_user_file);
-	return 0;
+	return ALLOWED;
 }
 
 
@@ -946,7 +947,7 @@ group_allowed(uid_t user_id,
 		//if (str_group_file != NULL) kfree(str_group_file);
 		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
-			return -1;
+			return NOT_ALLOWED;
 
 		strcpy(str_group_file, "ga:");
 		strcat(str_group_file, str_group_id);
@@ -962,14 +963,14 @@ group_allowed(uid_t user_id,
 				printk("STAT %s: USER/PROG. ALLOWED: ga:%s;%s;%s;%s\n", step, str_group_id, str_file_size, hash, filename);
 			kfree(str_group_file);
 			str_group_file = NULL;
-			return 0;
+			return ALLOWED;
 		}
 
 		kfree(str_group_file);
 		str_group_file = NULL;
 	}
 
-	return -1;
+	return NOT_ALLOWED;
 }
 
 
@@ -1007,7 +1008,7 @@ group_deny(	uid_t user_id,
 
 		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
-			return -1;
+			return RET_SHELL;
 
 		strcpy(str_group_file, "gd:");
 		strcat(str_group_file, str_group_id);
@@ -1023,12 +1024,12 @@ group_deny(	uid_t user_id,
 				printk("STAT %s: USER/PROG. DENY: gd:%s;%s;%s;%s\n", step, str_group_id, str_file_size, hash, filename);
 			kfree(str_group_file);
 
-			return -1;
+			return RET_SHELL;
 		}
 		else kfree(str_group_file);
 	}
 
-	return 0;
+	return ALLOWED;
 }
 
 
@@ -1055,7 +1056,7 @@ user_folder_allowed(	uid_t user_id,
 
 	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
-		return -1;
+		return NOT_ALLOWED;
 
 	strcpy(str_folder, "a:");
 	strcat(str_folder, str_user_id);
@@ -1064,14 +1065,14 @@ user_folder_allowed(	uid_t user_id,
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_mode == true)
-			printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s;\n", step, str_user_id, filename);
+			printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s\n", step, str_user_id, filename);
 
 		kfree(str_folder);
-		return 0;
+		return ALLOWED;
 	}
 
 	kfree(str_folder);
-	return -1;
+	return NOT_ALLOWED;
 }
 
 
@@ -1097,7 +1098,7 @@ user_folder_deny(uid_t user_id,
 
 	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
-		return -1;
+		return RET_SHELL;
 
 	strcpy(str_folder, "d:");
 	strcat(str_folder, str_user_id);
@@ -1107,13 +1108,13 @@ user_folder_deny(uid_t user_id,
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_mode == true)
-			printk("STAT %s: USER/PROG. DENY: a:%s;%s;\n", step, str_user_id, filename);
+			printk("STAT %s: USER/PROG. DENY: a:%s;%s\n", step, str_user_id, filename);
 		kfree(str_folder);
-		return -1;
+		return RET_SHELL;
 	}
 
 	kfree(str_folder);
-	return 0;
+	return ALLOWED;
 }
 
 
@@ -1150,7 +1151,7 @@ group_folder_allowed(	uid_t user_id,
 		//if (str_group_folder != NULL) kfree(str_group_folder);
 		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
-			return -1;
+			return NOT_ALLOWED;
 
 		strcpy(str_group_folder, "ga:");
 		strcat(str_group_folder, str_group_id);
@@ -1163,13 +1164,13 @@ group_folder_allowed(	uid_t user_id,
 			if (printk_mode == true)
 				printk("STAT %s: USER/PROG. ALLOWED: a:%s;%s\n", step, str_group_id, filename);
 			kfree(str_group_folder);
-			return 0;
+			return ALLOWED;
 		}
 		else kfree(str_group_folder);
 		
 	}
 
-	return -1;
+	return NOT_ALLOWED;
 }
 
 
@@ -1204,7 +1205,7 @@ group_folder_deny(uid_t user_id,
 		//if (str_group_folder != NULL) kfree(str_group_folder);
 		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
-			return -1;
+			return RET_SHELL;
 
 		strcpy(str_group_folder, "gd:");
 		strcat(str_group_folder, str_group_id);
@@ -1217,12 +1218,12 @@ group_folder_deny(uid_t user_id,
 			if (printk_mode == true)
 				printk("STAT %s: USER/PROG. ALLOWED: d:%s;%s\n", step, str_group_id, filename);
 			kfree(str_group_folder);
-			return -1;
+			return RET_SHELL;
 		}
 		else kfree(str_group_folder);
 	}
 
-	return 0;
+	return ALLOWED;
 }
 
 
@@ -1258,7 +1259,7 @@ user_interpreter_allowed(uid_t user_id,
 
 	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (str_user_file == NULL)
-		return -1;
+		return NOT_ALLOWED;
 
 	strcpy(str_user_file, "ai:");
 	strcat(str_user_file, str_user_id);
@@ -1276,13 +1277,13 @@ user_interpreter_allowed(uid_t user_id,
 
 		kfree(str_user_file);
 		str_user_file = NULL;
-		return 0;
+		return ALLOWED;
 	}
 
 	kfree(str_user_file);
 	str_user_file = NULL;
 
-	return -1;
+	return NOT_ALLOWED;
 }
 
 
@@ -1308,7 +1309,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 	struct md5_sum_struct size_hash_sum;
 
 
-	if (argv_len == 1) return -1;
+	if (argv_len == 1) return NOT_ALLOWED;
 
 
 	/* check interpreter and files */
@@ -1322,15 +1323,16 @@ user_interpreter_file_allowed(	uid_t user_id,
 					printk_mode,
 					step);
 
-	if (retval ==  -1) return -1;
+	if (retval ==  -1)
+		return NOT_ALLOWED;
 
 
 	if (strcmp(argv[1], "-jar") == 0) {
-		if (argv_len == 2) return -1;
+		if (argv_len == 2) return NOT_ALLOWED;
 
 		size_hash_sum = get_file_size_md5_read(argv[2]);
 		if (size_hash_sum.retval == -1)
-			return -1;
+			return NOT_ALLOWED;
 
 		/* check file/prog is in list/allowed */
 		if (user_allowed(user_id,
@@ -1340,7 +1342,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 				list,
 				list_len,
 				printk_mode,
-				step) == 0) return 0;
+				step) == 0) return ALLOWED;
 
 
 		if (group_allowed(user_id,
@@ -1348,7 +1350,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				list, list_len,
-				 printk_mode, step) == 0) return 0;
+				 printk_mode, step) == 0) return NOT_ALLOWED;
 
 		if (printk_mode == true)
 			printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
@@ -1361,7 +1363,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 	/* other */
 	size_hash_sum = get_file_size_md5_read(argv[1]);
 	if (size_hash_sum.retval == -1)
-		return -1;
+		return NOT_ALLOWED;
 
 	/* check file/prog is in list/allowed */
 	if (user_allowed(user_id,
@@ -1369,24 +1371,24 @@ user_interpreter_file_allowed(	uid_t user_id,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			list, list_len,
-			printk_mode, step) == 0) return 0;
+			printk_mode, step) == 0) return ALLOWED;
 
 	if (group_allowed(user_id,
 			argv[1],
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			list, list_len,
-			printk_mode, step) == 0) return 0;
+			printk_mode, step) == 0) return ALLOWED;
 
 	if (printk_mode == true)
 		printk("STAT %s: USER/INTERPRETER PROG. DENY: a:%d;%ld;%s;%s\n", step,
-									 user_id,
-									 size_hash_sum.file_size,
-									 size_hash_sum.hash_string,
-									 argv[1]);
+										user_id,
+										size_hash_sum.file_size,
+										size_hash_sum.hash_string,
+										argv[1]);
 
 	/* not found */
-	return -1;
+	return NOT_ALLOWED;
 }
 
 
@@ -1394,62 +1396,88 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 {
 
 	struct md5_sum_struct size_hash_sum;
+	int retval;
 
-
+	/* if Size = 0 not check */
 	size_hash_sum = get_file_size_md5_read(filename);
 	if (size_hash_sum.retval == -1) {
 		if (printk_mode == true)
 			printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
-										size_hash_sum.file_size,
-										size_hash_sum.hash_string,
-										filename);
-		return 0;
+											size_hash_sum.file_size,
+											size_hash_sum.hash_string,
+											filename);
+		return ALLOWED;
 	}
 
 
 	/* group deny folder */
 	if (global_list_folder_len > 0) {
-		if (group_folder_deny(	user_id,
+		retval = group_folder_deny(user_id,
 					filename,
 					global_list_folder,
 					global_list_folder_len,
 					printk_mode,
-					"FIRST") == 1)
-			return RET_SHELL;
+					"FIRST");
+
+		if (safer_mode == true) {
+			if (retval == RET_SHELL)
+				return RET_SHELL;
+		}
+		else if (retval == true)
+			return ALLOWED;
 	}
 
 	/* deny folder */
 	if (global_list_folder_len > 0) {
-		if (user_folder_deny(	user_id,
+		retval = user_folder_deny(user_id,
 					filename,
 					global_list_folder,
 					global_list_folder_len,
 					printk_mode,
-					"FIRST") == 1)
-			return RET_SHELL;
+					"FIRST");
+
+		if (safer_mode == true) {
+			if (retval == RET_SHELL)
+				return RET_SHELL;
+		}
+		else if (retval == true)
+			return ALLOWED;
 	}
 
 	/* deny group */
-	if (group_deny( user_id,
+	/* if global_list_prog_len = 0, safer_mode not true */
+	retval = group_deny( user_id,
 			filename,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
 			printk_mode,
-			"FIRST") == 1)
-		return RET_SHELL;
+			"FIRST");
+
+	if (safer_mode == true) {
+		if (retval == RET_SHELL)
+			return RET_SHELL;
+	}
+	else if (retval == true)
+		return ALLOWED;
 
 	/* deny user */
-	if (user_deny(	user_id,
+	retval = user_deny(user_id,
 			filename,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
 			printk_mode,
-			"FIRST") == 1)
-		return RET_SHELL;
+			"FIRST");
+
+	if (safer_mode == true) {
+		if (retval == RET_SHELL)
+			return RET_SHELL;
+	}
+	else if (retval == true)
+		return ALLOWED;
 
 
 	/* group allowed folder */
@@ -1459,8 +1487,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					global_list_folder,
 					global_list_folder_len,
 					printk_mode,
-					"FIRST") == 0)
-			return 0;
+					"FIRST") == ALLOWED)
+			return ALLOWED;
 	}
 
 	/* user allowed folder */
@@ -1470,8 +1498,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					global_list_folder,
 					global_list_folder_len,
 					printk_mode,
-					"FIRST") == 0)
-			return 0;
+					"FIRST") == ALLOWED)
+			return ALLOWED;
 	}
 
 	/* allowed user */
@@ -1482,8 +1510,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			global_list_prog,
 			global_list_prog_len,
 			printk_mode,
-			"FIRST") == 0)
-			return 0;
+			"FIRST") == ALLOWED)
+		return ALLOWED;;
 
 	/* allowed group */
 	if (group_allowed(user_id,
@@ -1493,8 +1521,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			global_list_prog,
 			global_list_prog_len,
 			printk_mode,
-			"FIRST") == 0)
-		return 0;
+			"FIRST") == ALLOWED)
+		return ALLOWED;
 
 
 	/* user allowed interpreter and allowed group script file*/
@@ -1509,8 +1537,8 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					global_list_prog,
 					global_list_prog_len,
 					printk_mode,
-					"FIRST") == 0)
-		return 0;
+					"FIRST") == ALLOWED)
+		return ALLOWED;
 
 	if (printk_mode == true)
 		printk("STAT END FIRST STEP: USER/PROG. FILE DENY: a:%d;%ld;%s;%s\n", user_id,
@@ -1520,7 +1548,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 	if (safer_mode == true)
 		return (RET_SHELL);
-	else return 0;
+	else return ALLOWED;
 
 }
 
@@ -1534,6 +1562,7 @@ static int exec_second_step(const char *filename)
 {
 
 	struct md5_sum_struct size_hash_sum;
+	int retval;
 
 	uid_t user_id = get_current_user()->uid.val;
 
@@ -1554,60 +1583,90 @@ static int exec_second_step(const char *filename)
 
 	if (safer_mode == true || (safer_show_mode == true && printk_mode == true)) {
 
+		/* if size = 0 not check */
 		size_hash_sum = get_file_size_md5_read(filename);
 		if (size_hash_sum.retval == -1) {
 			if (printk_mode == true)
-				printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
+				printk("STAT END SEC STEP  : USER/PROG. DENY: a:%d;%ld;%s;%s\n",user_id,
 										size_hash_sum.file_size,
 										size_hash_sum.hash_string,
 										filename);
-			return 0;
+			return ALLOWED;
 		}
 
 
 		/* group deny folder */
 		if (global_list_folder_len > 0) {
-			if (group_folder_deny(	user_id,
+			retval = group_folder_deny(user_id,
 						filename,
 						global_list_folder,
 						global_list_folder_len,
 						printk_mode,
-						"SEC  ") == 1)
-				return RET_SHELL;
+						"SEC  ");
+
+			if (safer_mode == true) {
+				if (retval == RET_SHELL)
+					return RET_SHELL;
+			}
+			else if (retval == true)
+				return ALLOWED;
 		}
+
 
 		/* deny folder */
 		if (global_list_folder_len > 0) {
-			if (user_folder_deny(	user_id,
+			retval = user_folder_deny(user_id,
 						filename,
 						global_list_folder,
 						global_list_folder_len,
 						printk_mode,
-						"SEC  ") == 1)
-				return RET_SHELL;
+						"SEC  ");
+
+			if (safer_mode == true) {
+				if (retval == RET_SHELL)
+					return RET_SHELL;
+			}
+			else if (retval == true)
+				return ALLOWED;
 		}
 
+
+
 		/* deny group */
-		if (group_deny(user_id,
+		/* if global_list_prog_len = 0, safer_mode not true */
+		retval = group_deny(user_id,
 				filename,
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				global_list_prog,
 				global_list_prog_len,
 				printk_mode,
-				"SEC  ") == 1)
-			return RET_SHELL;
+				"SEC  ");
+
+		if (safer_mode == true) {
+			if (retval == RET_SHELL)
+				return RET_SHELL;
+		}
+		else if (retval == true)
+			return ALLOWED;
+
 
 		/* deny user */
-		if (user_deny(	user_id,
+		retval = user_deny(user_id,
 				filename,
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				global_list_prog,
 				global_list_prog_len,
 				printk_mode,
-				"SEC  ") == 1)
-			return RET_SHELL;
+				"SEC  ");
+
+		if (safer_mode == true) {
+			if (retval == RET_SHELL)
+				return RET_SHELL;
+		}
+		else if (retval == true)
+			return ALLOWED;
 
 
 		/* allowed folder */
@@ -1617,8 +1676,8 @@ static int exec_second_step(const char *filename)
 						global_list_folder,
 						global_list_folder_len,
 						printk_mode,
-						"SEC  ") == 0)
-				return 0;
+						"SEC  ") == ALLOWED)
+				return ALLOWED;
 		}
 
 		/* allowed folder */
@@ -1628,8 +1687,8 @@ static int exec_second_step(const char *filename)
 						global_list_folder,
 						global_list_folder_len,
 						printk_mode,
-						"SEC  ") == 0)
-				return 0;
+						"SEC  ") == ALLOWED)
+				return ALLOWED;
 		}
 
 		/* allowed user */
@@ -1640,8 +1699,8 @@ static int exec_second_step(const char *filename)
 				global_list_prog,
 				global_list_prog_len,
 				printk_mode,
-				"SEC  ") == 0)
-			return 0;
+				"SEC  ") == ALLOWED)
+			return ALLOWED;
 
 		/* allowed group */
 		if (group_allowed(user_id,
@@ -1651,8 +1710,8 @@ static int exec_second_step(const char *filename)
 				global_list_prog,
 				global_list_prog_len,
 				printk_mode,
-				"SEC  ") == 0)
-			return 0;
+				"SEC  ") == ALLOWED)
+			return ALLOWED;
 
 
 		/* user allowed interpreter */
@@ -1663,20 +1722,21 @@ static int exec_second_step(const char *filename)
 						global_list_prog,
 						global_list_prog_len,
 						printk_mode,
-						"SEC  ") == 0)
-				return 0;
+						"SEC  ") == ALLOWED)
+				return ALLOWED;
 
 		if (printk_mode == true)
-			printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
+			printk("STAT END SEC STEP  : USER/PROG. DENY: a:%d;%ld;%s;%s\n",user_id,
 											size_hash_sum.file_size,
 											size_hash_sum.hash_string,
 											filename);
+
 		if (safer_mode == true)
 			return (RET_SHELL);
-		else return 0;
+		else return ALLOWED;
 	}
 
-	return 0;
+	return ALLOWED;
 }
 
 
@@ -1697,9 +1757,9 @@ static int allowed_exec(struct filename *kernel_filename,
 	uid_t			user_id;
 
 
-	if (safer_show_mode == false)
-		if (safer_mode == false)
-			if (learning_mode == false)
+	if (safer_mode == false)
+		if (learning_mode == false)
+			if (safer_show_mode == false || printk_mode == false)
 				return 0;
 
 	/* argv -> kernel space */
