@@ -194,6 +194,9 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
+/* test */
+/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
+
 
 static DEFINE_MUTEX(learning_block);
 
@@ -482,6 +485,39 @@ static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
 }
 
 
+
+
+
+
+
+
+
+/* max read = 0. size in file_size. other 0 is error */
+/*
+static ssize_t get_file_size_(const char *filename)
+{
+	ssize_t	retval;
+	ssize_t	file_size;
+	void	*data = NULL;
+
+	retval = kernel_read_file_from_path(	filename,
+						0,
+						&data,
+						0,
+						&file_size,
+						READING_POLICY);
+
+	if (retval == 0) {
+		vfree(data);
+
+		if (file_size < 0) return -1;
+		else return file_size;
+	}
+
+	return -1;
+
+}
+*/
 
 
 static struct md5_sum_struct get_file_size_md5_read(const char *filename)
@@ -1392,11 +1428,13 @@ user_interpreter_file_allowed(	uid_t user_id,
 }
 
 
+
+
+
 static int exec_first_step(uid_t user_id, const char *filename, char **argv, long argv_len)
 {
 
 	struct md5_sum_struct size_hash_sum;
-	int retval;
 
 	/* if Size = 0 not check */
 	size_hash_sum = get_file_size_md5_read(filename);
@@ -1412,73 +1450,48 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 	/* group deny folder */
 	if (global_list_folder_len > 0) {
-		retval = group_folder_deny(user_id,
+		if (group_folder_deny(user_id,
 					filename,
 					global_list_folder,
 					global_list_folder_len,
 					printk_mode,
-					"FIRST");
-
-		if (safer_mode == true) {
-			if (retval == RET_SHELL)
-				return RET_SHELL;
-		}
-		else if (retval == true)
-			return ALLOWED;
+					"FIRST") == RET_SHELL)
+			return RET_SHELL;
 	}
 
 	/* deny folder */
 	if (global_list_folder_len > 0) {
-		retval = user_folder_deny(user_id,
+		if (user_folder_deny(user_id,
 					filename,
 					global_list_folder,
 					global_list_folder_len,
 					printk_mode,
-					"FIRST");
-
-		if (safer_mode == true) {
-			if (retval == RET_SHELL)
-				return RET_SHELL;
-		}
-		else if (retval == true)
-			return ALLOWED;
+					"FIRST") == RET_SHELL)
+			return RET_SHELL;
 	}
 
 	/* deny group */
 	/* if global_list_prog_len = 0, safer_mode not true */
-	retval = group_deny( user_id,
+	if (group_deny( user_id,
 			filename,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
 			printk_mode,
-			"FIRST");
-
-	if (safer_mode == true) {
-		if (retval == RET_SHELL)
-			return RET_SHELL;
-	}
-	else if (retval == true)
-		return ALLOWED;
+			"FIRST") == RET_SHELL)
+		return RET_SHELL;
 
 	/* deny user */
-	retval = user_deny(user_id,
+	if (user_deny(user_id,
 			filename,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
 			printk_mode,
-			"FIRST");
-
-	if (safer_mode == true) {
-		if (retval == RET_SHELL)
-			return RET_SHELL;
-	}
-	else if (retval == true)
-		return ALLOWED;
-
+			"FIRST") == RET_SHELL)
+		return RET_SHELL;
 
 	/* group allowed folder */
 	if (global_list_folder_len > 0) {
@@ -1546,13 +1559,9 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 										size_hash_sum.hash_string,
 										filename);
 
-	if (safer_mode == true)
-		return (RET_SHELL);
-	else return ALLOWED;
+	return (RET_SHELL);
 
 }
-
-
 
 
 
@@ -1608,7 +1617,7 @@ static int exec_second_step(const char *filename)
 				if (retval == RET_SHELL)
 					return RET_SHELL;
 			}
-			else if (retval == true)
+			else if (retval == RET_SHELL)
 				return ALLOWED;
 		}
 
@@ -1626,7 +1635,7 @@ static int exec_second_step(const char *filename)
 				if (retval == RET_SHELL)
 					return RET_SHELL;
 			}
-			else if (retval == true)
+			else if (retval == RET_SHELL)
 				return ALLOWED;
 		}
 
@@ -1647,7 +1656,7 @@ static int exec_second_step(const char *filename)
 			if (retval == RET_SHELL)
 				return RET_SHELL;
 		}
-		else if (retval == true)
+		else if (retval == RET_SHELL)
 			return ALLOWED;
 
 
@@ -1665,7 +1674,7 @@ static int exec_second_step(const char *filename)
 			if (retval == RET_SHELL)
 				return RET_SHELL;
 		}
-		else if (retval == true)
+		else if (retval == RET_SHELL)
 			return ALLOWED;
 
 
@@ -1738,7 +1747,6 @@ static int exec_second_step(const char *filename)
 
 	return ALLOWED;
 }
-
 
 
 
@@ -1830,7 +1838,9 @@ static int allowed_exec(struct filename *kernel_filename,
 	}
 
 
-	return retval;
+	if (safer_mode == true)
+		return (retval);
+	else return ALLOWED;
 
 }
 
