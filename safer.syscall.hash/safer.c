@@ -183,19 +183,34 @@
 
 
 
+
+/* HASH ?*/
+/*
+#define HASH_ALG "md5"
+#define DIGIT 16
+*/
+
+
+#define HASH_ALG "sha256"
+#define DIGIT 32
+
+
+/*
+#define HASH_ALG "sha512"
+#define DIGIT 64
+*/
+
+
 #define PRINTK
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 1000
+#define KERNEL_READ_SIZE 1059
 #define ALLOWED 0
 #define NOT_ALLOWED 1
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
-
-/* test */
-/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
 
 
 static DEFINE_MUTEX(learning_block);
@@ -223,12 +238,14 @@ static long	global_list_folder_len = 0;
 
 
 /* proto */
-/* md5 */
-struct md5_sum_struct {
+struct sum_hash_struct {
 	int	retval;
-	char	hash_string[33];
+	char	hash_string[129];
 	ssize_t	file_size;
 };
+
+
+
 
 
 
@@ -315,6 +332,9 @@ static int besearch_file(char *str_search,
 }
 
 
+
+
+
 static int besearch_folder(	char *str_search,
 				char **list,
 				long elements)
@@ -361,168 +381,76 @@ static long search(char *str_search,
 
 
 
-static struct md5_sum_struct get_md5_sum_str(const char *source_string)
+
+static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const char *hash_alg, int digit)
 {
 
-	char			md5_out[16];
-	struct crypto_shash	*md5;
+	char			hash_out[64];
+	struct crypto_shash	*hash;
 	struct shash_desc	*shash;
-	struct md5_sum_struct	md5_sum;
+	struct sum_hash_struct	hash_sum;
 
-	char			md5_[2];
+	char			hash_[2];
 
 
-	md5 = crypto_alloc_shash("md5", 0, 0);
-	if (IS_ERR(md5)) {
-		md5_sum.retval = -1;
-		return md5_sum;
+	hash = crypto_alloc_shash(hash_alg, 0, 0);
+	if (IS_ERR(hash)) {
+		hash_sum.retval = -1;
+		return hash_sum;
 	}
 
-	shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(md5), GFP_KERNEL);
+	shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
 	if (!shash) {
-		md5_sum.retval = -1;
-		return md5_sum;
+		hash_sum.retval = -1;
+		return hash_sum;
 	}
 
-	shash->tfm = md5;
+	shash->tfm = hash;
 
 
 	if (crypto_shash_init(shash)) {
-		md5_sum.retval = -1;
-		return md5_sum;
-	}
-
-
-	if (crypto_shash_update(shash, source_string, strlen(source_string))) {
-		md5_sum.retval = -1;
-		return md5_sum;
-	}
-
-	if (crypto_shash_final(shash, md5_out)) {
-		md5_sum.retval = -1;
-		return md5_sum;
-	}
-
-	kfree(shash);
-	crypto_free_shash(md5);
-
-
-	for (int n = 0; n < 16; n++) {
-		sprintf(md5_, "%2x", (unsigned char) md5_out[n]);
-		md5_sum.hash_string[n * 2] = md5_[0];
-		md5_sum.hash_string[(n * 2) + 1] = md5_[1];
-	}
-
-	md5_sum.hash_string[32] = '\0';
-	md5_sum.retval = 0;
-
-	return md5_sum;
-}
-
-
-
-
-static struct md5_sum_struct get_md5_sum_buffer(char buffer[], int max)
-{
-
-	char			md5_out[16];
-	struct crypto_shash	*md5;
-	struct shash_desc	*shash;
-	struct md5_sum_struct	md5_sum;
-
-	char			md5_[2];
-
-
-	md5 = crypto_alloc_shash("md5", 0, 0);
-	if (IS_ERR(md5)) {
-		md5_sum.retval = -1;
-		return md5_sum;
-	}
-
-	shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(md5), GFP_KERNEL);
-	if (!shash) {
-		md5_sum.retval = -1;
-		return md5_sum;
-	}
-
-	shash->tfm = md5;
-
-
-	if (crypto_shash_init(shash)) {
-		md5_sum.retval = -1;
-		return md5_sum;
+		hash_sum.retval = -1;
+		return hash_sum;
 	}
 
 
 
 	if (crypto_shash_update(shash, buffer, max)) {
-		md5_sum.retval = -1;
-		return md5_sum;
+		hash_sum.retval = -1;
+		return hash_sum;
 	}
 
-	if (crypto_shash_final(shash, md5_out)) {
-		md5_sum.retval = -1;
-		return md5_sum;
+	if (crypto_shash_final(shash, hash_out)) {
+		hash_sum.retval = -1;
+		return hash_sum;
 	}
 
 	kfree(shash);
-	crypto_free_shash(md5);
+	crypto_free_shash(hash);
 
 
-	for (int n = 0; n < 16; n++) {
-		sprintf(md5_, "%02x", (unsigned char) md5_out[n]);
-		md5_sum.hash_string[n * 2] = md5_[0];
-		md5_sum.hash_string[(n * 2) + 1] = md5_[1];
+	for (int n = 0; n < digit; n++) {
+		sprintf(hash_, "%02x", (unsigned char) hash_out[n]);
+		hash_sum.hash_string[n * 2] = hash_[0];
+		hash_sum.hash_string[(n * 2) + 1] = hash_[1];
 	}
 
-	md5_sum.hash_string[32] = '\0';
-	md5_sum.retval = 0;
+	hash_sum.hash_string[digit * 2] = '\0';
+	hash_sum.retval = 0;
 
-	return md5_sum;
+	return hash_sum;
 }
 
 
 
 
 
-
-
-
-
-/* max read = 0. size in file_size. other 0 is error */
-/*
-static ssize_t get_file_size_(const char *filename)
-{
-	ssize_t	retval;
-	ssize_t	file_size;
-	void	*data = NULL;
-
-	retval = kernel_read_file_from_path(	filename,
-						0,
-						&data,
-						0,
-						&file_size,
-						READING_POLICY);
-
-	if (retval == 0) {
-		vfree(data);
-
-		if (file_size < 0) return -1;
-		else return file_size;
-	}
-
-	return -1;
-
-}
-*/
-
-
-static struct md5_sum_struct get_file_size_md5_read(const char *filename)
+static struct sum_hash_struct get_file_size_hash_read(const char *filename, const char *hash_alg, int digit)
 {
 	ssize_t				retval;
 	ssize_t				file_size;
 	void				*data = NULL;
-	struct md5_sum_struct		size_md5_sum;
+	struct sum_hash_struct		size_hash_sum;
 	int				max = KERNEL_READ_SIZE;
 	char				buffer[KERNEL_READ_SIZE];
 	char				*buff;
@@ -537,14 +465,14 @@ static struct md5_sum_struct get_file_size_md5_read(const char *filename)
 						READING_POLICY);
 
 	if (retval < 1) {
-		size_md5_sum.retval = -1;
-		return size_md5_sum;
+		size_hash_sum.retval = -1;
+		return size_hash_sum;
 	}
 
 	if (file_size < 1) {
 		vfree(data);
-		size_md5_sum.retval = -1;
-		return size_md5_sum;
+		size_hash_sum.retval = -1;
+		return size_hash_sum;
 	}
 
 	if (file_size < max) max = file_size;
@@ -554,18 +482,22 @@ static struct md5_sum_struct get_file_size_md5_read(const char *filename)
 		buffer[n] = buff[n];
 	}
 
-	size_md5_sum = get_md5_sum_buffer(buffer, max);
+	size_hash_sum = get_hash_sum_buffer(buffer, max, hash_alg, digit);
 
-	if (size_md5_sum.retval == 0) {
+	if (size_hash_sum.retval == 0) {
 		vfree(data);
-		size_md5_sum.file_size = file_size;
-		return size_md5_sum;
+		size_hash_sum.file_size = file_size;
+		return size_hash_sum;
 	}
 
 	vfree(data);
-	size_md5_sum.retval = -1;
-	return size_md5_sum;
+	size_hash_sum.retval = -1;
+	return size_hash_sum;
 }
+
+
+
+
 
 
 
@@ -596,7 +528,6 @@ static ssize_t get_file_size(const char *filename)
 		return -1;
 	}
 
-	/* The file is too big for sane activities. */
 	if (i_size > INT_MAX) {
 		allow_write_access(file);
 		fput(file);
@@ -728,7 +659,9 @@ static void learning_argv(uid_t user_id,
 static void learning(	uid_t user_id,
 			const char *filename,
 			char ***list,
-			long *list_len)
+			long *list_len,
+			char const *hash_alg,
+			int digit)
 {
 
 	char	str_user_id[19];
@@ -736,13 +669,15 @@ static void learning(	uid_t user_id,
 	char	*str_learning =  NULL;
 	int	string_length = 0;
 
-	struct md5_sum_struct size_hash_sum;
+	struct sum_hash_struct size_hash_sum;
 
 
 	if (filename[0] != '/')
 		return;
 
-	size_hash_sum = get_file_size_md5_read(filename);
+	//size_hash_sum = get_file_size_hash_read(filename);
+	size_hash_sum = get_file_size_hash_read(filename, hash_alg, digit);
+
 	if (size_hash_sum.retval == -1)
 		return;
 
@@ -812,13 +747,15 @@ static void learning(	uid_t user_id,
 static void print_prog_arguments(uid_t user_id,
 				const char *filename,
 				char **argv,
-				long argv_len)
+				long argv_len,
+				const char *hash_alg,
+				int digit)
 {
 
 
-	struct md5_sum_struct size_hash_sum;
+	struct sum_hash_struct size_hash_sum;
 
-	size_hash_sum = get_file_size_md5_read(filename);
+	size_hash_sum = get_file_size_hash_read(filename, hash_alg, digit);
 	if (size_hash_sum.retval == -1)
 		return;
 
@@ -1339,7 +1276,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 {
 
 	int retval;
-	struct md5_sum_struct size_hash_sum;
+	struct sum_hash_struct size_hash_sum;
 
 
 	if (argv_len == 1) return NOT_ALLOWED;
@@ -1363,7 +1300,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 	if (strcmp(argv[1], "-jar") == 0) {
 		if (argv_len == 2) return NOT_ALLOWED;
 
-		size_hash_sum = get_file_size_md5_read(argv[2]);
+		size_hash_sum = get_file_size_hash_read(argv[2], HASH_ALG, DIGIT);
 		if (size_hash_sum.retval == -1)
 			return NOT_ALLOWED;
 
@@ -1394,7 +1331,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 	}
 
 	/* other */
-	size_hash_sum = get_file_size_md5_read(argv[1]);
+	size_hash_sum = get_file_size_hash_read(argv[1], HASH_ALG, DIGIT);
 	if (size_hash_sum.retval == -1)
 		return NOT_ALLOWED;
 
@@ -1427,13 +1364,14 @@ user_interpreter_file_allowed(	uid_t user_id,
 
 
 
+
 static int exec_first_step(uid_t user_id, const char *filename, char **argv, long argv_len)
 {
 
-	struct md5_sum_struct size_hash_sum;
+	struct sum_hash_struct size_hash_sum;
 
 	/* if Size = 0 not check */
-	size_hash_sum = get_file_size_md5_read(filename);
+	size_hash_sum = get_file_size_hash_read(filename, HASH_ALG, DIGIT);
 	if (size_hash_sum.retval == -1) {
 		if (printk_mode == true)
 			printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
@@ -1566,7 +1504,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 static int exec_second_step(const char *filename)
 {
 
-	struct md5_sum_struct size_hash_sum;
+	struct sum_hash_struct size_hash_sum;
 	int retval;
 
 	uid_t user_id = get_current_user()->uid.val;
@@ -1580,7 +1518,9 @@ static int exec_second_step(const char *filename)
 			learning(user_id,
 				filename,
 				&global_list_learning,
-				&global_list_learning_len);
+				&global_list_learning_len,
+				HASH_ALG,
+				DIGIT);
 
 			mutex_unlock(&learning_block);
 		}
@@ -1589,7 +1529,7 @@ static int exec_second_step(const char *filename)
 	if (safer_mode == true || (safer_show_mode == true && printk_mode == true)) {
 
 		/* if size = 0 not check */
-		size_hash_sum = get_file_size_md5_read(filename);
+		size_hash_sum = get_file_size_hash_read(filename, HASH_ALG, DIGIT);
 		if (size_hash_sum.retval == -1) {
 			if (printk_mode == true)
 				printk("STAT END SEC STEP  : USER/PROG. DENY: a:%d;%ld;%s;%s\n",user_id,
@@ -1792,7 +1732,9 @@ static int allowed_exec(struct filename *kernel_filename,
 		print_prog_arguments(	user_id,
 					kernel_filename->name,
 					argv_list,
-					argv_list_len);
+					argv_list_len,
+					HASH_ALG,
+					DIGIT);
 
 
 	if (learning_mode == true) {
@@ -1802,7 +1744,10 @@ static int allowed_exec(struct filename *kernel_filename,
 			learning(user_id,
 				kernel_filename->name,
 				&global_list_learning,
-				&global_list_learning_len);
+				&global_list_learning_len,
+				"sha256",
+				32);
+
 
 			learning_argv(	user_id,
 					kernel_filename->name,
@@ -1839,8 +1784,6 @@ static int allowed_exec(struct filename *kernel_filename,
 	else return ALLOWED;
 
 }
-
-
 
 
 
