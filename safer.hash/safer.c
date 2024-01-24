@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2024.01.16
+	Date		: 2022.04.22, 2023.05.23 2024.01.24
 
 	Program		: safer.c
 	Path		: fs/
@@ -205,12 +205,11 @@
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 1000
+#define KERNEL_READ_SIZE 2000
 #define ALLOWED 0
 #define NOT_ALLOWED 1
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
-
 
 
 static DEFINE_MUTEX(learning_block);
@@ -444,8 +443,6 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 
 
-
-
 static struct sum_hash_struct get_file_size_hash_read(const char *filename, const char *hash_alg, int digit)
 {
 	ssize_t				retval;
@@ -466,12 +463,16 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 						READING_POLICY);
 
 	if (retval < 1) {
+		size_hash_sum.file_size = 0;
+		size_hash_sum.hash_string[0] = '\0';
 		size_hash_sum.retval = -1;
 		return size_hash_sum;
 	}
 
 	if (file_size < 1) {
 		vfree(data);
+		size_hash_sum.file_size = 0;
+		size_hash_sum.hash_string[0] = '\0';
 		size_hash_sum.retval = -1;
 		return size_hash_sum;
 	}
@@ -493,6 +494,9 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 
 	vfree(data);
 	size_hash_sum.retval = -1;
+	size_hash_sum.file_size = 0;
+	size_hash_sum.hash_string[0] = '\0';
+
 	return size_hash_sum;
 }
 
@@ -529,6 +533,7 @@ static ssize_t get_file_size(const char *filename)
 		return -1;
 	}
 
+	/* The file is too big for sane activities. */
 	if (i_size > INT_MAX) {
 		allow_write_access(file);
 		fput(file);
@@ -1375,7 +1380,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	size_hash_sum = get_file_size_hash_read(filename, HASH_ALG, DIGIT);
 	if (size_hash_sum.retval == -1) {
 		if (printk_mode == true)
-			printk("STAT END SEC STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",	user_id,
+			printk("STAT END FIRST STEP: USER/PROG. DENY: a:%d;%ld;%s;%s\n",user_id,
 											size_hash_sum.file_size,
 											size_hash_sum.hash_string,
 											filename);
@@ -1534,9 +1539,9 @@ static int exec_second_step(const char *filename)
 		if (size_hash_sum.retval == -1) {
 			if (printk_mode == true)
 				printk("STAT END SEC STEP  : USER/PROG. DENY: a:%d;%ld;%s;%s\n",user_id,
-										size_hash_sum.file_size,
-										size_hash_sum.hash_string,
-										filename);
+											size_hash_sum.file_size,
+											size_hash_sum.hash_string,
+											filename);
 			return ALLOWED;
 		}
 
@@ -1671,11 +1676,12 @@ static int exec_second_step(const char *filename)
 						"SEC  ") == ALLOWED)
 				return ALLOWED;
 
-		if (printk_mode == true)
+		if (printk_mode == true) {
 			printk("STAT END SEC STEP  : USER/PROG. DENY: a:%d;%ld;%s;%s\n",user_id,
 											size_hash_sum.file_size,
 											size_hash_sum.hash_string,
 											filename);
+		}
 
 		if (safer_mode == true)
 			return (RET_SHELL);
@@ -1741,7 +1747,6 @@ static int allowed_exec(struct filename *kernel_filename,
 	if (learning_mode == true) {
 
 		if (mutex_trylock(&learning_block)) {
-
 
 			learning(user_id,
 				kernel_filename->name,
