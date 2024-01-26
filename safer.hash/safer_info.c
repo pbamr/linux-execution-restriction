@@ -50,11 +50,13 @@
 
 
 
+
 /* proto. */
 struct  safer_info_struct {
 	bool safer_show_mode;
 	bool safer_mode;
-	bool printk_mode;
+	bool printk_allowed;
+	bool printk_deny;
 	bool learning_mode;
 	bool change_mode;
 	long global_list_prog_len;
@@ -62,9 +64,6 @@ struct  safer_info_struct {
 	char **global_list_prog;
 	char **global_list_folder;
 };
-
-
-
 
 
 
@@ -93,9 +92,13 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE SAFER SHOW ONLY        : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER SHOW ONLY        : OFF\n");
 
-	if (info.printk_mode == true)
-		seq_printf(proc_show, "MODE PRINTK                 : ON\n");
-	else	seq_printf(proc_show, "MODE PRINTK                 : OFF\n");
+	if (info.printk_allowed == true)
+		seq_printf(proc_show, "MODE PRINTK ALLOWED         : ON\n");
+	else	seq_printf(proc_show, "MODE PRINTK ALLOWED         : OFF\n");
+
+	if (info.printk_deny == true)
+		seq_printf(proc_show, "MODE PRINTK DENY            : ON\n");
+	else	seq_printf(proc_show, "MODE PRINTK DENY            : OFF\n");
 
 	if (info.learning_mode == true)
 		seq_printf(proc_show, "MODE LEARNING               : ON\n");

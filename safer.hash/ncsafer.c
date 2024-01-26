@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.11.15
+	Date		: 2023.11.15, 2024.01.26
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -118,6 +118,37 @@
 
 
 
+#define SAFER_ON 0
+#define SAFER_OFF 1
+
+#define STAT 2
+
+#define PRINTK_ALLOWED_ON 3
+#define PRINTK_ALLOWED_OFF 4
+
+#define PRINTK_DENY_ON 12
+#define PRINTK_DENY_OFF 13
+
+#define SAFER_LOCK 5
+
+#define PRINTK_LEARNING_ON 6
+#define PRINTK_LEARNING_OFF 7
+
+#define PRINTK_ARGV_ON 8
+#define PRINTK_ARGV_OFF 9
+
+#define PRINTK_SHOW_ON 10
+#define PRINTK_SHOW_OFF 11
+
+#define LIST_PROG 20
+#define LIST_FOLDER 21
+
+#define SAFER_SORT 30
+
+
+
+
+
 typedef signed long long int s64;
 typedef unsigned long long int u64;
 
@@ -129,12 +160,14 @@ typedef int bool;
 
 
 
-#define VERSION_SYSCALL
+//#define VERSION_SYSCALL
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 459
 #else
 #define SYSCALL_NR 59
 #endif
+
+
 
 
 
@@ -746,30 +779,36 @@ int ErrorMessage()
 	printf("\n");
 	printf("SYSCALL     :  %ld\n", SYSCALL_NR);
 	printf("\n");
-	printf("Parameter   :  0 Safer ON\n");
-	printf("Parameter   :  1 Safer OFF\n");
-	printf("Parameter   :  3 Safer Printk ON\n");
-	printf("Parameter   :  4 Safer Printk OFF\n");
+	printf("Parameter   :  <SON>     Safer ON\n");
+	printf("Parameter   :  <SOFF>    Safer OFF\n");
 	printf("\n");
-	printf("Parameter   :  5 Safer DO NOT allowed any more changes\n");
+	printf("Parameter   :  <STAT>    Safer STAT\n");
 	printf("\n");
-	printf("Parameter   :  6 Safer MODE: LEARNING ON\n");
-	printf("Parameter   :  7 Safer MODE: LEARNING OFF\n");
+	printf("Parameter   :  <PAON>    Safer Printk ALLOWED ON\n");
+	printf("Parameter   :  <PAOFF>   Safer Printk ALLOWED OFF\n");
 	printf("\n");
-	printf("Parameter   :  8 Safer MODE: VERBOSE PARAM ON\n");
-	printf("Parameter   :  9 Safer MODE: VERBOSE PARAM OFF\n");
+	printf("Parameter   :  <PDON>    Safer Printk DENY ON\n");
+	printf("Parameter   :  <PDOFF>   Safer Printk DENY OFF\n");
 	printf("\n");
-	printf("Parameter   : 10 Safer MODE: SAFER SHOW ONLY ON\n");
-	printf("Parameter   : 11 Safer MODE: SAFER SHOW ONLY OFF\n");
+	printf("Parameter   :  <SLOCK>   Safer DO NOT allowed any more changes\n");
 	printf("\n");
-	printf("Parameter   : 20 Safer SET FILE LIST\n");
-	printf("            :    <safer list>\n");
+	printf("Parameter   :  <SLON>    Safer MODE: LEARNING ON\n");
+	printf("Parameter   :  <SLOFF>   Safer MODE: LEARNING OFF\n");
 	printf("\n");
-	printf("Parameter   : 21 Safer SET FOLDER LIST\n");
-	printf("            :    <safer list>\n");
+	printf("Parameter   :  <SVON>    Safer MODE: VERBOSE PARAM ON\n");
+	printf("Parameter   :  <SVOFF>   Safer MODE: VERBOSE PARAM OFF\n");
 	printf("\n");
-	printf("Parameter   : 30 Safer LIST SORT\n");
-	printf("            :    <safer list>\n");
+	printf("Parameter   :  <SHOWON>  Safer MODE: SAFER SHOW ONLY ON\n");
+	printf("Parameter   :  <SHOWOFF> Safer MODE: SAFER SHOW ONLY OFF\n");
+	printf("\n");
+	printf("Parameter   :  <PLIST>   Safer SET FILE LIST\n");
+	printf("            :  <safer list>\n");
+	printf("\n");
+	printf("Parameter   :  <FLIST>   Safer SET FOLDER LIST\n");
+	printf("            :  <safer list>\n");
+	printf("\n");
+	printf("Parameter   :  <SORT>    Safer LIST SORT\n");
+	printf("            :  <safer list>\n");
 
 	printf("\n");
 	printf("\n");
@@ -798,8 +837,38 @@ void main(int argc, char *argv[]) {
 
 
 	if (argc == 2) {
-		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0 || NUMBER > 11) ErrorMessage();
+		for(;;) {
+
+			if (strcmp(argv[1], "SON") == 0) { NUMBER = SAFER_ON; break; }
+			if (strcmp(argv[1], "SOFF") == 0) { NUMBER = SAFER_OFF; break; }
+
+			if (strcmp(argv[1], "STAT") == 0) { NUMBER = STAT; break; }
+
+			if (strcmp(argv[1], "PAON") == 0) { NUMBER = PRINTK_ALLOWED_ON; break; }
+			if (strcmp(argv[1], "PAOFF") == 0) { NUMBER = PRINTK_ALLOWED_OFF; break; }
+
+			if (strcmp(argv[1], "PDON") == 0) { NUMBER = PRINTK_DENY_ON; break; }
+			if (strcmp(argv[1], "PDOFF") == 0) { NUMBER = PRINTK_DENY_OFF; break; };
+
+			if (strcmp(argv[1], "SLOCK") == 0) { NUMBER = SAFER_LOCK; break; }
+
+			if (strcmp(argv[1], "SLON") == 0) { NUMBER = PRINTK_LEARNING_ON; break; }
+			if (strcmp(argv[1], "SLOFF") == 0) { NUMBER = PRINTK_LEARNING_OFF; break; }
+
+			if (strcmp(argv[1], "SVON") == 0) { NUMBER = PRINTK_ARGV_ON; break; }
+			if (strcmp(argv[1], "SVOFF") == 0) { NUMBER = PRINTK_ARGV_OFF; break; }
+
+			if (strcmp(argv[1], "SHOWON") == 0) { NUMBER = PRINTK_SHOW_ON; break; }
+			if (strcmp(argv[1], "SHOWOFF") == 0) { NUMBER = PRINTK_SHOW_OFF; break; }
+
+			if (strcmp(argv[1], "PLIST") == 0) { NUMBER = LIST_PROG; break; }
+			if (strcmp(argv[1], "FLIST") == 0) { NUMBER = LIST_FOLDER; break; }
+
+			if (strcmp(argv[1], "SORT") == 0) { NUMBER = SAFER_SORT; break; }
+
+			ErrorMessage();
+		}
+
 
 
 #ifdef VERSION_SYSCALL
@@ -812,7 +881,13 @@ void main(int argc, char *argv[]) {
 
 
 	if (argc == 3) {
-		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
+
+		for (;;) {
+			if (strcmp(argv[1], "PLIST") == 0) { NUMBER = LIST_PROG; break; }
+			if (strcmp(argv[1], "FLIST") == 0) { NUMBER = LIST_FOLDER; break; }
+			if (strcmp(argv[1], "SORT") == 0) { NUMBER = SAFER_SORT; break; }
+			ErrorMessage();
+		}
 
 		switch(NUMBER) {
 			case 20:	TStringListCreate(&all_list);
