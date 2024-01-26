@@ -212,7 +212,6 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
-
 static DEFINE_MUTEX(learning_block);
 
 static bool	safer_show_mode = false;
@@ -444,7 +443,6 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 	return hash_sum;
 }
-
 
 
 
@@ -1778,8 +1776,10 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-/* SYSCALL NR: 459 or other */
-SYSCALL_DEFINE2(set_execve,
+SYSCALL_DEFINE5(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -1790,6 +1790,7 @@ SYSCALL_DEFINE2(set_execve,
 
 	struct user_arg_ptr _list = { .ptr.native = list };
 	const char __user *str;
+
 
 
 	user_id = get_current_user()->uid.val;
@@ -1945,9 +1946,6 @@ SYSCALL_DEFINE2(set_execve,
 #endif
 				printk_deny = false;
 				return 0;
-
-
-
 
 
 
@@ -2110,7 +2108,7 @@ SYSCALL_DEFINE2(set_execve,
 
 
 				for (int n = 0; n < global_list_folder_len; n++) {
-					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
+					str = get_user_arg_ptr(_list, n + 1);
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
@@ -2119,23 +2117,22 @@ SYSCALL_DEFINE2(set_execve,
 					int_ret = copy_from_user(global_list_folder[n], str, str_len);
 				}
 
-
 				return(global_list_folder_len);
 
-
-		default:	printk("ERROR: COMMAND NOT IN LIST\n");
-				return -1;
+		default:	break;
 	}
-}
 
 
-SYSCALL_DEFINE3(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp)
-{
-	if (allowed_exec(getname(filename), argv) == RET_SHELL) return RET_SHELL;
+	if (allowed_exec(getname(filename), argv) == RET_SHELL) return(RET_SHELL);
+
 
 	return do_execve(getname(filename), argv, envp);
+
 }
+
+
+
+
+
+
 
