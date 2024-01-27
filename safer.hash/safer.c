@@ -205,7 +205,7 @@
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 1271
+#define KERNEL_READ_SIZE 1000
 #define ALLOWED 0
 #define NOT_ALLOWED 1
 
