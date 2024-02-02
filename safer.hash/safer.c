@@ -212,7 +212,6 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
-
 static DEFINE_MUTEX(learning_block);
 
 static bool	safer_show_mode = false;
@@ -448,6 +447,7 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 
 
+*/
 
 
 
@@ -1384,6 +1384,20 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 	struct sum_hash_struct size_hash_sum;
 
+
+	/* Limit argv[0] = 1000 */
+	/* Reason glibc */
+	/* A GOOD IDEA? I don't know? */
+	/* But it's works */
+	/* when in doubt remove it */
+	if (strlen(argv[0]) > 1000) {
+		if (printk_deny == true || printk_allowed == true)
+			printk("STAT STEP FIRST: USER/PROG. DENY. ARGV[0] ERROR: a:%d;;;%s\n",user_id,
+											filename);
+		return RET_SHELL;
+	}
+
+
 	/* if Size = 0 not check */
 	size_hash_sum = get_file_size_hash_read(filename, HASH_ALG, DIGIT);
 	if (size_hash_sum.retval == NOT_ALLOWED) {
@@ -1736,7 +1750,6 @@ static int allowed_exec(struct filename *kernel_filename,
 
 		if (mutex_trylock(&learning_block)) {
 
-
 			learning(user_id,
 				kernel_filename->name,
 				&global_list_learning,
@@ -1939,7 +1952,7 @@ SYSCALL_DEFINE5(execve,
 
 
 
-		/* printk deny */
+		/* printk deny ON */
 		case 999912:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
 #ifdef PRINTK
@@ -1949,7 +1962,7 @@ SYSCALL_DEFINE5(execve,
 				return 0;
 
 
-		/* printk deny */
+		/* printk deny OFF */
 		case 999913:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
 #ifdef PRINTK
