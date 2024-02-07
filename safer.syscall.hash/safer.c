@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2024.01.29
+	Date		: 2022.04.22, 2023.05.23 2024.02.07
 
 	Program		: safer.c
 	Path		: fs/
@@ -205,7 +205,7 @@
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 1000
+#define KERNEL_READ_SIZE 50000
 #define ALLOWED 0
 #define NOT_ALLOWED -1
 
@@ -235,7 +235,6 @@ static long	global_list_learning_argv_len = 0;
 
 static char	**global_list_folder = NULL;
 static long	global_list_folder_len = 0;
-
 
 
 
@@ -449,8 +448,6 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 
 
-
-
 static struct sum_hash_struct get_file_size_hash_read(const char *filename, const char *hash_alg, int digit)
 {
 	ssize_t				retval;
@@ -458,9 +455,6 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 	void				*data = NULL;
 	struct sum_hash_struct		size_hash_sum;
 	int				max = KERNEL_READ_SIZE;
-	char				buffer[KERNEL_READ_SIZE];
-	char				*buff;
-
 
 
 	retval = kernel_read_file_from_path(	filename,
@@ -487,10 +481,7 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 
 	if (file_size < max) max = file_size;
 
-	buff = data;
-	for (int n = 0; n < max; n++) {
-		buffer[n] = buff[n];
-	}
+	char *buffer = data;
 
 	size_hash_sum = get_hash_sum_buffer(buffer, max, hash_alg, digit);
 
@@ -1383,7 +1374,6 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 {
 
 	struct sum_hash_struct size_hash_sum;
-
 
 
 	/* Limit argv[0] = 1000 */
