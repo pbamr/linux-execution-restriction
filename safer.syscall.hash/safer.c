@@ -241,7 +241,7 @@ static long	global_list_folder_len = 0;
 /* proto */
 struct sum_hash_struct {
 	int	retval;
-	char	hash_string[129];
+	char	hash_string[DIGIT * 2 + 1];
 	ssize_t	file_size;
 };
 
