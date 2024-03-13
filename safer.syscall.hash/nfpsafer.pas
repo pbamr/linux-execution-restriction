@@ -137,7 +137,7 @@ const
 	{$ifdef SYSCALL_VERSION}
 		SYSCALL_NR	= 59;
 	{$else NEW_SYSCALLVERSION}
-		SYSCALL_NR	= 459;
+		SYSCALL_NR	= 501;
 	{$endif SYSCALL_VERSION}
 
 	
