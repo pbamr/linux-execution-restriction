@@ -373,11 +373,8 @@
 449	common	futex_waitv		sys_futex_waitv
 450	common	set_mempolicy_home_node	sys_set_mempolicy_home_node
 
-459	common	set_execve		sys_set_execve
+501	common	set_execve		sys_set_execve
 
-
-499	common	shutdown_timer		sys_shutdown_timer
-500	common	pb_kernel_info		sys_pb_kernel_info
 
 
 #
