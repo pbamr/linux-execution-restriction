@@ -211,8 +211,6 @@
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
-/* test */
-/* static char MY_NAME[] = "(C) Peter Boettcher, Muelheim Ruhr, 2023/1, safer"; */
 
 
 static DEFINE_MUTEX(learning_block);
