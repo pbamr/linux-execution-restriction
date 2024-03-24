@@ -1839,7 +1839,7 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-/* SYSCALL NR: 459 or other */
+/* SYSCALL NR: 501 or other */
 SYSCALL_DEFINE2(set_execve,
 		const loff_t, number,
 		const char __user *const __user *, list)
