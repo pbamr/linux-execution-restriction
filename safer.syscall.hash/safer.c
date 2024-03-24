@@ -21,13 +21,13 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2024.02.07
+	Date		: 2022.04.22, 2023.05.23 2024.02.07, 2024.03.24
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.7
-			  Lenovo X230, T460, T470
+	TEST		: Kernel 6.0 - 6.8.1
+			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
@@ -205,7 +205,7 @@
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 50000
+#define KERNEL_READ_SIZE 66666
 #define ALLOWED 0
 #define NOT_ALLOWED -1
 
@@ -214,6 +214,8 @@
 
 
 static DEFINE_MUTEX(learning_block);
+static DEFINE_MUTEX(control);
+
 
 static bool	safer_show_mode = false;
 static bool	safer_mode = false;
@@ -247,9 +249,6 @@ struct sum_hash_struct {
 
 
 
-
-
-
 /* proto. */
 struct  safer_info_struct {
 	bool safer_show_mode;
@@ -265,6 +264,20 @@ struct  safer_info_struct {
 };
 
 
+/* proto. */
+struct  safer_learning_struct {
+	long global_list_learning_len;
+	char **global_list_learning;
+	long global_list_learning_argv_len;
+	char **global_list_learning_argv;
+};
+
+
+/* Makes compiler happy */
+void safer_info(struct safer_info_struct *info);
+void safer_learning(struct safer_learning_struct *learning);
+
+
 /* DATA: Only over function */
 void safer_info(struct safer_info_struct *info)
 {
@@ -278,18 +291,8 @@ void safer_info(struct safer_info_struct *info)
 	info->global_list_folder_len = global_list_folder_len;
 	info->global_list_prog = global_list_prog;
 	info->global_list_folder = global_list_folder;
+	return;
 }
-
-
-
-
-/* proto. */
-struct  safer_learning_struct {
-	long global_list_learning_len;
-	char **global_list_learning;
-	long global_list_learning_argv_len;
-	char **global_list_learning_argv;
-};
 
 
 
@@ -300,6 +303,7 @@ void safer_learning(struct safer_learning_struct *learning)
 	learning->global_list_learning = global_list_learning;
 	learning->global_list_learning_argv_len = global_list_learning_argv_len;
 	learning->global_list_learning_argv = global_list_learning_argv;
+	return;
 }
 
 
@@ -445,6 +449,36 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 }
 
 
+
+
+
+
+/* max read = 0. size in file_size. other 0 is error */
+/*
+static ssize_t get_file_size_(const char *filename)
+{
+	ssize_t	retval;
+	ssize_t	file_size;
+	void	*data = NULL;
+
+	retval = kernel_read_file_from_path(	filename,
+						0,
+						&data,
+						0,
+						&file_size,
+						READING_POLICY);
+
+	if (retval == 0) {
+		vfree(data);
+
+		if (file_size < 0) return -1;
+		else return file_size;
+	}
+
+	return -1;
+
+}
+*/
 
 
 
@@ -1376,6 +1410,19 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	struct sum_hash_struct size_hash_sum;
 
 
+
+	/*
+	if (strncmp(filename, "/proc/", 6) != 0) {
+		if (strlen(argv[0]) > strlen(filename)) {
+			if (printk_deny == true || printk_allowed == true)
+				printk("STAT STEP FIRST: USER/PROG. ARGV[0] ERROR: a:%d;;;%s\n",user_id,
+											filename);
+			return RET_SHELL;
+		}
+	}
+	*/
+
+
 	/* Limit argv[0] = 1000 */
 	/* Reason glibc */
 	/* A GOOD IDEA? I don't know? */
@@ -1812,21 +1859,25 @@ SYSCALL_DEFINE2(set_execve,
 	switch(number) {
 
 
+
 		/* safer on */
-		case 999900:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
+		case 999900:	if (user_id != 0) return -1;
+				if (change_mode == false) return -1;
+				if (!mutex_trylock(&control)) return -1;
 
 				if (global_list_prog_len > 0 || global_list_folder_len > 0) {
 					safer_mode = true;
 #ifdef PRINTK
 					printk("MODE: SAFER ON\n");
 #endif
+					mutex_unlock(&control);
 					return 0;
 				}
 				else {
 #ifdef PRINTK
 					printk("MODE: SAFER OFF\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				}
 
@@ -1834,10 +1885,13 @@ SYSCALL_DEFINE2(set_execve,
 		/* safer off */
 		case 999901:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
+
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
 #endif
 				safer_mode = false;
+				mutex_unlock(&control);
 				return 0;
 
 
@@ -1853,115 +1907,133 @@ SYSCALL_DEFINE2(set_execve,
 		/* printk allowed */
 		case 999903:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
+
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ALLOWED ON\n");
 #endif
 				printk_allowed = true;
+				mutex_unlock(&control);
 				return 0;
 
 
 		/* printk allowed */
 		case 999904:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
+
 #ifdef PRINTK
-				printk("MODE: SAFER PRINTK ALLOED OFF\n");
+				printk("MODE: SAFER PRINTK ALLOWED OFF\n");
 #endif
 				printk_allowed = false;
+				mutex_unlock(&control);
 				return 0;
 
 
 		case 999905:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
 				change_mode = false;
+				mutex_unlock(&control);
 				return 0;
 
 
 		case 999906:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: learning ON\n");
 #endif
 				learning_mode = true;
-
+				mutex_unlock(&control);
 				return 0;
 
 
 		case 999907:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: learning OFF\n");
 #endif
 				learning_mode = false;
-
+				mutex_unlock(&control);
 				return 0;
 
 
 		case 999908:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: verbose paramter mode ON\n");
 #endif
 				verbose_param_mode = true;
-
+				mutex_unlock(&control);
 				return 0;
 
 
 
 		case 999909:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: verbose parameter mode OFF\n");
 #endif
 				verbose_param_mode = false;
-
+				mutex_unlock(&control);
 				return 0;
 
 
 		/* safer show on */
 		case 999910:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
+
 				safer_show_mode = true;
 #ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY ON\n");
 #endif
+				mutex_unlock(&control);
 				return 0;
 
 
 		/* safer show off */
 		case 999911:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY OFF\n");
 #endif
 				safer_show_mode = false;
+				mutex_unlock(&control);
 				return 0;
 
 
 
-		/* printk deny */
+		/* printk deny ON */
 		case 999912:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK DENY ON\n");
 #endif
 				printk_deny = true;
+				mutex_unlock(&control);
 				return 0;
 
 
-		/* printk deny */
+		/* printk deny OFF */
 		case 999913:	if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK DENY OFF\n");
 #endif
 				printk_deny = false;
+				mutex_unlock(&control);
 				return 0;
-
-
-
 
 
 
@@ -1970,12 +2042,14 @@ SYSCALL_DEFINE2(set_execve,
 
 				if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
 					printk("ERROR: FILE LIST\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				} /* check!? */
 
@@ -1996,26 +2070,39 @@ SYSCALL_DEFINE2(set_execve,
 
 
 				int int_ret = count(_list, MAX_ARG_STRINGS);
-				if (int_ret == 0) return -1;
+				if (int_ret == 0) {
+					mutex_unlock(&control);
+					return -1;
+				}
 
 				str = get_user_arg_ptr(_list, 0);		/* String 0 */
 				str_len = strnlen_user(str, MAX_ARG_STRLEN);
-				if (str_len < 1) return -1;
+				if (str_len < 1) {
+					mutex_unlock(&control);
+					return -1;
+				}
 
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-				if (list_string == NULL) panic(NO_SECURITY_GUARANTEED);
+				if (list_string == NULL) {
+					mutex_unlock(&control);
+					panic(NO_SECURITY_GUARANTEED);
+				}
+
 				int_ret = copy_from_user(list_string, str, str_len);
 
 				int_ret = kstrtol(list_string, 10, &global_list_prog_len);
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
-				if (int_ret != 0) return -1;
-
+				if (int_ret != 0) {
+					mutex_unlock(&control);
+					return -1;
+				}
 
 				if (global_list_prog_len < 1) {
 #ifdef PRINTK
 					printk("NO FILE LIST\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				}
 
@@ -2023,6 +2110,7 @@ SYSCALL_DEFINE2(set_execve,
 #ifdef PRINTK
 					printk("FILE LIST TO BIG!\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				}
 
@@ -2033,18 +2121,25 @@ SYSCALL_DEFINE2(set_execve,
 
 				/* dyn array */
 				global_list_prog = kmalloc(global_list_prog_len * sizeof(char *), GFP_KERNEL);
-				if (global_list_prog == NULL) panic(NO_SECURITY_GUARANTEED);
+				if (global_list_prog == NULL) {
+					mutex_unlock(&control);
+					panic(NO_SECURITY_GUARANTEED);
+				}
 
 				for (int n = 0; n < global_list_prog_len; n++) {
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_prog[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-					if (global_list_prog[n] == NULL) panic(NO_SECURITY_GUARANTEED);
+					if (global_list_prog[n] == NULL) {
+						mutex_unlock(&control);
+						panic(NO_SECURITY_GUARANTEED);
+					}
 
 					int_ret = copy_from_user(global_list_prog[n], str, str_len);
 				}
 
+				mutex_unlock(&control);
 				return(global_list_prog_len);
 
 
@@ -2052,12 +2147,14 @@ SYSCALL_DEFINE2(set_execve,
 		case 999921:
 				if (change_mode == false) return -1;
 				if (user_id != 0) return -1;
+				if (!mutex_trylock(&control)) return -1;
 
 
 				if (list == NULL) {		/* check? */
 #ifdef PRINTK
 					printk("ERROR: FOLDER LIST\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				} /* check!? */
 
@@ -2081,28 +2178,40 @@ SYSCALL_DEFINE2(set_execve,
 
 				/* No Syscall Parameter 6 necessary */
 				int_ret = count(_list, MAX_ARG_STRINGS);
-				if (int_ret == 0) return -1;
+				if (int_ret == 0) {
+					mutex_unlock(&control);
+					return -1;
+				}
 
 				str = get_user_arg_ptr(_list, 0);		/* String 0 */
 				str_len = strnlen_user(str, MAX_ARG_STRLEN);
-				if (str_len < 1) return -1;
+				if (str_len < 1) {
+					mutex_unlock(&control);
+					return -1;
+				}
 
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
 
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-				if (list_string == NULL) panic(NO_SECURITY_GUARANTEED);
+				if (list_string == NULL) {
+					mutex_unlock(&control);
+					panic(NO_SECURITY_GUARANTEED);
+				}
 
 				int_ret = copy_from_user(list_string, str, str_len);
 
 				int_ret = kstrtol(list_string, 10, &global_list_folder_len);
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; };
-				if (int_ret != 0) return -1;
-
+				if (int_ret != 0) {
+					mutex_unlock(&control);
+					return -1;
+				}
 
 				if (global_list_folder_len < 1) {
 #ifdef PRINTK
 					printk("NO FOLDER LIST\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				}
 
@@ -2110,6 +2219,7 @@ SYSCALL_DEFINE2(set_execve,
 #ifdef PRINTK
 					printk("FOLDER LIST TO BIG!\n");
 #endif
+					mutex_unlock(&control);
 					return -1;
 				}
 
@@ -2120,20 +2230,25 @@ SYSCALL_DEFINE2(set_execve,
 
 				/* dyn array */ 
 				global_list_folder = kmalloc(global_list_folder_len * sizeof(char *), GFP_KERNEL);
-				if (global_list_folder == NULL) panic(NO_SECURITY_GUARANTEED);
-
+				if (global_list_folder == NULL) {
+					mutex_unlock(&control);
+					panic(NO_SECURITY_GUARANTEED);
+				}
 
 				for (int n = 0; n < global_list_folder_len; n++) {
-					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
+					str = get_user_arg_ptr(_list, n + 1);
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-					if (global_list_folder[n] == NULL) panic(NO_SECURITY_GUARANTEED);
+					if (global_list_folder[n] == NULL) {
+						mutex_unlock(&control);
+						panic(NO_SECURITY_GUARANTEED);
+					}
 
 					int_ret = copy_from_user(global_list_folder[n], str, str_len);
 				}
 
-
+				mutex_unlock(&control);
 				return(global_list_folder_len);
 
 
