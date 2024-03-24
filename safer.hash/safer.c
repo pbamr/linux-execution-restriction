@@ -1785,13 +1785,6 @@ static int allowed_exec(struct filename *kernel_filename,
 
 		if (mutex_trylock(&learning_block)) {
 
-//			learning(user_id,
-//				kernel_filename->name,
-//				&global_list_learning,
-//				&global_list_learning_len,
-//				HASH_ALG,
-//				DIGIT);
-
 			learning(user_id,
 				kernel_filename->name,
 				&global_list_learning,
