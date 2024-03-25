@@ -183,6 +183,18 @@
 
 
 
+/*
+Look -> "exec_first_step"
+Limit argv[0] = 1000
+Reason glibc
+A GOOD IDEA? I don't know?
+But it's works
+when in doubt remove it
+*/
+
+
+
+
 /* HASH ?*/
 /*
 #define HASH_ALG "md5"
@@ -209,7 +221,6 @@
 #define NOT_ALLOWED -1
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
-
 
 
 
@@ -250,7 +261,6 @@ struct sum_hash_struct {
 };
 
 
-
 /* proto. */
 struct  safer_info_struct {
 	bool safer_show_mode;
@@ -263,6 +273,7 @@ struct  safer_info_struct {
 	long global_list_folder_len;
 	char **global_list_prog;
 	char **global_list_folder;
+	long global_hash_size;
 };
 
 
@@ -293,6 +304,7 @@ void safer_info(struct safer_info_struct *info)
 	info->global_list_folder_len = global_list_folder_len;
 	info->global_list_prog = global_list_prog;
 	info->global_list_folder = global_list_folder;
+	info->global_hash_size = KERNEL_READ_SIZE;
 	return;
 }
 
@@ -447,35 +459,6 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 
 
-
-
-
-/* max read = 0. size in file_size. other 0 is error */
-/*
-static ssize_t get_file_size_(const char *filename)
-{
-	ssize_t	retval;
-	ssize_t	file_size;
-	void	*data = NULL;
-
-	retval = kernel_read_file_from_path(	filename,
-						0,
-						&data,
-						0,
-						&file_size,
-						READING_POLICY);
-
-	if (retval == 0) {
-		vfree(data);
-
-		if (file_size < 0) return -1;
-		else return file_size;
-	}
-
-	return -1;
-
-}
-*/
 
 
 
@@ -1407,19 +1390,6 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 	struct sum_hash_struct size_hash_sum;
 
 
-
-	/*
-	if (strncmp(filename, "/proc/", 6) != 0) {
-		if (strlen(argv[0]) > strlen(filename)) {
-			if (printk_deny == true || printk_allowed == true)
-				printk("STAT STEP FIRST: USER/PROG. ARGV[0] ERROR: a:%d;;;%s\n",user_id,
-											filename);
-			return RET_SHELL;
-		}
-	}
-	*/
-
-
 	/* Limit argv[0] = 1000 */
 	/* Reason glibc */
 	/* A GOOD IDEA? I don't know? */
@@ -1789,9 +1759,16 @@ static int allowed_exec(struct filename *kernel_filename,
 				kernel_filename->name,
 				&global_list_learning,
 				&global_list_learning_len,
+				HASH_ALG,
+				DIGIT);
+
+/*			learning(user_id,
+				kernel_filename->name,
+				&global_list_learning,
+				&global_list_learning_len,
 				"sha256",
 				32);
-
+*/
 
 			learning_argv(	user_id,
 					kernel_filename->name,

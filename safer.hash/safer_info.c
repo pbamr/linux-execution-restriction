@@ -63,13 +63,12 @@ struct  safer_info_struct {
 	long global_list_folder_len;
 	char **global_list_prog;
 	char **global_list_folder;
+	long global_hash_size;
 };
-
 
 
 static struct safer_info_struct info;
 extern void safer_info(struct safer_info_struct *info);
-
 
 
 
@@ -113,6 +112,9 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.global_list_folder_len);
 
 	seq_printf(proc_show, "MODE SEARCH                 : BSEARCH\n");
+
+	seq_printf(proc_show, "HASH SIZE                   : %ld\n", info.global_hash_size);
+
 
 	seq_printf(proc_show, "\n\n");
 
