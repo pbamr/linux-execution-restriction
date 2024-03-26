@@ -59,8 +59,8 @@
 			: 999900 = safer ON
 			: 999901 = safer OFF
 			: 999902 = State
-			: 999903 = Log ON
-			: 999904 = Log OFF
+			: 999903 = Log ON, allowed
+			: 999904 = Log OFF, allowed
 
 			: 999905 = LOCK changes
 
@@ -72,6 +72,9 @@
 
 			: 999910 = safer show only ON
 			: 999911 = safer show only OFF
+
+			: 999912 = Log ON, deny
+			: 999913 = Log OFF, deny
 
 
 			: 999920 = Set FILE List
@@ -216,7 +219,7 @@ when in doubt remove it
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 100000
+#define KERNEL_READ_SIZE 1000000
 #define ALLOWED 0
 #define NOT_ALLOWED -1
 
