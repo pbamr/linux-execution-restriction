@@ -34,7 +34,6 @@
 			: Control only works as root
 
 			: USER and GROUPS
-			  IMPORTANT: file size will test
 
 			: Extension of SYSCALL <execve>
 			  You found <replaces> under "pb_safer"
@@ -51,17 +50,14 @@
 			: If you use bsearch, you can also select all executable files in folder
 			: Several thousand entries are then no problem.
 
-	root		: ALLOWED LIST for root is fixed in the code
-
-
 	Standard	: Safer Mode = ON
 			: Log Mode = Logs all programs from init
 
 			: 999900 = safer ON
 			: 999901 = safer OFF
 			: 999902 = State
-			
-   			: 999903 = Log ON, allowed
+
+			: 999903 = Log ON, allowed
 			: 999904 = Log OFF, allowed
 
 			: 999905 = LOCK changes
@@ -75,12 +71,12 @@
 			: 999910 = safer show only ON
 			: 999911 = safer show only OFF
 
-			: 999903 = Log ON, deny
-   			: 999904 = Log OFF, deny
-
 
 			: 999920 = Set FILE List
 			: 999921 = Set FOLDER List
+
+			: 999912 = Log ON, deny
+			: 999913 = Log OFF, deny
 
 
 	Important	: ./foo is not allowed
@@ -188,6 +184,18 @@
 
 
 
+/*
+Look -> "exec_first_step"
+Limit argv[0] = 1000
+Reason glibc
+A GOOD IDEA? I don't know?
+But it's works
+when in doubt remove it
+*/
+
+
+
+/*--------------------------------------------------------------------------------*/
 /* HASH ?*/
 /*
 #define HASH_ALG "md5"
@@ -209,14 +217,24 @@
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
-#define KERNEL_READ_SIZE 1000000
+
+#define KERNEL_READ_SIZE 2000000
+
 #define ALLOWED 0
 #define NOT_ALLOWED -1
+
+#define CONTROL_ERROR -1
+#define CONRTOL_OK 0
+
+#define ERROR -1
+
+#define NOT_IN_LIST -1
+
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
 
-
+/*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_block);
 static DEFINE_MUTEX(control);
 
@@ -244,15 +262,17 @@ static long	global_list_folder_len = 0;
 
 
 
+
+/*--------------------------------------------------------------------------------*/
 /* proto */
 struct sum_hash_struct {
 	int	retval;
-	char	hash_string[129];
+	char	hash_string[DIGIT * 2 + 1];
 	ssize_t	file_size;
 };
 
 
-
+/*--------------------------------------------------------------------------------*/
 /* proto. */
 struct  safer_info_struct {
 	bool safer_show_mode;
@@ -314,11 +334,7 @@ void safer_learning(struct safer_learning_struct *learning)
 
 
 
-
-
-
-
-
+/*--------------------------------------------------------------------------------*/
 static int besearch_file(char *str_search,
 			char **list,
 			long elements)
@@ -340,7 +356,7 @@ static int besearch_file(char *str_search,
 		else if (int_ret > 0) right = middle - 1;
 	}
 
-	return -1;
+	return NOT_IN_LIST;
 }
 
 
@@ -356,7 +372,7 @@ static int besearch_folder(	char *str_search,
 	long int_ret;
 
 
-	if (str_search[strlen(str_search) -1] == '/' ) return(-1);
+	if (str_search[strlen(str_search) -1] == '/' ) return NOT_IN_LIST;
 
 
 	left = 0;
@@ -367,12 +383,12 @@ static int besearch_folder(	char *str_search,
 
 		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
 
-		if (int_ret == 0) return(0);
+		if (int_ret == 0) return 0;
 		else if (int_ret < 0) left = middle + 1;
 		else if (int_ret > 0) right = middle - 1;
 	}
 
-	return(-1);
+	return NOT_IN_LIST;
 }
 
 
@@ -388,12 +404,12 @@ static long search(char *str_search,
 		if (strncmp(list[n], str_search, strlen(list[n])) == 0) return 0;
 	}
 
-	return -1;
+	return NOT_IN_LIST;
 }
 
 
 
-
+/*--------------------------------------------------------------------------------*/
 static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const char *hash_alg, int digit)
 {
 
@@ -407,13 +423,13 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 	hash = crypto_alloc_shash(hash_alg, 0, 0);
 	if (IS_ERR(hash)) {
-		hash_sum.retval = -1;
+		hash_sum.retval = ERROR;
 		return hash_sum;
 	}
 
 	shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
 	if (!shash) {
-		hash_sum.retval = -1;
+		hash_sum.retval = ERROR;
 		return hash_sum;
 	}
 
@@ -421,19 +437,19 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 
 	if (crypto_shash_init(shash)) {
-		hash_sum.retval = -1;
+		hash_sum.retval = ERROR;
 		return hash_sum;
 	}
 
 
 
 	if (crypto_shash_update(shash, buffer, max)) {
-		hash_sum.retval = -1;
+		hash_sum.retval = ERROR;
 		return hash_sum;
 	}
 
 	if (crypto_shash_final(shash, hash_out)) {
-		hash_sum.retval = -1;
+		hash_sum.retval = ERROR;
 		return hash_sum;
 	}
 
@@ -452,6 +468,8 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 
 	return hash_sum;
 }
+
+
 
 
 
@@ -475,7 +493,7 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 	if (retval < 1) {
 		size_hash_sum.file_size = 0;
 		size_hash_sum.hash_string[0] = '\0';
-		size_hash_sum.retval = -1;
+		size_hash_sum.retval = ERROR;
 		return size_hash_sum;
 	}
 
@@ -483,7 +501,7 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 		vfree(data);
 		size_hash_sum.file_size = 0;
 		size_hash_sum.hash_string[0] = '\0';
-		size_hash_sum.retval = -1;
+		size_hash_sum.retval = ERROR;
 		return size_hash_sum;
 	}
 
@@ -512,7 +530,7 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename, cons
 
 
 
-
+/*--------------------------------------------------------------------------------*/
 static ssize_t get_file_size(const char *filename)
 {
 
@@ -521,30 +539,30 @@ static ssize_t get_file_size(const char *filename)
 
 	file = filp_open(filename, O_RDONLY, 0);
 	if (IS_ERR(file))
-		return -1;
+		return ERROR;
 
 	if (!S_ISREG(file_inode(file)->i_mode)) {
 		fput(file);
-		return -1;
+		return ERROR;
 	}
 
 	if (deny_write_access(file)) {
 		fput(file);
-		return -1;
+		return ERROR;
 	}
 
 	i_size = i_size_read(file_inode(file));
 	if (i_size < 1) {
 		allow_write_access(file);
 		fput(file);
-		return -1;
+		return ERROR;
 	}
 
 	/* The file is too big for sane activities. */
 	if (i_size > INT_MAX) {
 		allow_write_access(file);
 		fput(file);
-		return -1;
+		return ERROR;
 	}
 
 	allow_write_access(file);
@@ -668,7 +686,6 @@ static void learning_argv(uid_t user_id,
 
 
 
-/*--------------------------------------------------------------------------------*/
 static void learning(	uid_t user_id,
 			const char *filename,
 			char ***list,
@@ -757,6 +774,7 @@ static void learning(	uid_t user_id,
 
 
 
+/*--------------------------------------------------------------------------------*/
 static void print_prog_arguments(uid_t user_id,
 				const char *filename,
 				char **argv,
@@ -867,7 +885,7 @@ user_deny(uid_t user_id,
 
 	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
-		return RET_SHELL;
+		return NOT_ALLOWED;
 
 	strcpy(str_user_file, "d:");
 	strcat(str_user_file, str_user_id);
@@ -883,7 +901,7 @@ user_deny(uid_t user_id,
 			printk("%s USER/PROG. DENY   : a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
 
 		kfree(str_user_file);
-		return RET_SHELL;
+		return NOT_ALLOWED;
 	}
 
 	kfree(str_user_file);
@@ -956,6 +974,8 @@ group_allowed(uid_t user_id,
 }
 
 
+
+/*--------------------------------------------------------------------------------*/
 static int
 group_deny(	uid_t user_id,
 		const char *filename,
@@ -989,7 +1009,7 @@ group_deny(	uid_t user_id,
 
 		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
-			return RET_SHELL;
+			return NOT_ALLOWED;
 
 		strcpy(str_group_file, "gd:");
 		strcat(str_group_file, str_group_id);
@@ -1006,7 +1026,7 @@ group_deny(	uid_t user_id,
 
 			kfree(str_group_file);
 
-			return RET_SHELL;
+			return NOT_ALLOWED;
 		}
 		else kfree(str_group_file);
 	}
@@ -1057,6 +1077,8 @@ user_folder_allowed(	uid_t user_id,
 }
 
 
+
+/*--------------------------------------------------------------------------------*/
 static int
 user_folder_deny(uid_t user_id,
 		const char *filename,
@@ -1078,7 +1100,7 @@ user_folder_deny(uid_t user_id,
 
 	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
-		return RET_SHELL;
+		return NOT_ALLOWED;
 
 	strcpy(str_folder, "d:");
 	strcat(str_folder, str_user_id);
@@ -1091,7 +1113,7 @@ user_folder_deny(uid_t user_id,
 			printk("%s USER/PROG. DENY   : a:%s;%s\n", step, str_user_id, filename);
 
 		kfree(str_folder);
-		return RET_SHELL;
+		return NOT_ALLOWED;
 	}
 
 	kfree(str_folder);
@@ -1155,6 +1177,8 @@ group_folder_allowed(	uid_t user_id,
 }
 
 
+
+/*--------------------------------------------------------------------------------*/
 static int
 group_folder_deny(uid_t user_id,
 		const char *filename,
@@ -1185,7 +1209,7 @@ group_folder_deny(uid_t user_id,
 		//if (str_group_folder != NULL) kfree(str_group_folder);
 		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
-			return RET_SHELL;
+			return NOT_ALLOWED;
 
 		strcpy(str_group_folder, "gd:");
 		strcat(str_group_folder, str_group_id);
@@ -1199,7 +1223,7 @@ group_folder_deny(uid_t user_id,
 				printk("%s USER/PROG. DENY   : gd:%s;%s\n", step, str_group_id, filename);
 
 			kfree(str_group_folder);
-			return RET_SHELL;
+			return NOT_ALLOWED;
 		}
 		else kfree(str_group_folder);
 	}
@@ -1267,7 +1291,7 @@ user_interpreter_allowed(uid_t user_id,
 }
 
 
-
+/*--------------------------------------------------------------------------------*/
 /* user allowed interpreter and allowed group script file*/
 /* 0 allowed */
 /* -1 deny */
@@ -1378,10 +1402,12 @@ user_interpreter_file_allowed(	uid_t user_id,
 
 
 
+/*--------------------------------------------------------------------------------*/
 static int exec_first_step(uid_t user_id, const char *filename, char **argv, long argv_len)
 {
 
 	struct sum_hash_struct size_hash_sum;
+
 
 	/* Limit argv[0] = 1000 */
 	/* Reason glibc */
@@ -1412,7 +1438,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					filename,
 					global_list_folder,
 					global_list_folder_len,
-					"STAT STEP FIRST:") == RET_SHELL)
+					"STAT STEP FIRST:") == NOT_ALLOWED)
 			return RET_SHELL;
 	}
 
@@ -1422,7 +1448,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					filename,
 					global_list_folder,
 					global_list_folder_len,
-					"STAT STEP FIRST:") == RET_SHELL)
+					"STAT STEP FIRST:") == NOT_ALLOWED)
 			return RET_SHELL;
 	}
 
@@ -1434,7 +1460,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
-					"STAT STEP FIRST:") == RET_SHELL)
+					"STAT STEP FIRST:") == NOT_ALLOWED)
 		return RET_SHELL;
 
 	/* deny user */
@@ -1444,7 +1470,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.hash_string,
 			global_list_prog,
 			global_list_prog_len,
-					"STAT STEP FIRST:") == RET_SHELL)
+					"STAT STEP FIRST:") == NOT_ALLOWED)
 		return RET_SHELL;
 
 	/* group allowed folder */
@@ -1516,6 +1542,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 
 
+/*--------------------------------------------------------------------------------*/
 static int exec_second_step(const char *filename)
 {
 
@@ -1541,6 +1568,8 @@ static int exec_second_step(const char *filename)
 		}
 	}
 
+
+
 	if (safer_mode == true	|| (safer_show_mode == true && printk_allowed == true )
 				|| (safer_show_mode == true && printk_deny == true)) {
 
@@ -1563,10 +1592,10 @@ static int exec_second_step(const char *filename)
 						"STAT STEP SEC  :");
 
 			if (safer_mode == true) {
-				if (retval == RET_SHELL)
+				if (retval == NOT_ALLOWED)
 					return RET_SHELL;
 			}
-			else if (retval == RET_SHELL)
+			else if (retval == NOT_ALLOWED)
 				return ALLOWED;
 		}
 
@@ -1580,10 +1609,10 @@ static int exec_second_step(const char *filename)
 						"STAT STEP SEC  :");
 
 			if (safer_mode == true) {
-				if (retval == RET_SHELL)
+				if (retval == NOT_ALLOWED)
 					return RET_SHELL;
 			}
-			else if (retval == RET_SHELL)
+			else if (retval == NOT_ALLOWED)
 				return ALLOWED;
 		}
 
@@ -1600,10 +1629,10 @@ static int exec_second_step(const char *filename)
 				"STAT STEP SEC  :");
 
 		if (safer_mode == true) {
-			if (retval == RET_SHELL)
+			if (retval == NOT_ALLOWED)
 				return RET_SHELL;
 		}
-		else if (retval == RET_SHELL)
+		else if (retval == NOT_ALLOWED)
 			return ALLOWED;
 
 
@@ -1617,10 +1646,10 @@ static int exec_second_step(const char *filename)
 				"STAT STEP SEC  :");
 
 		if (safer_mode == true) {
-			if (retval == RET_SHELL)
+			if (retval == NOT_ALLOWED)
 				return RET_SHELL;
 		}
-		else if (retval == RET_SHELL)
+		else if (retval == NOT_ALLOWED)
 			return ALLOWED;
 
 
@@ -1682,6 +1711,12 @@ static int exec_second_step(const char *filename)
 											filename);
 		}
 
+
+
+
+
+
+		/* filter end */
 		if (safer_mode == true)
 			return (RET_SHELL);
 		else return ALLOWED;
@@ -1689,7 +1724,6 @@ static int exec_second_step(const char *filename)
 
 	return ALLOWED;
 }
-
 
 
 
@@ -1828,9 +1862,9 @@ SYSCALL_DEFINE2(set_execve,
 
 
 		/* safer on */
-		case 999900:	if (user_id != 0) return -1;
-				if (change_mode == false) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999900:	if (user_id != 0) return CONTROL_ERROR;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 				if (global_list_prog_len > 0 || global_list_folder_len > 0) {
 					safer_mode = true;
@@ -1838,33 +1872,33 @@ SYSCALL_DEFINE2(set_execve,
 					printk("MODE: SAFER ON\n");
 #endif
 					mutex_unlock(&control);
-					return 0;
+					return CONTROL_OK;
 				}
 				else {
 #ifdef PRINTK
 					printk("MODE: SAFER OFF\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 
 		/* safer off */
-		case 999901:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999901:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 #ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
 #endif
 				safer_mode = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 		/* stat */
-		case 999902:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
+		case 999902:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
 #endif
@@ -1872,144 +1906,144 @@ SYSCALL_DEFINE2(set_execve,
 
 
 		/* printk allowed */
-		case 999903:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999903:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ALLOWED ON\n");
 #endif
 				printk_allowed = true;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 		/* printk allowed */
-		case 999904:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999904:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK ALLOWED OFF\n");
 #endif
 				printk_allowed = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
-		case 999905:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999905:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 #endif
 				change_mode = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
-		case 999906:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999906:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: learning ON\n");
 #endif
 				learning_mode = true;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
-		case 999907:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999907:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: learning OFF\n");
 #endif
 				learning_mode = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
-		case 999908:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999908:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: verbose paramter mode ON\n");
 #endif
 				verbose_param_mode = true;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 
-		case 999909:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999909:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: verbose parameter mode OFF\n");
 #endif
 				verbose_param_mode = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 		/* safer show on */
-		case 999910:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999910:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 				safer_show_mode = true;
 #ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY ON\n");
 #endif
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 		/* safer show off */
-		case 999911:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999911:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY OFF\n");
 #endif
 				safer_show_mode = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 
 		/* printk deny ON */
-		case 999912:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999912:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK DENY ON\n");
 #endif
 				printk_deny = true;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 		/* printk deny OFF */
-		case 999913:	if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+		case 999913:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 #ifdef PRINTK
 				printk("MODE: SAFER PRINTK DENY OFF\n");
 #endif
 				printk_deny = false;
 				mutex_unlock(&control);
-				return 0;
+				return CONTROL_OK;
 
 
 
 		/* set all list */
 		case 999920:
 
-				if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 
 				if (list == NULL) {		/* check? */
@@ -2017,7 +2051,7 @@ SYSCALL_DEFINE2(set_execve,
 					printk("ERROR: FILE LIST\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				} /* check!? */
 
 				/* clear */
@@ -2039,14 +2073,14 @@ SYSCALL_DEFINE2(set_execve,
 				int int_ret = count(_list, MAX_ARG_STRINGS);
 				if (int_ret == 0) {
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				str = get_user_arg_ptr(_list, 0);		/* String 0 */
 				str_len = strnlen_user(str, MAX_ARG_STRLEN);
 				if (str_len < 1) {
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
@@ -2062,7 +2096,7 @@ SYSCALL_DEFINE2(set_execve,
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 				if (int_ret != 0) {
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				if (global_list_prog_len < 1) {
@@ -2070,7 +2104,7 @@ SYSCALL_DEFINE2(set_execve,
 					printk("NO FILE LIST\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				if (global_list_prog_len > MAX_DYN) {
@@ -2078,7 +2112,7 @@ SYSCALL_DEFINE2(set_execve,
 					printk("FILE LIST TO BIG!\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 #ifdef PRINTK
@@ -2112,9 +2146,9 @@ SYSCALL_DEFINE2(set_execve,
 
 		/* set all folder list */
 		case 999921:
-				if (change_mode == false) return -1;
-				if (user_id != 0) return -1;
-				if (!mutex_trylock(&control)) return -1;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 
 				if (list == NULL) {		/* check? */
@@ -2122,7 +2156,7 @@ SYSCALL_DEFINE2(set_execve,
 					printk("ERROR: FOLDER LIST\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				} /* check!? */
 
 				/* clear */
@@ -2147,14 +2181,14 @@ SYSCALL_DEFINE2(set_execve,
 				int_ret = count(_list, MAX_ARG_STRINGS);
 				if (int_ret == 0) {
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				str = get_user_arg_ptr(_list, 0);		/* String 0 */
 				str_len = strnlen_user(str, MAX_ARG_STRLEN);
 				if (str_len < 1) {
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
@@ -2171,7 +2205,7 @@ SYSCALL_DEFINE2(set_execve,
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; };
 				if (int_ret != 0) {
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				if (global_list_folder_len < 1) {
@@ -2179,7 +2213,7 @@ SYSCALL_DEFINE2(set_execve,
 					printk("NO FOLDER LIST\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 				if (global_list_folder_len > MAX_DYN) {
@@ -2187,7 +2221,7 @@ SYSCALL_DEFINE2(set_execve,
 					printk("FOLDER LIST TO BIG!\n");
 #endif
 					mutex_unlock(&control);
-					return -1;
+					return CONTROL_ERROR;
 				}
 
 #ifdef PRINTK
@@ -2220,7 +2254,7 @@ SYSCALL_DEFINE2(set_execve,
 
 
 		default:	printk("ERROR: COMMAND NOT IN LIST\n");
-				return -1;
+				return CONTROL_ERROR;
 	}
 }
 
