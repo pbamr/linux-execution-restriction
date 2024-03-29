@@ -213,12 +213,11 @@ when in doubt remove it
 */
 
 
-#define PRINTK
 #define MAX_DYN 100000
 #define RET_SHELL -2
 #define ARGV_MAX 16
 
-#define KERNEL_READ_SIZE 2000000
+#define KERNEL_READ_SIZE 1000000
 
 #define ALLOWED 0
 #define NOT_ALLOWED -1
@@ -235,7 +234,7 @@ when in doubt remove it
 
 
 /*--------------------------------------------------------------------------------*/
-static DEFINE_MUTEX(learning_block);
+static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
 
 
@@ -1555,7 +1554,7 @@ static int exec_second_step(const char *filename)
 
 
 	if (learning_mode == true) {
-		if (mutex_trylock(&learning_block)) {
+		if (mutex_trylock(&learning_lock)) {
 
 			learning(user_id,
 				filename,
@@ -1564,7 +1563,7 @@ static int exec_second_step(const char *filename)
 				HASH_ALG,
 				DIGIT);
 
-			mutex_unlock(&learning_block);
+			mutex_unlock(&learning_lock);
 		}
 	}
 
@@ -1781,7 +1780,7 @@ static int allowed_exec(struct filename *kernel_filename,
 
 	if (learning_mode == true) {
 
-		if (mutex_trylock(&learning_block)) {
+		if (mutex_trylock(&learning_lock)) {
 
 			learning(user_id,
 				kernel_filename->name,
@@ -1805,7 +1804,7 @@ static int allowed_exec(struct filename *kernel_filename,
 					&global_list_learning_argv,
 					&global_list_learning_argv_len);
 
-			mutex_unlock(&learning_block);
+			mutex_unlock(&learning_lock);
 		}
 	}
 
@@ -1870,16 +1869,12 @@ SYSCALL_DEFINE5(execve,
 
 				if (global_list_prog_len > 0 || global_list_folder_len > 0) {
 					safer_mode = true;
-#ifdef PRINTK
 					printk("MODE: SAFER ON\n");
-#endif
 					mutex_unlock(&control);
 					return CONRTOL_OK;
 				}
 				else {
-#ifdef PRINTK
 					printk("MODE: SAFER OFF\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
@@ -1889,10 +1884,7 @@ SYSCALL_DEFINE5(execve,
 		case 999901:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-
-#ifdef PRINTK
 				printk("MODE: SAFER OFF\n");
-#endif
 				safer_mode = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1901,9 +1893,7 @@ SYSCALL_DEFINE5(execve,
 		/* stat */
 		case 999902:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("SAFER STATE         : %d\n", safer_mode);
-#endif
 				return(safer_mode);
 
 
@@ -1911,10 +1901,7 @@ SYSCALL_DEFINE5(execve,
 		case 999903:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-
-#ifdef PRINTK
 				printk("MODE: SAFER PRINTK ALLOWED ON\n");
-#endif
 				printk_allowed = true;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1924,10 +1911,7 @@ SYSCALL_DEFINE5(execve,
 		case 999904:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-
-#ifdef PRINTK
 				printk("MODE: SAFER PRINTK ALLOWED OFF\n");
-#endif
 				printk_allowed = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1936,9 +1920,7 @@ SYSCALL_DEFINE5(execve,
 		case 999905:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
-#endif
 				change_mode = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1947,9 +1929,7 @@ SYSCALL_DEFINE5(execve,
 		case 999906:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: learning ON\n");
-#endif
 				learning_mode = true;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1958,9 +1938,7 @@ SYSCALL_DEFINE5(execve,
 		case 999907:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: learning OFF\n");
-#endif
 				learning_mode = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1969,9 +1947,7 @@ SYSCALL_DEFINE5(execve,
 		case 999908:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: verbose paramter mode ON\n");
-#endif
 				verbose_param_mode = true;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1981,9 +1957,7 @@ SYSCALL_DEFINE5(execve,
 		case 999909:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: verbose parameter mode OFF\n");
-#endif
 				verbose_param_mode = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -1995,9 +1969,7 @@ SYSCALL_DEFINE5(execve,
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 				safer_show_mode = true;
-#ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY ON\n");
-#endif
 				mutex_unlock(&control);
 				return CONRTOL_OK;
 
@@ -2006,9 +1978,7 @@ SYSCALL_DEFINE5(execve,
 		case 999911:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: SAFER SHOW ONLY OFF\n");
-#endif
 				safer_show_mode = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -2019,9 +1989,7 @@ SYSCALL_DEFINE5(execve,
 		case 999912:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: SAFER PRINTK DENY ON\n");
-#endif
 				printk_deny = true;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -2031,9 +1999,7 @@ SYSCALL_DEFINE5(execve,
 		case 999913:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
-#ifdef PRINTK
 				printk("MODE: SAFER PRINTK DENY OFF\n");
-#endif
 				printk_deny = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
@@ -2049,9 +2015,7 @@ SYSCALL_DEFINE5(execve,
 
 
 				if (list == NULL) {		/* check? */
-#ifdef PRINTK
 					printk("ERROR: FILE LIST\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				} /* check!? */
@@ -2102,24 +2066,18 @@ SYSCALL_DEFINE5(execve,
 				}
 
 				if (global_list_prog_len < 1) {
-#ifdef PRINTK
 					printk("NO FILE LIST\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
 				if (global_list_prog_len > MAX_DYN) {
-#ifdef PRINTK
 					printk("FILE LIST TO BIG!\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-#ifdef PRINTK
 				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_len);
-#endif
 
 
 				/* dyn array */
@@ -2154,9 +2112,7 @@ SYSCALL_DEFINE5(execve,
 
 
 				if (list == NULL) {		/* check? */
-#ifdef PRINTK
 					printk("ERROR: FOLDER LIST\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				} /* check!? */
@@ -2210,24 +2166,18 @@ SYSCALL_DEFINE5(execve,
 				}
 
 				if (global_list_folder_len < 1) {
-#ifdef PRINTK
 					printk("NO FOLDER LIST\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
 				if (global_list_folder_len > MAX_DYN) {
-#ifdef PRINTK
 					printk("FOLDER LIST TO BIG!\n");
-#endif
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-#ifdef PRINTK
 				printk("FOLDER LIST ELEMENTS: %ld\n", global_list_folder_len);
-#endif
 
 
 				/* dyn array */ 
