@@ -1807,7 +1807,6 @@ static int allowed_exec(struct filename *kernel_filename,
 		}
 	}
 
-	retval = 0;
 	if (safer_mode == true	|| (safer_show_mode == true && printk_allowed == true)
 				|| (safer_show_mode == true && printk_deny == true))
 		retval = exec_first_step(user_id,
@@ -1829,7 +1828,8 @@ static int allowed_exec(struct filename *kernel_filename,
 
 	if (safer_mode == true)
 		return (retval);
-	else return ALLOWED;
+
+	return ALLOWED;
 
 }
 
