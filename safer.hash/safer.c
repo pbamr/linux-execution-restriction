@@ -229,7 +229,7 @@ when in doubt remove it
 
 #define NOT_IN_LIST -1
 
-#define LEARNING_ARGV_MAX 100000
+#define LEARNING_ARGV_MAX 2000
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
 
