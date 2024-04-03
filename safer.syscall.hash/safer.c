@@ -217,7 +217,7 @@ when in doubt remove it
 #define RET_SHELL -2
 #define ARGV_MAX 16
 
-#define KERNEL_READ_SIZE 1000000
+#define KERNEL_READ_SIZE 2000000
 
 #define ALLOWED 0
 #define NOT_ALLOWED -1
@@ -228,6 +228,8 @@ when in doubt remove it
 #define ERROR -1
 
 #define NOT_IN_LIST -1
+
+#define LEARNING_ARGV_MAX 100000
 
 
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
@@ -584,10 +586,8 @@ static void learning_argv(uid_t user_id,
 
 	char	str_user_id[19];
 	char	str_file_size[19];
-	char	str_argv_size[19];
 
 	ssize_t	file_size;
-	ssize_t	argv_size;
 
 	char	*str_learning =  NULL;
 	int	string_length = 0;
@@ -597,37 +597,25 @@ static void learning_argv(uid_t user_id,
 	if (argv_len == 1)
 		return;
 
-	if (argv[1][0] != '/')
-		return;
-
 	file_size = get_file_size(filename);
 	/* file not exist or empty */
 	if (file_size < 1)
 		return;
 
 
-	argv_size = get_file_size(argv[1]);
-	/* argv not exist */
-	if (argv_size == -1)
-		return;
-
-	/* file exist, but empty */
-	if (argv_size == 0)
-		return;
-
 	sprintf(str_user_id, "%u", user_id);
 	sprintf(str_file_size, "%ld", file_size);
-	sprintf(str_argv_size, "%ld", argv_size);
-
-
-
 
 	string_length = strlen(str_user_id);
 	string_length += strlen(str_file_size);
 	string_length += strlen(filename);
-	string_length += strlen(str_argv_size);
-	string_length += strlen(argv[1]);
-	string_length += strlen("a:;;::;") + 1;
+	string_length += strlen("a:;;;") + 1;
+
+	//if (argv_len > 10) argv_len = 10;
+	for (int n = 1; n < argv_len; n++) {
+		string_length += strlen(argv[n]);
+		string_length += 1;
+	}
 
 	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 
@@ -637,10 +625,25 @@ static void learning_argv(uid_t user_id,
 	strcat(str_learning, str_file_size);
 	strcat(str_learning, ";");
 	strcat(str_learning, filename);
-	strcat(str_learning, "::");
-	strcat(str_learning, str_argv_size);
 	strcat(str_learning, ";");
-	strcat(str_learning, argv[1]);
+
+	for (int n = 1; n < argv_len; n++) {
+		strcat(str_learning, argv[n]);
+		strcat(str_learning, ";");
+	}
+
+
+	/* check argv_len > lerning_argv_max */
+	if (*list_len > LEARNING_ARGV_MAX) {
+		for (int n = 0; n < *list_len; n++) {
+			kfree((*list)[n]);
+			(*list)[n] = NULL;
+		}
+
+		kfree((*list));
+		*list = NULL;
+		*list_len = 0;
+	}
 
 
 	if (search(str_learning, *list, *list_len) != 0) {
@@ -682,6 +685,7 @@ static void learning_argv(uid_t user_id,
 	kfree(str_learning);
 	return;
 }
+
 
 
 
@@ -1839,7 +1843,7 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-/* SYSCALL NR: 459 or other */
+/* SYSCALL NR: 501 or other */
 SYSCALL_DEFINE2(set_execve,
 		const loff_t, number,
 		const char __user *const __user *, list)
