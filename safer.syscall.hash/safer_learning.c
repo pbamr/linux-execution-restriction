@@ -49,18 +49,20 @@
 
 
 
+
 /* proto. */
 struct  safer_learning_struct {
 	long global_list_learning_len;
 	char **global_list_learning;
+	long global_list_learning_argv_max;
 	long global_list_learning_argv_len;
 	char **global_list_learning_argv;
 };
 
 
-
 static struct safer_learning_struct learning;
 extern void safer_learning(struct safer_learning_struct *learning);
+
 
 
 
@@ -87,13 +89,17 @@ static int safer_learning_display(struct seq_file *proc_show, void *v)
 		}
 	}
 
-	seq_printf(proc_show, "\n\nARGV:\n\n");
-	seq_printf(proc_show, "ARGV learning LIST MAX       : %ld\n", learning.global_list_learning_argv_len);
+	seq_printf(proc_show, "\n\nARGV:\n");
+	seq_printf(proc_show, "<ARGV LEARNING LIST> is organized as a RING\n\n");
 
-	if (learning.global_list_learning_argv_len > 0) {
-		for (n = 0; n < learning.global_list_learning_argv_len; n++) {
-			seq_printf(proc_show, "%s\n", learning.global_list_learning_argv[n]);
-		}
+
+	seq_printf(proc_show, "ARGV learning LIST MAX       : %ld\n", learning.global_list_learning_argv_max);
+	seq_printf(proc_show, "ARGV learning LIST LEN       : %ld\n", learning.global_list_learning_argv_len);
+
+	for (n = 0; n < learning.global_list_learning_argv_max; n++) {
+		if (learning.global_list_learning_argv[n] == NULL) return 0;
+
+		seq_printf(proc_show, "%s\n", learning.global_list_learning_argv[n]);
 	}
 
 	return 0;

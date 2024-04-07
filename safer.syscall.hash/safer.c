@@ -198,41 +198,39 @@ when in doubt remove it
 /*--------------------------------------------------------------------------------*/
 /* HASH ?*/
 /*
+/* Your choice */
 #define HASH_ALG "md5"
 #define DIGIT 16
 */
 
-
 #define HASH_ALG "sha256"
 #define DIGIT 32
-
 
 /*
 #define HASH_ALG "sha512"
 #define DIGIT 64
 */
 
-
+/*your choice */
 #define MAX_DYN 100000
-#define RET_SHELL -2
 #define ARGV_MAX 16
-
+#define LEARNING_ARGV_MAX 5000
 #define KERNEL_READ_SIZE 2000000
 
+
+#define RET_SHELL -2
 #define ALLOWED 0
 #define NOT_ALLOWED -1
-
 #define CONTROL_ERROR -1
 #define CONRTOL_OK 0
-
 #define ERROR -1
-
 #define NOT_IN_LIST -1
-
-#define LEARNING_ARGV_MAX 2000
-
-
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
+
+
+
+
+
 
 
 /*--------------------------------------------------------------------------------*/
@@ -573,14 +571,14 @@ static ssize_t get_file_size(const char *filename)
 
 
 
-
 /*--------------------------------------------------------------------------------*/
 static void learning_argv(uid_t user_id,
 			const char *filename,
 			char **argv,
 			long argv_len,
 			char ***list,
-			long *list_len)
+			long *list_len,
+			bool *list_init)
 
 {
 
@@ -593,7 +591,6 @@ static void learning_argv(uid_t user_id,
 	int	string_length = 0;
 
 
-
 	if (argv_len == 1)
 		return;
 
@@ -601,6 +598,16 @@ static void learning_argv(uid_t user_id,
 	/* file not exist or empty */
 	if (file_size < 1)
 		return;
+
+
+	/* init list */
+	if (*list_init == false) {
+		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_KERNEL);
+		if (*list == NULL) {
+			return;
+		}
+		else *list_init = true;
+	}
 
 
 	sprintf(str_user_id, "%u", user_id);
@@ -633,58 +640,30 @@ static void learning_argv(uid_t user_id,
 	}
 
 
-	/* check argv_len > lerning_argv_max */
-	if (*list_len > LEARNING_ARGV_MAX) {
-		for (int n = 0; n < *list_len; n++) {
-			kfree((*list)[n]);
-			(*list)[n] = NULL;
-		}
-
-		kfree((*list));
-		*list = NULL;
-		*list_len = 0;
-	}
-
-
 	if (search(str_learning, *list, *list_len) != 0) {
 
-		if (*list_len == 0) {
-			*list = kzalloc(sizeof(char *), GFP_KERNEL);
-			if (*list == NULL) {
-				kfree(str_learning);
-				return;
-			}
+		if ((*list)[*list_len] != NULL)
+			kfree((*list)[*list_len]);
 
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[0] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy((*list)[0], str_learning);
-			*list_len = 1;
-		}
-		else {
-			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
-			if (*list == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[*list_len] == NULL) {
 				kfree(str_learning);
 				return;
 			}
 
-			strcpy((*list)[*list_len], str_learning);
-			*list_len += 1;
-		}
+		strcpy((*list)[*list_len], str_learning);
+
+		*list_len += 1;
+		/* check argv_len > lerning_argv_max */
+		if (*list_len > LEARNING_ARGV_MAX - 1)
+			*list_len = 0;
+
 	}
 
 	kfree(str_learning);
 	return;
 }
+
 
 
 
@@ -1173,7 +1152,7 @@ group_folder_allowed(	uid_t user_id,
 			return ALLOWED;
 		}
 		else kfree(str_group_folder);
-		
+
 	}
 
 	return NOT_ALLOWED;
@@ -1792,20 +1771,13 @@ static int allowed_exec(struct filename *kernel_filename,
 				HASH_ALG,
 				DIGIT);
 
-/*			learning(user_id,
-				kernel_filename->name,
-				&global_list_learning,
-				&global_list_learning_len,
-				"sha256",
-				32);
-*/
-
 			learning_argv(	user_id,
 					kernel_filename->name,
 					argv_list,
 					argv_list_len,
 					&global_list_learning_argv,
-					&global_list_learning_argv_len);
+					&global_list_learning_argv_len,
+					&global_list_learning_argv_init);
 
 			mutex_unlock(&learning_lock);
 		}
@@ -2129,7 +2101,7 @@ SYSCALL_DEFINE2(set_execve,
 							kfree(global_list_folder[n]);
 							global_list_folder[n] = NULL;
 						}
-						
+
 					}
 
 					if (global_list_folder != NULL) {
