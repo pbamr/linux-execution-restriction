@@ -197,9 +197,8 @@ when in doubt remove it
 
 /*--------------------------------------------------------------------------------*/
 /* HASH ?*/
-
-/* Your choice */
 /*
+/* Your choice */
 #define HASH_ALG "md5"
 #define DIGIT 16
 */
@@ -219,8 +218,6 @@ when in doubt remove it
 #define KERNEL_READ_SIZE 2000000
 
 
-
-
 #define RET_SHELL -2
 #define ALLOWED 0
 #define NOT_ALLOWED -1
@@ -229,6 +226,11 @@ when in doubt remove it
 #define ERROR -1
 #define NOT_IN_LIST -1
 #define NO_SECURITY_GUARANTEED "SAFER: Could not allocate buffer! Security is no longer guaranteed!\n"
+
+
+
+
+
 
 
 /*--------------------------------------------------------------------------------*/
@@ -253,7 +255,6 @@ static long	global_list_learning_len = 0;
 
 static char	**global_list_learning_argv = NULL;
 static long	global_list_learning_argv_len = 0;
-static bool	global_list_learning_argv_init = false;
 
 static char	**global_list_folder = NULL;
 static long	global_list_folder_len = 0;
@@ -291,7 +292,6 @@ struct  safer_info_struct {
 struct  safer_learning_struct {
 	long global_list_learning_len;
 	char **global_list_learning;
-	long global_list_learning_argv_max;
 	long global_list_learning_argv_len;
 	char **global_list_learning_argv;
 };
@@ -326,7 +326,6 @@ void safer_learning(struct safer_learning_struct *learning)
 {
 	learning->global_list_learning_len = global_list_learning_len;
 	learning->global_list_learning = global_list_learning;
-	learning->global_list_learning_argv_max = LEARNING_ARGV_MAX;
 	learning->global_list_learning_argv_len = global_list_learning_argv_len;
 	learning->global_list_learning_argv = global_list_learning_argv;
 	return;
@@ -572,7 +571,6 @@ static ssize_t get_file_size(const char *filename)
 
 
 
-
 /*--------------------------------------------------------------------------------*/
 static void learning_argv(uid_t user_id,
 			const char *filename,
@@ -665,11 +663,6 @@ static void learning_argv(uid_t user_id,
 	kfree(str_learning);
 	return;
 }
-
-
-
-
-
 
 
 
@@ -1716,7 +1709,6 @@ static int exec_second_step(const char *filename)
 
 
 
-/*--------------------------------------------------------------------------------*/
 static int allowed_exec(struct filename *kernel_filename,
 			const char __user *const __user *_argv)
 {
@@ -1727,7 +1719,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	char			**argv_list = NULL;
 	long			argv_list_len = 0;
 	long			str_len;
-	int			retval;
+	int			retval = 0;
 	uid_t			user_id;
 
 
@@ -1735,7 +1727,7 @@ static int allowed_exec(struct filename *kernel_filename,
 		if (learning_mode == false)
 			if (safer_show_mode == false || printk_allowed == false)
 				if (safer_show_mode == false || printk_deny == false)
-					return ALLOWED;
+					return 0;
 
 	/* argv -> kernel space */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
@@ -1743,7 +1735,7 @@ static int allowed_exec(struct filename *kernel_filename,
 	if (argv_list_len > ARGV_MAX) argv_list_len = ARGV_MAX;
 	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_KERNEL);
 	if (!argv_list)
-		return ALLOWED;
+		return 0;
 
 	for (int n = 0; n < argv_list_len; n++) {
 		str = get_user_arg_ptr(argv, n);
@@ -1751,6 +1743,7 @@ static int allowed_exec(struct filename *kernel_filename,
 
 		argv_list[n] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 
+		/* do nothing */
 		retval = copy_from_user(argv_list[n], str, str_len);
 	}
 
@@ -1787,7 +1780,6 @@ static int allowed_exec(struct filename *kernel_filename,
 					&global_list_learning_argv_init);
 
 			mutex_unlock(&learning_lock);
-
 		}
 	}
 
@@ -1821,11 +1813,10 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 
-/*--------------------------------------------------------------------------------*/
-SYSCALL_DEFINE5(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp,
+
+
+/* SYSCALL NR: 501 or other */
+SYSCALL_DEFINE2(set_execve,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -1838,11 +1829,11 @@ SYSCALL_DEFINE5(execve,
 	const char __user *str;
 
 
-
 	user_id = get_current_user()->uid.val;
 
 	/* command part, future ? */
 	switch(number) {
+
 
 
 		/* safer on */
@@ -1854,7 +1845,7 @@ SYSCALL_DEFINE5(execve,
 					safer_mode = true;
 					printk("MODE: SAFER ON\n");
 					mutex_unlock(&control);
-					return CONRTOL_OK;
+					return CONTROL_OK;
 				}
 				else {
 					printk("MODE: SAFER OFF\n");
@@ -1867,10 +1858,11 @@ SYSCALL_DEFINE5(execve,
 		case 999901:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 				printk("MODE: SAFER OFF\n");
 				safer_mode = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		/* stat */
@@ -1884,20 +1876,22 @@ SYSCALL_DEFINE5(execve,
 		case 999903:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 				printk("MODE: SAFER PRINTK ALLOWED ON\n");
 				printk_allowed = true;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		/* printk allowed */
 		case 999904:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 				printk("MODE: SAFER PRINTK ALLOWED OFF\n");
 				printk_allowed = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		case 999905:	if (change_mode == false) return CONTROL_ERROR;
@@ -1906,7 +1900,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
 				change_mode = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		case 999906:	if (change_mode == false) return CONTROL_ERROR;
@@ -1915,7 +1909,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: learning ON\n");
 				learning_mode = true;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		case 999907:	if (change_mode == false) return CONTROL_ERROR;
@@ -1924,7 +1918,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: learning OFF\n");
 				learning_mode = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		case 999908:	if (change_mode == false) return CONTROL_ERROR;
@@ -1933,7 +1927,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: verbose paramter mode ON\n");
 				verbose_param_mode = true;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 
@@ -1943,7 +1937,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: verbose parameter mode OFF\n");
 				verbose_param_mode = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		/* safer show on */
@@ -1954,7 +1948,7 @@ SYSCALL_DEFINE5(execve,
 				safer_show_mode = true;
 				printk("MODE: SAFER SHOW ONLY ON\n");
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		/* safer show off */
@@ -1964,7 +1958,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: SAFER SHOW ONLY OFF\n");
 				safer_show_mode = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 
@@ -1975,7 +1969,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: SAFER PRINTK DENY ON\n");
 				printk_deny = true;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 		/* printk deny OFF */
@@ -1985,7 +1979,7 @@ SYSCALL_DEFINE5(execve,
 				printk("MODE: SAFER PRINTK DENY OFF\n");
 				printk_deny = false;
 				mutex_unlock(&control);
-				return CONRTOL_OK;
+				return CONTROL_OK;
 
 
 
@@ -2107,6 +2101,7 @@ SYSCALL_DEFINE5(execve,
 							kfree(global_list_folder[n]);
 							global_list_folder[n] = NULL;
 						}
+
 					}
 
 					if (global_list_folder != NULL) {
@@ -2186,13 +2181,20 @@ SYSCALL_DEFINE5(execve,
 				mutex_unlock(&control);
 				return(global_list_folder_len);
 
-		default:	break;
+
+		default:	printk("ERROR: COMMAND NOT IN LIST\n");
+				return CONTROL_ERROR;
 	}
+}
 
 
-	if (allowed_exec(getname(filename), argv) == RET_SHELL) return(RET_SHELL);
-
+SYSCALL_DEFINE3(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp)
+{
+	if (allowed_exec(getname(filename), argv) == RET_SHELL) return RET_SHELL;
 
 	return do_execve(getname(filename), argv, envp);
-
 }
+
