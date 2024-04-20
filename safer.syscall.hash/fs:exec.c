@@ -78,9 +78,9 @@
 #include <trace/events/sched.h>
 
 
-#define pb_safer
+#define add_safer
 
-#ifdef pb_safer
+#ifdef add_safer
 #include <crypto/internal/hash.h>
 static int exec_second_step(const char *filename);
 #endif
@@ -935,7 +935,7 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 
 
 
-#ifdef pb_safer
+#ifdef add_safer
 	if (exec_second_step(name->name) == -2) return(ERR_PTR(-2));
 #endif
 
@@ -2160,13 +2160,13 @@ void set_dumpable(struct mm_struct *mm, int value)
 
 
 /* change safer n*/
-#ifdef pb_safer
+#ifdef add_safer
 #include "safer.c"
 #endif
 
 
 
-#ifndef pb_safer
+#ifndef add_safer
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
 		const char __user *const __user *, argv,
