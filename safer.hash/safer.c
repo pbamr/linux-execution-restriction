@@ -1599,17 +1599,18 @@ static int exec_second_step(const char *filename)
 
 
 	if (learning_mode == true) {
-		if (mutex_trylock(&learning_lock)) {
 
-			learning(user_id,
-				filename,
-				&global_list_learning,
-				&global_list_learning_len,
-				HASH_ALG,
-				DIGIT);
+		/* works too */
+		mutex_lock(&learning_lock);
 
-			mutex_unlock(&learning_lock);
-		}
+		learning(user_id,
+			filename,
+			&global_list_learning,
+			&global_list_learning_len,
+			HASH_ALG,
+			DIGIT);
+
+		mutex_unlock(&learning_lock);
 	}
 
 
@@ -1824,26 +1825,26 @@ static int allowed_exec(struct filename *kernel_filename,
 
 	if (learning_mode == true) {
 
-		if (mutex_trylock(&learning_lock)) {
+		/* works too */
+		mutex_lock(&learning_lock);
 
-			learning(user_id,
+		learning(user_id,
+			kernel_filename->name,
+			&global_list_learning,
+			&global_list_learning_len,
+			HASH_ALG,
+			DIGIT);
+
+		learning_argv(	user_id,
 				kernel_filename->name,
-				&global_list_learning,
-				&global_list_learning_len,
-				HASH_ALG,
-				DIGIT);
+				argv_list,
+				argv_list_len,
+				&global_list_learning_argv,
+				&global_list_learning_argv_len,
+				&global_list_learning_argv_init);
 
-			learning_argv(	user_id,
-					kernel_filename->name,
-					argv_list,
-					argv_list_len,
-					&global_list_learning_argv,
-					&global_list_learning_argv_len,
-					&global_list_learning_argv_init);
+		mutex_unlock(&learning_lock);
 
-			mutex_unlock(&learning_lock);
-
-		}
 	}
 
 	if (safer_mode == true	|| (safer_show_mode == true && printk_allowed == true)
