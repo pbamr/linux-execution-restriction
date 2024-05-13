@@ -64,6 +64,8 @@ struct  safer_info_struct {
 	char **global_list_prog;
 	char **global_list_folder;
 	long global_hash_size;
+	long global_list_progs_bytes;
+	long global_list_folders_bytes;
 };
 
 
@@ -108,12 +110,16 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
 
-	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.global_list_prog_len);
+	seq_printf(proc_show, "PROG. LIST MAX              : %ld\n", info.global_list_prog_len);
 	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.global_list_folder_len);
+
+	seq_printf(proc_show, "PROG. LIST BYTES            : %ld\n", info.global_list_progs_bytes);
+	seq_printf(proc_show, "FOLDER LIST BYTES           : %ld\n", info.global_list_folders_bytes);
+
 
 	seq_printf(proc_show, "MODE SEARCH                 : BSEARCH\n");
 
-	seq_printf(proc_show, "HASH SIZE                   : %ld\n", info.global_hash_size);
+	seq_printf(proc_show, "HASH SIZE MAX               : %ld\n", info.global_hash_size);
 
 
 	seq_printf(proc_show, "\n\n");

@@ -269,9 +269,10 @@ when in doubt remove it
 
 /*your choice */
 #define MAX_DYN 100000
+#define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 200000
 
 
 
@@ -313,6 +314,9 @@ static bool	global_list_learning_argv_init = false;
 static char	**global_list_folder = NULL;
 static long	global_list_folder_len = 0;
 
+static long	global_list_progs_bytes = 0;
+static long	global_list_folders_bytes = 0;
+
 
 
 
@@ -339,6 +343,8 @@ struct  safer_info_struct {
 	char **global_list_prog;
 	char **global_list_folder;
 	long global_hash_size;
+	long global_list_progs_bytes;
+	long global_list_folders_bytes;
 };
 
 
@@ -371,6 +377,8 @@ void safer_info(struct safer_info_struct *info)
 	info->global_list_prog = global_list_prog;
 	info->global_list_folder = global_list_folder;
 	info->global_hash_size = KERNEL_READ_SIZE;
+	info->global_list_progs_bytes = global_list_progs_bytes;
+	info->global_list_folders_bytes = global_list_folders_bytes;
 	return;
 }
 
@@ -2059,6 +2067,67 @@ SYSCALL_DEFINE5(execve,
 					return CONTROL_ERROR;
 				} /* check!? */
 
+				int int_ret = count(_list, MAX_ARG_STRINGS);
+				if (int_ret == 0) {
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+				str = get_user_arg_ptr(_list, 0);		/* String 0 */
+				str_len = strnlen_user(str, MAX_ARG_STRLEN);
+				if (str_len < 1) {
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
+				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				if (list_string == NULL) {
+					mutex_unlock(&control);
+					panic(NO_SECURITY_GUARANTEED);
+				}
+
+				int_ret = copy_from_user(list_string, str, str_len);
+
+				long list_prog_len;
+				int_ret = kstrtol(list_string, 10, &list_prog_len);
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
+				if (int_ret != 0) {
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+				if (list_prog_len < 1) {
+					printk("NO FILE LIST\n");
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+				if (list_prog_len > MAX_DYN) {
+					printk("FILE LIST TO BIG!\n");
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_len);
+
+				/* check bytes */
+				global_list_progs_bytes = 0;
+				for (int n = 0; n < list_prog_len; n++) {
+					str = get_user_arg_ptr(_list, n + 1);
+					global_list_progs_bytes += strnlen_user(str, MAX_ARG_STRLEN);
+				}
+
+				if (global_list_progs_bytes > MAX_DYN_BYTES) {
+					printk("FILE LIST TO BIG!\n");
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+				printk("FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
+
+
 				/* clear */
 				if (global_list_prog_len > 0) {
 					for (int n = 0; n < global_list_prog_len; n++) {
@@ -2074,50 +2143,7 @@ SYSCALL_DEFINE5(execve,
 					}
 				}
 
-
-				int int_ret = count(_list, MAX_ARG_STRINGS);
-				if (int_ret == 0) {
-					mutex_unlock(&control);
-					return CONTROL_ERROR;
-				}
-
-				str = get_user_arg_ptr(_list, 0);		/* String 0 */
-				str_len = strnlen_user(str, MAX_ARG_STRLEN);
-				if (str_len < 1) {
-					mutex_unlock(&control);
-					return CONTROL_ERROR;
-				}
-
-				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
-				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-				if (list_string == NULL) {
-					mutex_unlock(&control);
-					panic(NO_SECURITY_GUARANTEED);
-				}
-
-				int_ret = copy_from_user(list_string, str, str_len);
-
-				int_ret = kstrtol(list_string, 10, &global_list_prog_len);
-				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
-				if (int_ret != 0) {
-					mutex_unlock(&control);
-					return CONTROL_ERROR;
-				}
-
-				if (global_list_prog_len < 1) {
-					printk("NO FILE LIST\n");
-					mutex_unlock(&control);
-					return CONTROL_ERROR;
-				}
-
-				if (global_list_prog_len > MAX_DYN) {
-					printk("FILE LIST TO BIG!\n");
-					mutex_unlock(&control);
-					return CONTROL_ERROR;
-				}
-
-				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_len);
-
+				global_list_prog_len = list_prog_len;
 
 				/* dyn array */
 				global_list_prog = kmalloc(global_list_prog_len * sizeof(char *), GFP_KERNEL);
@@ -2156,22 +2182,6 @@ SYSCALL_DEFINE5(execve,
 					return CONTROL_ERROR;
 				} /* check!? */
 
-				/* clear */
-				if (global_list_folder_len > 0) {
-					for (int n = 0; n < global_list_folder_len; n++) {
-						if (global_list_folder[n] != NULL) {
-							kfree(global_list_folder[n]);
-							global_list_folder[n] = NULL;
-						}
-					}
-
-					if (global_list_folder != NULL) {
-						kfree(global_list_folder);
-						global_list_folder = NULL;
-					}
-				}
-
-
 
 				/* No Syscall Parameter 6 necessary */
 				int_ret = count(_list, MAX_ARG_STRINGS);
@@ -2197,26 +2207,60 @@ SYSCALL_DEFINE5(execve,
 
 				int_ret = copy_from_user(list_string, str, str_len);
 
-				int_ret = kstrtol(list_string, 10, &global_list_folder_len);
+				long list_folder_len;
+				int_ret = kstrtol(list_string, 10, &list_folder_len);
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; };
 				if (int_ret != 0) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				if (global_list_folder_len < 1) {
+				if (list_folder_len < 1) {
 					printk("NO FOLDER LIST\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				if (global_list_folder_len > MAX_DYN) {
+				if (list_folder_len > MAX_DYN) {
 					printk("FOLDER LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				printk("FOLDER LIST ELEMENTS: %ld\n", global_list_folder_len);
+				printk("FOLDER LIST ELEMENTS: %ld\n", list_folder_len);
+
+				/* check bytes */
+				global_list_folders_bytes = 0;
+				for (int n = 0; n < global_list_folder_len; n++) {
+					str = get_user_arg_ptr(_list, n + 1);
+					global_list_folders_bytes += strnlen_user(str, MAX_ARG_STRLEN);
+				}
+
+				if (global_list_folders_bytes > MAX_DYN_BYTES) {
+					printk("FOLDER LIST TO BIG!\n");
+					mutex_unlock(&control);
+					return CONTROL_ERROR;
+				}
+
+				printk("FOLDER LIST BYTES   : %ld\n", global_list_folders_bytes);
+
+
+				/* clear */
+				if (global_list_folder_len > 0) {
+					for (int n = 0; n < global_list_folder_len; n++) {
+						if (global_list_folder[n] != NULL) {
+							kfree(global_list_folder[n]);
+							global_list_folder[n] = NULL;
+						}
+					}
+
+					if (global_list_folder != NULL) {
+						kfree(global_list_folder);
+						global_list_folder = NULL;
+					}
+				}
+
+				global_list_folder_len = list_folder_len;
 
 
 				/* dyn array */ 
