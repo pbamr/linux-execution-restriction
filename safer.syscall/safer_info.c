@@ -50,26 +50,27 @@
 
 
 
-/* proto */
+
+/* proto. */
 struct  safer_info_struct {
+	bool safer_show_mode;
 	bool safer_mode;
-	bool printk_mode;
+	bool printk_allowed;
+	bool printk_deny;
 	bool learning_mode;
 	bool change_mode;
 	long global_list_prog_len;
 	long global_list_folder_len;
 	char **global_list_prog;
 	char **global_list_folder;
+	long global_hash_size;
+	long global_list_progs_bytes;
+	long global_list_folders_bytes;
 };
-
-
-
-
 
 
 static struct safer_info_struct info;
 extern void safer_info(struct safer_info_struct *info);
-
 
 
 
@@ -88,9 +89,17 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "MODE SAFER                  : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER                  : OFF\n");
 
-	if (info.printk_mode == true)
-		seq_printf(proc_show, "MODE PRINTK                 : ON\n");
-	else	seq_printf(proc_show, "MODE PRINTK                 : OFF\n");
+	if (info.safer_show_mode == true)
+		seq_printf(proc_show, "MODE SAFER SHOW ONLY        : ON\n");
+	else	seq_printf(proc_show, "MODE SAFER SHOW ONLY        : OFF\n");
+
+	if (info.printk_allowed == true)
+		seq_printf(proc_show, "MODE PRINTK ALLOWED         : ON\n");
+	else	seq_printf(proc_show, "MODE PRINTK ALLOWED         : OFF\n");
+
+	if (info.printk_deny == true)
+		seq_printf(proc_show, "MODE PRINTK DENY            : ON\n");
+	else	seq_printf(proc_show, "MODE PRINTK DENY            : OFF\n");
 
 	if (info.learning_mode == true)
 		seq_printf(proc_show, "MODE LEARNING               : ON\n");
@@ -101,10 +110,17 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
 
-	seq_printf(proc_show, "FILE LIST MAX               : %ld\n", info.global_list_prog_len);
+	seq_printf(proc_show, "PROG. LIST MAX              : %ld\n", info.global_list_prog_len);
 	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.global_list_folder_len);
 
+	seq_printf(proc_show, "PROG. LIST BYTES            : %ld\n", info.global_list_progs_bytes);
+	seq_printf(proc_show, "FOLDER LIST BYTES           : %ld\n", info.global_list_folders_bytes);
+
+
 	seq_printf(proc_show, "MODE SEARCH                 : BSEARCH\n");
+
+	seq_printf(proc_show, "HASH SIZE MAX               : %ld\n", info.global_hash_size);
+
 
 	seq_printf(proc_show, "\n\n");
 
