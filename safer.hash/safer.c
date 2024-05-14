@@ -21,13 +21,14 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.05.23 2024.02.07, 2024.03.24
+	Date		: 2022.04.22 - 2024.05.13
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.8.1
+	TEST		: Kernel 6.0 - 6.9.0
 			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3
+			  Proxmox, Docker
 
 	Functionality	: Programm execution restriction
 			: Like Windows Feature "Safer"
@@ -80,17 +81,15 @@
 			: 999913 = Log OFF, deny
 
 
-	Important	: ./foo is not allowed
-			: But not absolutely necessary for me
-			: It is not checked whether the program really exists
-			: This is not necessary
+	Important	: ./foo is not a good idea
+			  its works with SHA256 or other, but you don't know where the program file is in the PATH
+			  all programs with this relative PATH and same HASH are allowed
 
-			: "make bzImage" need this feature
-			: The Solutions is Safer OFF
+			: see "make bzImage" etc.
 
-			: scripts will test
-			  scripts will test in this form: "python Path/prog"
-			  scripts in this form ar allowed: "/path/prog"
+	Example		:
+			 a:1000;4702;HASH;./scripts/setlocalversion
+			 a:1000;40032;HASH;arch/x86/tools/relocs
 
 
 	FILE/FOLDER List: 2 DIM. dyn. char Array = string
@@ -272,7 +271,7 @@ when in doubt remove it
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 200000
+#define KERNEL_READ_SIZE 2000000
 
 
 
@@ -2098,37 +2097,37 @@ SYSCALL_DEFINE5(execve,
 					return CONTROL_ERROR;
 				}
 
+				/* new list 0 ? */
 				if (list_prog_len < 1) {
 					printk("NO FILE LIST\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
+				/* new list > MAX_DYN */
 				if (list_prog_len > MAX_DYN) {
 					printk("FILE LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_len);
 
 				/* check bytes */
-				global_list_progs_bytes = 0;
+				/* new list */
+				long list_progs_bytes = 0;
 				for (int n = 0; n < list_prog_len; n++) {
 					str = get_user_arg_ptr(_list, n + 1);
-					global_list_progs_bytes += strnlen_user(str, MAX_ARG_STRLEN);
+					list_progs_bytes += strnlen_user(str, MAX_ARG_STRLEN);
 				}
 
-				if (global_list_progs_bytes > MAX_DYN_BYTES) {
+				if (list_progs_bytes > MAX_DYN_BYTES) {
 					printk("FILE LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				printk("FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
-
-
 				/* clear */
+				/* old list */
 				if (global_list_prog_len > 0) {
 					for (int n = 0; n < global_list_prog_len; n++) {
 						if (global_list_prog[n] != NULL) {
@@ -2143,7 +2142,13 @@ SYSCALL_DEFINE5(execve,
 					}
 				}
 
+				/* global = new */
 				global_list_prog_len = list_prog_len;
+				global_list_progs_bytes = list_progs_bytes;
+
+				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_len);
+				printk("FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
+
 
 				/* dyn array */
 				global_list_prog = kmalloc(global_list_prog_len * sizeof(char *), GFP_KERNEL);
@@ -2164,7 +2169,7 @@ SYSCALL_DEFINE5(execve,
 
 					int_ret = copy_from_user(global_list_prog[n], str, str_len);
 				}
-
+ 
 				mutex_unlock(&control);
 				return(global_list_prog_len);
 
@@ -2215,37 +2220,40 @@ SYSCALL_DEFINE5(execve,
 					return CONTROL_ERROR;
 				}
 
+
+				/* new list = 0 ? */
 				if (list_folder_len < 1) {
 					printk("NO FOLDER LIST\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
+				/* new list > MAX_DYN */
 				if (list_folder_len > MAX_DYN) {
 					printk("FOLDER LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				printk("FOLDER LIST ELEMENTS: %ld\n", list_folder_len);
 
 				/* check bytes */
-				global_list_folders_bytes = 0;
-				for (int n = 0; n < global_list_folder_len; n++) {
+				/* new list */
+				long list_folders_bytes = 0;
+				for (int n = 0; n < list_folder_len; n++) {
 					str = get_user_arg_ptr(_list, n + 1);
-					global_list_folders_bytes += strnlen_user(str, MAX_ARG_STRLEN);
+					list_folders_bytes += strnlen_user(str, MAX_ARG_STRLEN);
 				}
 
-				if (global_list_folders_bytes > MAX_DYN_BYTES) {
+				if (list_folders_bytes > MAX_DYN_BYTES) {
 					printk("FOLDER LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				printk("FOLDER LIST BYTES   : %ld\n", global_list_folders_bytes);
 
 
 				/* clear */
+				/* old list */
 				if (global_list_folder_len > 0) {
 					for (int n = 0; n < global_list_folder_len; n++) {
 						if (global_list_folder[n] != NULL) {
@@ -2260,7 +2268,13 @@ SYSCALL_DEFINE5(execve,
 					}
 				}
 
+				// global = new */
 				global_list_folder_len = list_folder_len;
+				global_list_folders_bytes = list_folders_bytes;
+
+				printk("FOLDER LIST ELEMENTS: %ld\n", global_list_folder_len);
+				printk("FOLDER LIST BYTES   : %ld\n", global_list_folders_bytes);
+
 
 
 				/* dyn array */ 
