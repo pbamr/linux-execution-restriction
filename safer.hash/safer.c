@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2024.05.13
+	Date		: 2022.04.22 - 2024.05.16
 
 	Program		: safer.c
 	Path		: fs/
@@ -88,15 +88,14 @@
 			: see "make bzImage" etc.
 
 	Example		:
-			 a:1000;4702;HASH;./scripts/setlocalversion
-			 a:1000;40032;HASH;arch/x86/tools/relocs
+			 a:1000;1234;HASH;./scripts/setlocalversion
+			 a:1000;1234;HASH;arch/x86/tools/relocs
 
 
 	FILE/FOLDER List: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
-	PROG/FILE
-
+	PROG/FILE	:
 			: DENY is not absolutely necessary
 			  But maybe faster
 
@@ -154,7 +153,7 @@
 			: Example: User
 			: user
 
-	Interpreter
+	Interpreter or other
 			: Interpreter <USER> ONLY. INTERPTETER FILE <USER> <GROUP> allowed
 
 			: ai:1000;12342;HASH;/usr/bin/python = allow INTERPRETER
@@ -171,11 +170,19 @@
 
 
 			: Important:
-			: java is special
-			: ".jar" Files/Prog. only
-			: -classpath is not allowed/supported
+			: java is supported
+			: -jar			java -jar <PATH>/file.jar
+			: -classpath		java -classpath <PATH> <NAME>
+
+
+			: This is also possible
+			: ai:0;1234;HASH;/sbin/insmod
+			: a:0;1234;HASH;/lib/modules/KERNEL-VERSION/../modulx.ko
+
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
+
+
 
 	Install
 			: copy safer.c -> fs/
@@ -848,7 +855,12 @@ static void print_prog_arguments(uid_t user_id,
 					filename);
 
 	for (int n = 0; n < argv_len; n++) {
+		/*
+		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
+		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
+		*/
 		printk("argv[%d]:%s\n", n, argv[n]);
+
 	}
 
 	return;
@@ -878,6 +890,8 @@ user_allowed(	uid_t user_id,
 	string_length += strlen(str_file_size);
 	string_length += strlen(filename);
 	string_length += strlen(hash);
+
+	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:;;;") + 1;
 
 	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1343,7 +1357,7 @@ user_interpreter_allowed(uid_t user_id,
 
 
 /*--------------------------------------------------------------------------------*/
-/* user allowed interpreter and allowed group script file*/
+/* user allowed interpreter etc. and allowed group script file*/
 /* 0 allowed */
 /* -1 deny */
 static int
@@ -1385,8 +1399,12 @@ user_interpreter_file_allowed(	uid_t user_id,
 		if (argv_len == 2) return NOT_ALLOWED;
 
 		size_hash_sum = get_file_size_hash_read(argv[2], HASH_ALG, DIGIT);
-		if (size_hash_sum.retval == NOT_ALLOWED)
+		if (size_hash_sum.retval == NOT_ALLOWED) {
+			if (printk_deny == true)
+				printk("STAT STEP FIRST: USER/PROG. UNKOWN : a:%d;;;%s\n",user_id,
+											argv[2]);
 			return NOT_ALLOWED;
+		}
 
 		/* check file/prog is in list/allowed */
 		if (user_allowed(user_id,
@@ -1413,6 +1431,73 @@ user_interpreter_file_allowed(	uid_t user_id,
 									size_hash_sum.hash_string,
 									argv[2]);
 	}
+
+
+	/* java */
+	if (strcmp(argv[1], "-classpath") == 0) {
+		if (argv_len == 3) return NOT_ALLOWED;
+
+		long str_length;
+		str_length = strlen(argv[2]);
+		str_length += strlen(argv[3]);
+		str_length += strlen("/.class") + 1;
+
+		char *str_class_name = kmalloc(str_length * sizeof(char), GFP_KERNEL);
+		if (str_class_name == NULL) return(NOT_ALLOWED);
+
+		strcpy(str_class_name, argv[2]);
+		strcat(str_class_name, "/");
+		strcat(str_class_name, argv[3]);
+		strcat(str_class_name, ".class");
+
+		size_hash_sum = get_file_size_hash_read(str_class_name, HASH_ALG, DIGIT);
+		if (size_hash_sum.retval == NOT_ALLOWED) {
+			if (printk_deny == true)
+				printk("STAT STEP FIRST: USER/PROG. UNKOWN : a:%d;;;%s\n",user_id,
+											str_class_name);
+
+			kfree(str_class_name);
+			return NOT_ALLOWED;
+		}
+
+		/* check file/prog is in list/allowed */
+		if (user_allowed(user_id,
+				str_class_name,
+				size_hash_sum.file_size,
+				size_hash_sum.hash_string,
+				list,
+				list_len,
+				step) == ALLOWED) {
+
+			kfree(str_class_name);
+			return ALLOWED;
+		}
+
+		if (group_allowed(user_id,
+				str_class_name,
+				size_hash_sum.file_size,
+				size_hash_sum.hash_string,
+				list,
+				list_len,
+				step) == ALLOWED) {
+
+			kfree(str_class_name);
+			return ALLOWED;
+		}
+
+		if (printk_deny == true)
+			printk("%s USER/SCRIPT DENY  : a:%d;%ld;%s;%s\n", step,
+									user_id,
+									size_hash_sum.file_size,
+									size_hash_sum.hash_string,
+									str_class_name);
+
+		//printk("%s\n", str_class_name);
+		kfree(str_class_name);
+
+		return(NOT_ALLOWED);
+	}
+
 
 	/* other */
 	size_hash_sum = get_file_size_hash_read(argv[1], HASH_ALG, DIGIT);
@@ -2079,12 +2164,13 @@ SYSCALL_DEFINE5(execve,
 					return CONTROL_ERROR;
 				}
 
+				/* safer */
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 
-				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) {
 					mutex_unlock(&control);
-					panic(NO_SECURITY_GUARANTEED);
+					return CONTROL_ERROR;
 				}
 
 				int_ret = copy_from_user(list_string, str, str_len);
@@ -2152,6 +2238,7 @@ SYSCALL_DEFINE5(execve,
 
 				/* dyn array */
 				global_list_prog = kmalloc(global_list_prog_len * sizeof(char *), GFP_KERNEL);
+				/* Old list no longer exists. Cannot create a new one */
 				if (global_list_prog == NULL) {
 					mutex_unlock(&control);
 					panic(NO_SECURITY_GUARANTEED);
@@ -2162,6 +2249,7 @@ SYSCALL_DEFINE5(execve,
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_prog[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					/* Old list no longer exists. Cannot create a new one */
 					if (global_list_prog[n] == NULL) {
 						mutex_unlock(&control);
 						panic(NO_SECURITY_GUARANTEED);
@@ -2202,12 +2290,13 @@ SYSCALL_DEFINE5(execve,
 					return CONTROL_ERROR;
 				}
 
-				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
+				/* safer */
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) {
 					mutex_unlock(&control);
-					panic(NO_SECURITY_GUARANTEED);
+					return CONTROL_ERROR;
 				}
 
 				int_ret = copy_from_user(list_string, str, str_len);
@@ -2277,8 +2366,9 @@ SYSCALL_DEFINE5(execve,
 
 
 
-				/* dyn array */ 
+				/* dyn array */
 				global_list_folder = kmalloc(global_list_folder_len * sizeof(char *), GFP_KERNEL);
+				/* Old list no longer exists. Cannot create a new one */
 				if (global_list_folder == NULL) {
 					mutex_unlock(&control);
 					panic(NO_SECURITY_GUARANTEED);
@@ -2289,6 +2379,7 @@ SYSCALL_DEFINE5(execve,
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					/* Old list no longer exists. Cannot create a new one */
 					if (global_list_folder[n] == NULL) {
 						mutex_unlock(&control);
 						panic(NO_SECURITY_GUARANTEED);
