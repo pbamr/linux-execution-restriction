@@ -168,9 +168,9 @@
 
 
 			: Important:
-			: java is special
-			: ".jar" Files/Prog. only
-			: -classpath is not allowed/supported
+			: java is supported
+			: -jar			java -jar <PATH>/file.jar
+			: -classpath		java -classpath <PATH> <NAME>
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
 
@@ -256,7 +256,7 @@ when in doubt remove it
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2000000
+#define KERNEL_READ_SIZE 2123457
 
 
 #define RET_SHELL -2
@@ -1363,8 +1363,12 @@ user_interpreter_file_allowed(	uid_t user_id,
 		if (argv_len == 2) return NOT_ALLOWED;
 
 		size_hash_sum = get_file_size_hash_read(argv[2], HASH_ALG, DIGIT);
-		if (size_hash_sum.retval == NOT_ALLOWED)
+		if (size_hash_sum.retval == NOT_ALLOWED) {
+			if (printk_deny == true)
+				printk("STAT STEP FIRST: USER/PROG. UNKOWN : a:%d;;;%s\n",user_id,
+											argv[2]);
 			return NOT_ALLOWED;
+		}
 
 		/* check file/prog is in list/allowed */
 		if (user_allowed(user_id,
@@ -1391,6 +1395,73 @@ user_interpreter_file_allowed(	uid_t user_id,
 									size_hash_sum.hash_string,
 									argv[2]);
 	}
+
+
+	/* java */
+	if (strcmp(argv[1], "-classpath") == 0) {
+		if (argv_len == 3) return NOT_ALLOWED;
+
+		long str_length;
+		str_length = strlen(argv[2]);
+		str_length += strlen(argv[3]);
+		str_length += strlen("/.class") + 1;
+
+		char *str_class_name = kmalloc(str_length * sizeof(char), GFP_KERNEL);
+		if (str_class_name == NULL) return(NOT_ALLOWED);
+
+		strcpy(str_class_name, argv[2]);
+		strcat(str_class_name, "/");
+		strcat(str_class_name, argv[3]);
+		strcat(str_class_name, ".class");
+
+		size_hash_sum = get_file_size_hash_read(str_class_name, HASH_ALG, DIGIT);
+		if (size_hash_sum.retval == NOT_ALLOWED) {
+			if (printk_deny == true)
+				printk("STAT STEP FIRST: USER/PROG. UNKOWN : a:%d;;;%s\n",user_id,
+											str_class_name);
+
+			kfree(str_class_name);
+			return NOT_ALLOWED;
+		}
+
+		/* check file/prog is in list/allowed */
+		if (user_allowed(user_id,
+				str_class_name,
+				size_hash_sum.file_size,
+				size_hash_sum.hash_string,
+				list,
+				list_len,
+				step) == ALLOWED) {
+
+			kfree(str_class_name);
+			return ALLOWED;
+		}
+
+		if (group_allowed(user_id,
+				str_class_name,
+				size_hash_sum.file_size,
+				size_hash_sum.hash_string,
+				list,
+				list_len,
+				step) == ALLOWED) {
+
+			kfree(str_class_name);
+			return ALLOWED;
+		}
+
+		if (printk_deny == true)
+			printk("%s USER/SCRIPT DENY  : a:%d;%ld;%s;%s\n", step,
+									user_id,
+									size_hash_sum.file_size,
+									size_hash_sum.hash_string,
+									str_class_name);
+
+		//printk("%s\n", str_class_name);
+		kfree(str_class_name);
+
+		return(NOT_ALLOWED);
+	}
+
 
 	/* other */
 	size_hash_sum = get_file_size_hash_read(argv[1], HASH_ALG, DIGIT);
@@ -2058,12 +2129,13 @@ SYSCALL_DEFINE2(set_execve_list,
 					return CONTROL_ERROR;
 				}
 
+				/* safer */
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 
-				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) {
 					mutex_unlock(&control);
-					panic(NO_SECURITY_GUARANTEED);
+					return CONTROL_ERROR;
 				}
 
 				int_ret = copy_from_user(list_string, str, str_len);
@@ -2131,6 +2203,7 @@ SYSCALL_DEFINE2(set_execve_list,
 
 				/* dyn array */
 				global_list_prog = kmalloc(global_list_prog_len * sizeof(char *), GFP_KERNEL);
+				/* Old list no longer exists. Cannot create a new one */
 				if (global_list_prog == NULL) {
 					mutex_unlock(&control);
 					panic(NO_SECURITY_GUARANTEED);
@@ -2141,6 +2214,7 @@ SYSCALL_DEFINE2(set_execve_list,
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_prog[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					/* Old list no longer exists. Cannot create a new one */
 					if (global_list_prog[n] == NULL) {
 						mutex_unlock(&control);
 						panic(NO_SECURITY_GUARANTEED);
@@ -2181,12 +2255,13 @@ SYSCALL_DEFINE2(set_execve_list,
 					return CONTROL_ERROR;
 				}
 
-				if (list_string != NULL) { kfree(list_string); list_string = NULL; }		/* sicher ist sicher */
+				/* safer */
+				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 
 				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) {
 					mutex_unlock(&control);
-					panic(NO_SECURITY_GUARANTEED);
+					return CONTROL_ERROR;
 				}
 
 				int_ret = copy_from_user(list_string, str, str_len);
@@ -2258,6 +2333,7 @@ SYSCALL_DEFINE2(set_execve_list,
 
 				/* dyn array */ 
 				global_list_folder = kmalloc(global_list_folder_len * sizeof(char *), GFP_KERNEL);
+				/* Old list no longer exists. Cannot create a new one */
 				if (global_list_folder == NULL) {
 					mutex_unlock(&control);
 					panic(NO_SECURITY_GUARANTEED);
@@ -2268,6 +2344,7 @@ SYSCALL_DEFINE2(set_execve_list,
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
 					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					/* Old list no longer exists. Cannot create a new one */
 					if (global_list_folder[n] == NULL) {
 						mutex_unlock(&control);
 						panic(NO_SECURITY_GUARANTEED);
