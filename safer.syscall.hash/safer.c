@@ -1360,7 +1360,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 
 	/* java */
 	if (strcmp(argv[1], "-jar") == 0) {
-		if (argv_len == 2) return NOT_ALLOWED;
+		if (argv_len != 3) return NOT_ALLOWED;
 
 		size_hash_sum = get_file_size_hash_read(argv[2], HASH_ALG, DIGIT);
 		if (size_hash_sum.retval == NOT_ALLOWED) {
@@ -1399,7 +1399,7 @@ user_interpreter_file_allowed(	uid_t user_id,
 
 	/* java */
 	if (strcmp(argv[1], "-classpath") == 0) {
-		if (argv_len == 3) return NOT_ALLOWED;
+		if (argv_len != 4) return NOT_ALLOWED;
 
 		long str_length;
 		str_length = strlen(argv[2]);
