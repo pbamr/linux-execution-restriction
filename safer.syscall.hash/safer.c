@@ -291,7 +291,7 @@ when in doubt remove it
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 2000000
 
 
 #define RET_SHELL -2
