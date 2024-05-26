@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.11.15
+	Date		: 2023.11.15 - 2024.05.26
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -36,27 +36,22 @@
 			: If you use binary search, a sorted list ist required.
 
 	List		: ALLOW and DENY list
-			: a: = ALLOW, d: = DENY
-			: a:USER;FILE-SIZE;Path
-			: d:USER;Path
 
 
 	Control		:  0 = safer ON
 			:  1 = safer OFF
 			:  2 = State
-			:  3 = Log ON
-			:  4 = Log OFF
-
-			:  5 = Clear FILE List
-			:  6 = Clear FOLDER List
-
-			:  7 = ROOT LIST IN KERNEL ON
-			:  8 = ROOT LIST IN KERNEL OFF
-
-			:  9 = LOCK changes
-
-			: 10 = learning ON
-			: 11 = learning OFF
+			:  3 = printk allowed LOG ON
+			:  4 = printk allowed Log OFF
+			:  5 = LOCK changes
+			:  6 = learning ON
+			:  7 = learning OFF
+			:  8 = Verbose LOG ON
+			:  9 = Verbose LOG OFF
+			: 10 = Safer Show LOG ON
+			: 11 = Safer Show LOG  OFF
+			: 12 = printk deny on
+			: 13 = printk deny off
 
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
@@ -64,40 +59,38 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
-			: string = allow:USER-ID;FILE-SIZE;PATH
-			: string = deny:GROUP-ID;PATH
+			: a:USER-ID;SIZE;HASH;Path
+			: d:USER-ID;SIZE;HASH;Path
 
-			: a:USER-ID;Path
-			: d:USER-ID;Path
+			: ga:GROUP-ID;HASH;Path
+			: gd:GROUP-ID;HASH;Path
 
-			: ga:GROUP-ID;Path
-			: gd:GROUP-ID;Path
+			: ai:USER-ID;SIZE;HASH;PATH/python
+			: a:ai:USER-ID;SIZE;HASH;PATH/python-script
 
 			: Example:
-			: a:100;1224;/bin/test		= allow file
-			: a:100;1234;/bin/test1		= allow file
-			: a:100;/usr/sbin/		= allow Folder
+			: a:100;1224;HASH;/bin/test		= allow file
+			: a:100;1234;HASH;/bin/test1		= allow file
+			: a:100;/usr/sbin/			= allow Folder
 
-			: d:100;/usr/sbin/test		= deny file
-			: d:100;/usr/sbin/		= deny folder
+			: d:100;HASH;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/			= deny folder
 
-			: ga:100;/usr/sbin/		= allow group folder
-			: gd:100;/usr/bin/		= deny group folder
-			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;1234;/usr/bin/mc	= allow group file
+			: ga:100;usr/sbin/			= allow group folder
+			: gd:100;/usr/bin/			= deny group folder
+			: gd:101;1234;HASH;/usr/bin/mc		= deny group file
+			: ga:101;1234;HASH;/usr/bin/mc		= allow group file
 
-			: Example: User
-			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
-			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
-			: Important:
-			: java is special
-			: java need no "as or gas"
+			: ai:100;1234;HASH;/bin/python		= allow file
+			: a:100;1234;HASH;/bin/test1.py		= allow file
+
+	program start	:
+			: python = allone      = not allowed
+			: python /PATH/test.py = allowed
+			: test1.py             = allowed
+
 
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
@@ -118,6 +111,37 @@
 
 
 
+#define SAFER_ON 0
+#define SAFER_OFF 1
+
+#define STAT 2
+
+#define PRINTK_ALLOWED_ON 3
+#define PRINTK_ALLOWED_OFF 4
+
+#define PRINTK_DENY_ON 12
+#define PRINTK_DENY_OFF 13
+
+#define SAFER_LOCK 5
+
+#define PRINTK_LEARNING_ON 6
+#define PRINTK_LEARNING_OFF 7
+
+#define PRINTK_ARGV_ON 8
+#define PRINTK_ARGV_OFF 9
+
+#define PRINTK_SHOW_ON 10
+#define PRINTK_SHOW_OFF 11
+
+#define LIST_PROG 20
+#define LIST_FOLDER 21
+
+#define SAFER_SORT 30
+
+
+
+
+
 typedef signed long long int s64;
 typedef unsigned long long int u64;
 
@@ -129,12 +153,14 @@ typedef int bool;
 
 
 
-#define VERSION_SYSCALL
+//#define VERSION_SYSCALL
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 501
 #else
 #define SYSCALL_NR 59
 #endif
+
+
 
 
 
@@ -746,30 +772,36 @@ int ErrorMessage()
 	printf("\n");
 	printf("SYSCALL     :  %ld\n", SYSCALL_NR);
 	printf("\n");
-	printf("Parameter   :  0 Safer ON\n");
-	printf("Parameter   :  1 Safer OFF\n");
-	printf("Parameter   :  3 Safer Printk ON\n");
-	printf("Parameter   :  4 Safer Printk OFF\n");
+	printf("Parameter   :  <SON>     Safer ON\n");
+	printf("Parameter   :  <SOFF>    Safer OFF\n");
 	printf("\n");
-	printf("Parameter   :  5 Safer DO NOT allowed any more changes\n");
+	printf("Parameter   :  <STAT>    Safer STAT\n");
 	printf("\n");
-	printf("Parameter   :  6 Safer MODE: LEARNING ON\n");
-	printf("Parameter   :  7 Safer MODE: LEARNING OFF\n");
+	printf("Parameter   :  <PAON>    Safer Printk ALLOWED ON\n");
+	printf("Parameter   :  <PAOFF>   Safer Printk ALLOWED OFF\n");
 	printf("\n");
-	printf("Parameter   :  8 Safer MODE: VERBOSE PARAM ON\n");
-	printf("Parameter   :  9 Safer MODE: VERBOSE PARAM OFF\n");
+	printf("Parameter   :  <PDON>    Safer Printk DENY ON\n");
+	printf("Parameter   :  <PDOFF>   Safer Printk DENY OFF\n");
 	printf("\n");
-	printf("Parameter   : 10 Safer MODE: SAFER SHOW ONLY ON\n");
-	printf("Parameter   : 11 Safer MODE: SAFER SHOW ONLY OFF\n");
+	printf("Parameter   :  <SLOCK>   Safer DO NOT allowed any more changes\n");
 	printf("\n");
-	printf("Parameter   : 20 Safer SET FILE LIST\n");
-	printf("            :    <safer list>\n");
+	printf("Parameter   :  <SLON>    Safer MODE: LEARNING ON\n");
+	printf("Parameter   :  <SLOFF>   Safer MODE: LEARNING OFF\n");
 	printf("\n");
-	printf("Parameter   : 21 Safer SET FOLDER LIST\n");
-	printf("            :    <safer list>\n");
+	printf("Parameter   :  <SVON>    Safer MODE: VERBOSE PARAM ON\n");
+	printf("Parameter   :  <SVOFF>   Safer MODE: VERBOSE PARAM OFF\n");
 	printf("\n");
-	printf("Parameter   : 30 Safer LIST SORT\n");
-	printf("            :    <safer list>\n");
+	printf("Parameter   :  <SHOWON>  Safer MODE: SAFER SHOW ONLY ON\n");
+	printf("Parameter   :  <SHOWOFF> Safer MODE: SAFER SHOW ONLY OFF\n");
+	printf("\n");
+	printf("Parameter   :  <PLIST>   Safer SET FILE LIST\n");
+	printf("            :  <safer list>\n");
+	printf("\n");
+	printf("Parameter   :  <FLIST>   Safer SET FOLDER LIST\n");
+	printf("            :  <safer list>\n");
+	printf("\n");
+	printf("Parameter   :  <SORT>    Safer LIST SORT\n");
+	printf("            :  <safer list>\n");
 
 	printf("\n");
 	printf("\n");
@@ -798,8 +830,38 @@ void main(int argc, char *argv[]) {
 
 
 	if (argc == 2) {
-		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
-		if (NUMBER < 0 || NUMBER > 11) ErrorMessage();
+		for(;;) {
+
+			if (strcmp(argv[1], "SON") == 0) { NUMBER = SAFER_ON; break; }
+			if (strcmp(argv[1], "SOFF") == 0) { NUMBER = SAFER_OFF; break; }
+
+			if (strcmp(argv[1], "STAT") == 0) { NUMBER = STAT; break; }
+
+			if (strcmp(argv[1], "PAON") == 0) { NUMBER = PRINTK_ALLOWED_ON; break; }
+			if (strcmp(argv[1], "PAOFF") == 0) { NUMBER = PRINTK_ALLOWED_OFF; break; }
+
+			if (strcmp(argv[1], "PDON") == 0) { NUMBER = PRINTK_DENY_ON; break; }
+			if (strcmp(argv[1], "PDOFF") == 0) { NUMBER = PRINTK_DENY_OFF; break; };
+
+			if (strcmp(argv[1], "SLOCK") == 0) { NUMBER = SAFER_LOCK; break; }
+
+			if (strcmp(argv[1], "SLON") == 0) { NUMBER = PRINTK_LEARNING_ON; break; }
+			if (strcmp(argv[1], "SLOFF") == 0) { NUMBER = PRINTK_LEARNING_OFF; break; }
+
+			if (strcmp(argv[1], "SVON") == 0) { NUMBER = PRINTK_ARGV_ON; break; }
+			if (strcmp(argv[1], "SVOFF") == 0) { NUMBER = PRINTK_ARGV_OFF; break; }
+
+			if (strcmp(argv[1], "SHOWON") == 0) { NUMBER = PRINTK_SHOW_ON; break; }
+			if (strcmp(argv[1], "SHOWOFF") == 0) { NUMBER = PRINTK_SHOW_OFF; break; }
+
+			if (strcmp(argv[1], "PLIST") == 0) { NUMBER = LIST_PROG; break; }
+			if (strcmp(argv[1], "FLIST") == 0) { NUMBER = LIST_FOLDER; break; }
+
+			if (strcmp(argv[1], "SORT") == 0) { NUMBER = SAFER_SORT; break; }
+
+			ErrorMessage();
+		}
+
 
 
 #ifdef VERSION_SYSCALL
@@ -812,7 +874,13 @@ void main(int argc, char *argv[]) {
 
 
 	if (argc == 3) {
-		if (TryStrToInt64 (argv[1], &NUMBER, 10) != 0) ErrorMessage();
+
+		for (;;) {
+			if (strcmp(argv[1], "PLIST") == 0) { NUMBER = LIST_PROG; break; }
+			if (strcmp(argv[1], "FLIST") == 0) { NUMBER = LIST_FOLDER; break; }
+			if (strcmp(argv[1], "SORT") == 0) { NUMBER = SAFER_SORT; break; }
+			ErrorMessage();
+		}
 
 		switch(NUMBER) {
 			case 20:	TStringListCreate(&all_list);
@@ -851,6 +919,15 @@ void main(int argc, char *argv[]) {
 							file_list.Add(&file_list, all_list.TStringList[n]);
 							continue;
 						}
+
+
+						if (strncmp(all_list.TStringList[n], "gai:", 4) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
 
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
@@ -976,6 +1053,14 @@ void main(int argc, char *argv[]) {
 							file_list.Add(&file_list, all_list.TStringList[n]);
 							continue;
 						}
+
+						if (strncmp(all_list.TStringList[n], "gai:", 4) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
 
 
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
