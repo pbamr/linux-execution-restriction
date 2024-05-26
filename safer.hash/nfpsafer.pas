@@ -24,85 +24,81 @@
 	
 (*
 	Frontend for Linux SYSCALL Extension <execve>
-	
+
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.07.03
-	
-	Program		: fpsafer.pas
+	Date		: 2023.11.15 - 2024.05.26
+
+	Program		: csafer.c
 			: Simple Frontend
-	
+
 			: Control Program for Extension <SYSCALL execve>
 			: It only works as ROOT
-	
+
 			: If you use binary search, a sorted list ist required.
-	
+
 	List		: ALLOW and DENY list
-			: a: = ALLOW, d: = DENY
-			: a:USER;Path
-			: d:USER;Path
-	
-	
+
+
 	Control		:  0 = safer ON
 			:  1 = safer OFF
 			:  2 = State
-			:  3 = Log ON
-			:  4 = Log OFF
-			
-			:  5 = Clear FILE List
-			:  6 = Clear FOLDER List
-			
+			:  3 = printk allowed LOG ON
+			:  4 = printk allowed Log OFF
+			:  5 = LOCK changes
+			:  6 = learning ON
+			:  7 = learning OFF
+			:  8 = Verbose LOG ON
+			:  9 = Verbose LOG OFF
+			: 10 = Safer Show LOG ON
+			: 11 = Safer Show LOG  OFF
+			: 12 = printk deny on
+			: 13 = printk deny off
+
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
-	
-	
+
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
-	
-			: string = allow:USER-ID;FILE-SIZE;PATH
-			: string = deny:GROUP-ID;PATH
-	
-			: a:USER-ID;Path
-			: d:USER-ID;Path
-	
-			: ga:GROUP-ID;Path
-			: gd:GROUP-ID;Path
-	
+
+			: a:USER-ID;SIZE;HASH;Path
+			: d:USER-ID;SIZE;HASH;Path
+
+			: ga:GROUP-ID;HASH;Path
+			: gd:GROUP-ID;HASH;Path
+
+			: ai:USER-ID;SIZE;HASH;PATH/python
+			: a:ai:USER-ID;SIZE;HASH;PATH/python-script
+
 			: Example:
-			: a:100;1234;/bin/test		= allow file
-			: a:100;1234;/bin/test1		= allow file
-			: a:100;/usr/sbin/		= allow Folder
-	
-			: d:100;/usr/sbin/test		= deny file
-			: d:100;/usr/sbin/		= deny folder
-	
-			: ga:100;/usr/sbin/		= allow group folder
-			: gd:100;/usr/bin/		= deny group folder
-			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;1234;/usr/bin/mc	= allow group file
-	
-	
-			: Example: User
-			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: a:100;1224;HASH;/bin/test		= allow file
+			: a:100;1234;HASH;/bin/test1		= allow file
+			: a:100;/usr/sbin/			= allow Folder
 
-			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
+			: d:100;HASH;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/			= deny folder
 
-			: Important:
-			: java is special
-			: java need no "as or gas"
+			: ga:100;usr/sbin/			= allow group folder
+			: gd:100;/usr/bin/			= deny group folder
+			: gd:101;1234;HASH;/usr/bin/mc		= deny group file
+			: ga:101;1234;HASH;/usr/bin/mc		= allow group file
+
+
+
+			: ai:100;1234;HASH;/bin/python		= allow file
+			: a:100;1234;HASH;/bin/test1.py		= allow file
+
+	program start	:
+			: python = allone      = not allowed
+			: python /PATH/test.py = allowed
+			: test1.py             = allowed
+
+
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
-	
-	
-	
-	Thanks		: Niklaus Wirth
-			: Florian Klaempfl and others
-	
+
+
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
 	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 
@@ -127,8 +123,8 @@ Uses
 	
 	
 	
-{$define NEW_SYSCALLVERSION}
-//{$define SYSCALL_VERSION}
+//{$define NEW_SYSCALLVERSION}
+{$define SYSCALL_VERSION}
 
 	
 	
@@ -151,6 +147,47 @@ var
 	N_LIST		: TStringList;
 	n		: qword;
 	
+
+
+
+
+const
+	SAFER_ON = 0;
+	SAFER_OFF = 1;
+
+	STAT = 2;
+
+	PRINTK_ALLOWED_ON = 3;
+	PRINTK_ALLOWED_OFF = 4;
+
+	PRINTK_DENY_ON = 12;
+	PRINTK_DENY_OFF = 13;
+
+	SAFER_LOCK = 5;
+
+	PRINTK_LEARNING_ON = 6;
+	PRINTK_LEARNING_OFF = 7;
+
+	PRINTK_ARGV_ON = 8;
+	PRINTK_ARGV_OFF = 9;
+
+	PRINTK_SHOW_ON = 10;
+	PRINTK_SHOW_OFF = 11;
+
+	LIST_PROG = 20;
+	LIST_FOLDER = 21;
+
+	SAFER_SORT = 30;
+
+
+
+
+
+
+
+
+
+
 	
 	
 	
@@ -166,42 +203,39 @@ begin
 	writeln;
 	writeln('SYSCALL     :  ',  SYSCALL_NR);
 	writeln;
-	writeln('Parameter   :  0 Safer ON');
-	writeln('Parameter   :  1 Safer OFF');
-	writeln('Parameter   :  2 Safer STATE');
-	writeln('Parameter   :  3 Safer Printk ON');
-	writeln('Parameter   :  4 Safer Printk OFF');
+	writeln('Parameter   :  <SON>     Safer ON');
+	writeln('Parameter   :  <SOFF>    Safer OFF');
+	writeln;
+	writeln('Parameter   :  <STAT>    Safer STAT');
+	writeln;
+	writeln('Parameter   :  <PAON>    Safer Printk ALLOWED ON');
+	writeln('Parameter   :  <PAOFF>   Safer Printk ALLOWED OFF');
+	writeln;
+	writeln('Parameter   :  <PDON>    Safer Printk DENY ON');
+	writeln('Parameter   :  <PDOFF>   Safer Printk DENY OFF');
+	writeln;
+	writeln('Parameter   :  <SLOCK>   Safer DO NOT allowed any more changes');
+	writeln;
+	writeln('Parameter   :  <SLON>    Safer MODE: LEARNING ON');
+	writeln('Parameter   :  <SLOFF>   Safer MODE: LEARNING OFF');
+	writeln;
+	writeln('Parameter   :  <SVON>    Safer MODE: VERBOSE PARAM ON');
+	writeln('Parameter   :  <SVOFF>   Safer MODE: VERBOSE PARAM OFF');
+	writeln;
+	writeln('Parameter   :  <SHOWON>  Safer MODE: SAFER SHOW ONLY ON');
+	writeln('Parameter   :  <SHOWOFF> Safer MODE: SAFER SHOW ONLY OFF');
+	writeln;
+	writeln('Parameter   :  <PLIST>   Safer SET FILE LIST');
+	writeln('            :  <safer list>');
+	writeln;
+	writeln('Parameter   :  <FLIST>   Safer SET FOLDER LIST');
+	writeln('            :  <safer list>');
+	writeln;
+	writeln('Parameter   :  <SORT>    Safer LIST SORT');
+	writeln('            :  <safer list>');
 	writeln;
 	writeln;
-	writeln('Parameter   :  5 Safer DO NOT allowed any more changes');
-	writeln;
-
-	writeln('Parameter   :  6 Safer LEARNING ON');
-	writeln('Parameter   :  7 Safer LEARNING OFF');
-	writeln;
-
-	writeln('Parameter   :  8 Safer VERBOSE PARAM ON');
-	writeln('Parameter   :  9 Safer VERBOSE PARAM OFF');
-	writeln;
-
-	writeln('Parameter   : 10 Safer SAFER SHOW ONLY ON');
-	writeln('Parameter   : 11 Safer SAFER SHOW ONLY OFF');
-	writeln;
-
-	writeln('Parameter   : 20 Safer SET FILE LIST');
-	writeln('            :    <safer list>');
-	writeln;
-	writeln('Parameter   : 21 Safer SET FOLDER LIST');
-	writeln('            :    <safer list>');
-	writeln;
-	writeln('Parameter   : 30 Safer SORT LIST');
-	writeln('            :    <safer list>');
-
-	writeln;
-
-	writeln;
-	writeln;
-	halt(1);
+	halt(0);
 end;
 	
 	
@@ -223,11 +257,41 @@ end;
 //simple
 begin
 	if ParamCount = 1 then begin
-		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		if NUMBER > 11 then ErrorMessage;
-		
-		
-		
+
+		while true do begin
+
+			if ParamStr(1) = 'SON' then begin NUMBER := SAFER_ON; break; end;
+			if ParamStr(1) = 'SOFF' then begin NUMBER := SAFER_OFF; break; end;
+
+			if ParamStr(1) = 'STAT' then begin NUMBER := STAT; break; end;
+
+			if ParamStr(1) = 'PAON' then begin NUMBER := PRINTK_ALLOWED_ON; break; end;
+			if ParamStr(1) = 'PAOFF' then begin NUMBER := PRINTK_ALLOWED_OFF; break; end;
+
+			if ParamStr(1) = 'PDON' then begin NUMBER := PRINTK_DENY_ON; break; end;
+			if ParamStr(1) = 'PDOFF' then begin NUMBER := PRINTK_DENY_OFF; break; end;;
+
+			if ParamStr(1) = 'SLOCK' then begin NUMBER := SAFER_LOCK; break; end;
+
+			if ParamStr(1) = 'SLON' then begin NUMBER := PRINTK_LEARNING_ON; break; end;
+			if ParamStr(1) = 'SLOFF' then begin NUMBER := PRINTK_LEARNING_OFF; break; end;
+
+			if ParamStr(1) = 'SVON' then begin NUMBER := PRINTK_ARGV_ON; break; end;
+			if ParamStr(1) = 'SVOFF' then begin NUMBER := PRINTK_ARGV_OFF; break; end;
+
+			if ParamStr(1) = 'SHOWON' then begin NUMBER := PRINTK_SHOW_ON; break; end;
+			if ParamStr(1) = 'SHOWOFF' then begin NUMBER := PRINTK_SHOW_OFF; break; end;
+
+			if ParamStr(1) = 'PLIST' then begin NUMBER := LIST_PROG; break; end;
+			if ParamStr(1) = 'FLIST' then begin NUMBER := LIST_FOLDER; break; end;
+
+			if ParamStr(1) = 'SORT' then begin NUMBER := SAFER_SORT; break; end;
+
+			ErrorMessage;
+		end;;
+
+
+
 {$ifdef SYSCALL_VERSION}
 		writeln(do_SysCall(SYSCALL_NR, 0, 0, 0, 999900 + NUMBER));
 {$else NEW_SYSCALLVERSION}
@@ -237,8 +301,13 @@ begin
 	end;
 	
 	if ParamCount = 2 then begin
-		if TryStrToQword(ParamStr(1), NUMBER) = FALSE then ErrorMessage;
-		
+		while true do begin
+			if ParamStr(1) = 'PLIST' then begin NUMBER := LIST_PROG; break; end;
+			if ParamStr(1) = 'FLIST' then begin NUMBER := LIST_FOLDER; end;
+			if ParamStr(1) = 'SORT' then begin NUMBER := SAFER_SORT; end;
+			ErrorMessage;
+		end;
+
 		case NUMBER of
 			//FILES
 			20:	begin
@@ -272,6 +341,14 @@ begin
 							continue;
 						end;
 						
+
+						if copy(LIST[n], 0, 4) = 'gai:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+
 						if copy(List[n], 0, 2) = 'd:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
@@ -396,6 +473,13 @@ begin
 					
 					for n := 0 to LIST.Count - 1 do begin
 						if copy(LIST[n], 0, 2) = 'a:' then begin
+							if LIST[n][length(LIST[n])] = '/' then continue;
+							N_LIST.add(List[n]);
+							continue;
+						end;
+						
+
+						if copy(LIST[n], 0, 4) = 'gai:' then begin
 							if LIST[n][length(LIST[n])] = '/' then continue;
 							N_LIST.add(List[n]);
 							continue;

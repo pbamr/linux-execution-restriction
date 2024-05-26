@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.11.15, 2024.01.26
+	Date		: 2023.11.15
 
 	Program		: csafer.c
 			: Simple Frontend
