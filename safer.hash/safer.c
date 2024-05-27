@@ -2367,14 +2367,12 @@ SYSCALL_DEFINE5(execve,
 				keep old list
 				*/
 
-				char **list_prog_old = global_list_prog;
+				char **list_prog_temp = NULL;
 
 				/* dyn list */
-				global_list_prog = kmalloc(list_prog_len * sizeof(char *), GFP_KERNEL);
-				/* Cannot create a new list */
-				/* i can not test this */
-				if (global_list_prog == NULL) {
-					global_list_prog = list_prog_old;
+				list_prog_temp = kmalloc(list_prog_len * sizeof(char *), GFP_KERNEL);
+				/* Create a new not ok */
+				if (list_prog_temp == NULL) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
@@ -2383,22 +2381,20 @@ SYSCALL_DEFINE5(execve,
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-					global_list_prog[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-					/* Cannot create a new list */
-					/* i can not test this */
-					if (global_list_prog[n] == NULL) {
+					list_prog_temp[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					/* Create a new list not ok */
+					if (list_prog_temp[n] == NULL) {
 						for (int n_error = 0; n_error < n; n_error++) {
-							kfree(global_list_prog[n_error]);
-							global_list_prog[n_error] = NULL;
+							kfree(list_prog_temp[n_error]);
+							list_prog_temp[n_error] = NULL;
 						}
 
-						kfree(global_list_prog);
-						global_list_prog = list_prog_old;
+						kfree(list_prog_temp);
 						mutex_unlock(&control);
 						return CONTROL_ERROR;
 					}
 
-					int_ret = copy_from_user(global_list_prog[n], str, str_len);
+					int_ret = copy_from_user(list_prog_temp[n], str, str_len);
 				}
 
 
@@ -2406,19 +2402,14 @@ SYSCALL_DEFINE5(execve,
 				/* old list */
 				if (global_list_prog_len > 0) {
 					for (int n = 0; n < global_list_prog_len; n++) {
-						if (list_prog_old[n] != NULL) {
-								kfree(list_prog_old[n]);
-								list_prog_old[n] = NULL;
-						}
+						kfree(global_list_prog[n]);
+						global_list_prog[n] = NULL;
 					}
-
-					if (list_prog_old != NULL) {
-						kfree(list_prog_old);
-						list_prog_old = NULL;
-					}
+					kfree(global_list_prog);
 				}
 
 				/* global = new */
+				global_list_prog = list_prog_temp;
 				global_list_prog_len = list_prog_len;
 				global_list_progs_bytes = list_progs_bytes;
 
@@ -2515,14 +2506,12 @@ SYSCALL_DEFINE5(execve,
 				keep old list
 				*/
 
-				char **list_folder_old = global_list_folder;
+				char **list_folder_temp = NULL;
 
 				/* dyn array */
-				global_list_folder = kmalloc(list_folder_len * sizeof(char *), GFP_KERNEL);
-				/* Cannot create a new list */
-				/* i can not test this */
-				if (global_list_folder == NULL) {
-					global_list_folder = list_folder_old;
+				list_folder_temp = kmalloc(list_folder_len * sizeof(char *), GFP_KERNEL);
+				/* Create a new list not ok */
+				if (list_folder_temp == NULL) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
@@ -2531,22 +2520,20 @@ SYSCALL_DEFINE5(execve,
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-					global_list_folder[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
-					/* Cannot create a new list */
-					/* i can not test this */
-					if (global_list_folder[n] == NULL) {
+					list_folder_temp[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					/* Create a new list not ok*/
+					if (list_folder_temp[n] == NULL) {
 						for (int n_error = 0; n_error < n; n_error++) {
-							kfree(global_list_folder[n_error]);
-							global_list_folder[n_error] = NULL;
+							kfree(list_folder_temp[n_error]);
+							list_folder_temp[n_error] = NULL;
 						}
 
-						kfree(global_list_folder);
-						global_list_folder = list_folder_old;
+						kfree(list_folder_temp);
 						mutex_unlock(&control);
 						return CONTROL_ERROR;
 					}
 
-					int_ret = copy_from_user(global_list_folder[n], str, str_len);
+					int_ret = copy_from_user(list_folder_temp[n], str, str_len);
 				}
 
 
@@ -2554,19 +2541,15 @@ SYSCALL_DEFINE5(execve,
 				/* old list */
 				if (global_list_folder_len > 0) {
 					for (int n = 0; n < global_list_folder_len; n++) {
-						if (list_folder_old[n] != NULL) {
-								kfree(list_folder_old[n]);
-								list_folder_old[n] = NULL;
-						}
+						kfree(global_list_folder[n]);
+						global_list_folder[n] = NULL;
 					}
 
-					if (list_folder_old != NULL) {
-						kfree(list_folder_old);
-						list_folder_old = NULL;
-					}
+					kfree(global_list_folder);
 				}
 
 				/* global = new */
+				global_list_folder = list_folder_temp;
 				global_list_folder_len = list_folder_len;
 				global_list_folders_bytes = list_folders_bytes;
 
