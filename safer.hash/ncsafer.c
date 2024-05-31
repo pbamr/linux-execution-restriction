@@ -25,7 +25,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2023.11.15
+	Date		: 2023.11.15 - 2024.05.26
 
 	Program		: csafer.c
 			: Simple Frontend
@@ -36,27 +36,22 @@
 			: If you use binary search, a sorted list ist required.
 
 	List		: ALLOW and DENY list
-			: a: = ALLOW, d: = DENY
-			: a:USER;FILE-SIZE;Path
-			: d:USER;Path
 
 
 	Control		:  0 = safer ON
 			:  1 = safer OFF
 			:  2 = State
-			:  3 = Log ON
-			:  4 = Log OFF
-
-			:  5 = Clear FILE List
-			:  6 = Clear FOLDER List
-
-			:  7 = ROOT LIST IN KERNEL ON
-			:  8 = ROOT LIST IN KERNEL OFF
-
-			:  9 = LOCK changes
-
-			: 10 = learning ON
-			: 11 = learning OFF
+			:  3 = printk allowed LOG ON
+			:  4 = printk allowed Log OFF
+			:  5 = LOCK changes
+			:  6 = learning ON
+			:  7 = learning OFF
+			:  8 = Verbose LOG ON
+			:  9 = Verbose LOG OFF
+			: 10 = Safer Show LOG ON
+			: 11 = Safer Show LOG  OFF
+			: 12 = printk deny on
+			: 13 = printk deny off
 
 			: 20 = Set FILE List
 			: 21 = Set FOLDER List
@@ -64,40 +59,38 @@
 	ALLOW/DENY List	: 2 DIM. dyn. char Array = string
 			: String 0 = Number of strings
 
-			: string = allow:USER-ID;FILE-SIZE;PATH
-			: string = deny:GROUP-ID;PATH
+			: a:USER-ID;SIZE;HASH;Path
+			: d:USER-ID;SIZE;HASH;Path
 
-			: a:USER-ID;Path
-			: d:USER-ID;Path
+			: ga:GROUP-ID;HASH;Path
+			: gd:GROUP-ID;HASH;Path
 
-			: ga:GROUP-ID;Path
-			: gd:GROUP-ID;Path
+			: ai:USER-ID;SIZE;HASH;PATH/python
+			: a:ai:USER-ID;SIZE;HASH;PATH/python-script
 
 			: Example:
-			: a:100;1224;/bin/test		= allow file
-			: a:100;1234;/bin/test1		= allow file
-			: a:100;/usr/sbin/		= allow Folder
+			: a:100;1224;HASH;/bin/test		= allow file
+			: a:100;1234;HASH;/bin/test1		= allow file
+			: a:100;/usr/sbin/			= allow Folder
 
-			: d:100;/usr/sbin/test		= deny file
-			: d:100;/usr/sbin/		= deny folder
+			: d:100;HASH;/usr/sbin/test		= deny file
+			: d:100;/usr/sbin/			= deny folder
 
-			: ga:100;/usr/sbin/		= allow group folder
-			: gd:100;/usr/bin/		= deny group folder
-			: gd:101;/usr/bin/mc		= deny group file
-			: ga:101;1234;/usr/bin/mc	= allow group file
+			: ga:100;usr/sbin/			= allow group folder
+			: gd:100;/usr/bin/			= deny group folder
+			: gd:101;1234;HASH;/usr/bin/mc		= deny group file
+			: ga:101;1234;HASH;/usr/bin/mc		= allow group file
 
-			: Example: User
-			: user
-			: as:1000;12342/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow 
-			: as:1000;123422/usr/bin/ruby	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
-			: Example: Group
-			: gas:1000;1234/usr/bin/python	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
-			: gas:1000;12343/usr/bin/php	= allow Scripts Language/Interpreter/check parameter/script program /without script file is not allow
 
-			: Important:
-			: java is special
-			: java need no "as or gas"
+			: ai:100;1234;HASH;/bin/python		= allow file
+			: a:100;1234;HASH;/bin/test1.py		= allow file
+
+	program start	:
+			: python = allone      = not allowed
+			: python /PATH/test.py = allowed
+			: test1.py             = allowed
+
 
 
 			: It is up to the ADMIN to keep the list reasonable according to these rules!
@@ -160,7 +153,7 @@ typedef int bool;
 
 
 
-//#define VERSION_SYSCALL
+#define VERSION_SYSCALL
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 501
 #else
@@ -927,6 +920,15 @@ void main(int argc, char *argv[]) {
 							continue;
 						}
 
+
+						if (strncmp(all_list.TStringList[n], "gai:", 4) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
+
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
 							s64 last = strlen(all_list.TStringList[n]);
 							if (all_list.TStringList[n][last - 1] == '/') continue;
@@ -1051,6 +1053,14 @@ void main(int argc, char *argv[]) {
 							file_list.Add(&file_list, all_list.TStringList[n]);
 							continue;
 						}
+
+						if (strncmp(all_list.TStringList[n], "gai:", 4) == 0) {
+							s64 last = strlen(all_list.TStringList[n]);
+							if (all_list.TStringList[n][last - 1] == '/') continue;
+							file_list.Add(&file_list, all_list.TStringList[n]);
+							continue;
+						}
+
 
 
 						if (strncmp(all_list.TStringList[n], "gd:", 2) == 0) {
