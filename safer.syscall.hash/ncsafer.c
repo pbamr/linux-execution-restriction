@@ -153,7 +153,7 @@ typedef int bool;
 
 
 
-//#define VERSION_SYSCALL
+#define VERSION_SYSCALL
 #ifdef VERSION_SYSCALL
 #define SYSCALL_NR 501
 #else

@@ -123,8 +123,8 @@ Uses
 	
 	
 	
-//{$define NEW_SYSCALLVERSION}
-{$define SYSCALL_VERSION}
+{$define NEW_SYSCALLVERSION}
+//{$define SYSCALL_VERSION}
 
 	
 	
