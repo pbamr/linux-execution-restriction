@@ -202,8 +202,10 @@
 			  obj-y	+= safer_learning.o
 
 
+
 	with syscall	: *.tbl
-			  xxx common set_execve_list sys_set_execve_list
+			  SYSCALL NR: my choice: above 500
+			  501 common set_execve_list sys_set_execve_list
 
 			  make bzImage (architecture)
 
@@ -238,7 +240,7 @@
 
 			  Included in the "initramfs"
 			  The best way to find all required programs in the "initramfs" is: test
-			  this with the command "csafer PDON". Then look at dmesg: "deny"
+			  this with the command "csafer SHOWON". Then look at dmesg: "deny"
 
 			  Another option: Include the list in the kernel. Not yet realized
 
@@ -317,17 +319,17 @@ static bool	change_mode = true;	/*true = change_mode allowed */
 static bool	verbose_param_mode = false;
 
 static char	**global_list_prog = NULL;
-static long	global_list_prog_len = 0;
+static long	global_list_prog_size = 0;
 
 static char	**global_list_learning = NULL;
-static long	global_list_learning_len = 0;
+static long	global_list_learning_size = 0;
 
 static char	**global_list_learning_argv = NULL;
-static long	global_list_learning_argv_len = 0;
+static long	global_list_learning_argv_size = 0;
 static bool	global_list_learning_argv_init = false;
 
 static char	**global_list_folder = NULL;
-static long	global_list_folder_len = 0;
+static long	global_list_folder_size = 0;
 
 static long	global_list_progs_bytes = 0;
 static long	global_list_folders_bytes = 0;
@@ -353,8 +355,8 @@ struct  safer_info_struct {
 	bool printk_deny;
 	bool learning_mode;
 	bool change_mode;
-	long global_list_prog_len;
-	long global_list_folder_len;
+	long global_list_prog_size;
+	long global_list_folder_size;
 	char **global_list_prog;
 	char **global_list_folder;
 	long global_hash_size;
@@ -365,10 +367,10 @@ struct  safer_info_struct {
 
 /* proto. */
 struct  safer_learning_struct {
-	long global_list_learning_len;
+	long global_list_learning_size;
 	char **global_list_learning;
 	long global_list_learning_argv_max;
-	long global_list_learning_argv_len;
+	long global_list_learning_argv_size;
 	char **global_list_learning_argv;
 };
 
@@ -387,8 +389,8 @@ void safer_info(struct safer_info_struct *info)
 	info->printk_deny = printk_deny;
 	info->learning_mode = learning_mode;
 	info->change_mode = change_mode;
-	info->global_list_prog_len = global_list_prog_len;
-	info->global_list_folder_len = global_list_folder_len;
+	info->global_list_prog_size = global_list_prog_size;
+	info->global_list_folder_size = global_list_folder_size;
 	info->global_list_prog = global_list_prog;
 	info->global_list_folder = global_list_folder;
 	info->global_hash_size = KERNEL_READ_SIZE;
@@ -402,10 +404,10 @@ void safer_info(struct safer_info_struct *info)
 /* DATA: Only over function */
 void safer_learning(struct safer_learning_struct *learning)
 {
-	learning->global_list_learning_len = global_list_learning_len;
+	learning->global_list_learning_size = global_list_learning_size;
 	learning->global_list_learning = global_list_learning;
 	learning->global_list_learning_argv_max = LEARNING_ARGV_MAX;
-	learning->global_list_learning_argv_len = global_list_learning_argv_len;
+	learning->global_list_learning_argv_size = global_list_learning_argv_size;
 	learning->global_list_learning_argv = global_list_learning_argv;
 	return;
 }
@@ -1379,7 +1381,7 @@ group_interpreter_allowed(uid_t user_id,
 
 	group_info = get_current_groups();
 
-	sprintf(str_user_id, "%d", user_id); 
+	sprintf(str_user_id, "%d", user_id);
 
 
 	for (int n = 0; n < group_info->ngroups; n++) {
@@ -1452,15 +1454,14 @@ param_file(uid_t user_id,
 	/* check interpreter and files */
 	/* user allowed interpreter */
 	/* check "ai:  gai:"  */
-	if (user_interpreter_allowed(
-		user_id,
-		filename,
-		file_size,
-		hash,
-		list,
-		list_len,
-		step) == NOT_ALLOWED) if (group_interpreter_allowed(
-						user_id,
+	if (user_interpreter_allowed(user_id,
+					filename,
+					file_size,
+					hash,
+					list,
+					list_len,
+					step) == NOT_ALLOWED)
+		if (group_interpreter_allowed(user_id,
 						filename,
 						file_size,
 						hash,
@@ -1705,33 +1706,33 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 
 	/* group deny folder */
-	if (global_list_folder_len > 0) {
+	if (global_list_folder_size > 0) {
 		if (group_folder_deny(user_id,
 					filename,
 					global_list_folder,
-					global_list_folder_len,
+					global_list_folder_size,
 					"STAT STEP FIRST:") == NOT_ALLOWED)
 			return RET_SHELL;
 	}
 
 	/* deny folder */
-	if (global_list_folder_len > 0) {
+	if (global_list_folder_size > 0) {
 		if (user_folder_deny(user_id,
 					filename,
 					global_list_folder,
-					global_list_folder_len,
+					global_list_folder_size,
 					"STAT STEP FIRST:") == NOT_ALLOWED)
 			return RET_SHELL;
 	}
 
 	/* deny group */
-	/* if global_list_prog_len = 0, safer_mode not true */
+	/* if global_list_prog_size = 0, safer_mode not true */
 	if (group_deny( user_id,
 			filename,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
-			global_list_prog_len,
+			global_list_prog_size,
 					"STAT STEP FIRST:") == NOT_ALLOWED)
 		return RET_SHELL;
 
@@ -1741,26 +1742,26 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
-			global_list_prog_len,
+			global_list_prog_size,
 					"STAT STEP FIRST:") == NOT_ALLOWED)
 		return RET_SHELL;
 
 	/* group allowed folder */
-	if (global_list_folder_len > 0) {
+	if (global_list_folder_size > 0) {
 		if (group_folder_allowed(user_id,
 					filename,
 					global_list_folder,
-					global_list_folder_len,
+					global_list_folder_size,
 					"STAT STEP FIRST:") == ALLOWED)
 			return ALLOWED;
 	}
 
 	/* user allowed folder */
-	if (global_list_folder_len > 0) {
+	if (global_list_folder_size > 0) {
 		if (user_folder_allowed(user_id,
 					filename,
 					global_list_folder,
-					global_list_folder_len,
+					global_list_folder_size,
 					"STAT STEP FIRST:") == ALLOWED)
 			return ALLOWED;
 	}
@@ -1771,7 +1772,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
-			global_list_prog_len,
+			global_list_prog_size,
 			"STAT STEP FIRST:") == ALLOWED)
 		return ALLOWED;;
 
@@ -1781,7 +1782,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
 			global_list_prog,
-			global_list_prog_len,
+			global_list_prog_size,
 			"STAT STEP FIRST:") == ALLOWED)
 		return ALLOWED;
 
@@ -1796,7 +1797,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 			argv,
 			argv_len,
 			global_list_prog,
-			global_list_prog_len,
+			global_list_prog_size,
 				"STAT STEP FIRST:") == ALLOWED)
 		return ALLOWED;
 
@@ -1834,7 +1835,7 @@ static int exec_second_step(const char *filename)
 		learning(user_id,
 			filename,
 			&global_list_learning,
-			&global_list_learning_len,
+			&global_list_learning_size,
 			HASH_ALG,
 			DIGIT);
 
@@ -1857,11 +1858,11 @@ static int exec_second_step(const char *filename)
 
 
 		/* group deny folder */
-		if (global_list_folder_len > 0) {
+		if (global_list_folder_size > 0) {
 			retval = group_folder_deny(user_id,
 						filename,
 						global_list_folder,
-						global_list_folder_len,
+						global_list_folder_size,
 						"STAT STEP SEC  :");
 
 			if (safer_mode == true) {
@@ -1874,11 +1875,11 @@ static int exec_second_step(const char *filename)
 
 
 		/* deny folder */
-		if (global_list_folder_len > 0) {
+		if (global_list_folder_size > 0) {
 			retval = user_folder_deny(user_id,
 						filename,
 						global_list_folder,
-						global_list_folder_len,
+						global_list_folder_size,
 						"STAT STEP SEC  :");
 
 			if (safer_mode == true) {
@@ -1892,13 +1893,13 @@ static int exec_second_step(const char *filename)
 
 
 		/* deny group */
-		/* if global_list_prog_len = 0, safer_mode not true */
+		/* if global_list_prog_size = 0, safer_mode not true */
 		retval = group_deny(user_id,
 				filename,
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				global_list_prog,
-				global_list_prog_len,
+				global_list_prog_size,
 				"STAT STEP SEC  :");
 
 		if (safer_mode == true) {
@@ -1915,7 +1916,7 @@ static int exec_second_step(const char *filename)
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				global_list_prog,
-				global_list_prog_len,
+				global_list_prog_size,
 				"STAT STEP SEC  :");
 
 		if (safer_mode == true) {
@@ -1927,21 +1928,21 @@ static int exec_second_step(const char *filename)
 
 
 		/* allowed folder */
-		if (global_list_folder_len > 0) {
+		if (global_list_folder_size > 0) {
 			if (group_folder_allowed(user_id,
 						filename,
 						global_list_folder,
-						global_list_folder_len,
+						global_list_folder_size,
 						"STAT STEP SEC  :") == ALLOWED)
 				return ALLOWED;
 		}
 
 		/* allowed folder */
-		if (global_list_folder_len > 0) {
+		if (global_list_folder_size > 0) {
 			if (user_folder_allowed(user_id,
 						filename,
 						global_list_folder,
-						global_list_folder_len,
+						global_list_folder_size,
 						"STAT STEP SEC  :") == ALLOWED)
 				return ALLOWED;
 		}
@@ -1952,7 +1953,7 @@ static int exec_second_step(const char *filename)
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				global_list_prog,
-				global_list_prog_len,
+				global_list_prog_size,
 				"STAT STEP SEC  :") == ALLOWED)
 			return ALLOWED;
 
@@ -1962,7 +1963,7 @@ static int exec_second_step(const char *filename)
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
 				global_list_prog,
-				global_list_prog_len,
+				global_list_prog_size,
 				"STAT STEP SEC  :") == ALLOWED)
 			return ALLOWED;
 
@@ -1973,7 +1974,7 @@ static int exec_second_step(const char *filename)
 						size_hash_sum.file_size,
 						size_hash_sum.hash_string,
 						global_list_prog,
-						global_list_prog_len,
+						global_list_prog_size,
 						"STAT STEP SEC  :") == ALLOWED)
 				return ALLOWED;
 
@@ -1983,7 +1984,7 @@ static int exec_second_step(const char *filename)
 						size_hash_sum.file_size,
 						size_hash_sum.hash_string,
 						global_list_prog,
-						global_list_prog_len,
+						global_list_prog_size,
 						"STAT STEP SEC  :") == ALLOWED)
 				return ALLOWED;
 
@@ -2070,7 +2071,7 @@ static int allowed_exec(struct filename *kernel_filename,
 		learning(user_id,
 			kernel_filename->name,
 			&global_list_learning,
-			&global_list_learning_len,
+			&global_list_learning_size,
 			HASH_ALG,
 			DIGIT);
 
@@ -2079,7 +2080,7 @@ static int allowed_exec(struct filename *kernel_filename,
 				argv_list,
 				argv_list_len,
 				&global_list_learning_argv,
-				&global_list_learning_argv_len,
+				&global_list_learning_argv_size,
 				&global_list_learning_argv_init);
 
 		mutex_unlock(&learning_lock);
@@ -2145,7 +2146,7 @@ SYSCALL_DEFINE5(execve,
 				if (change_mode == false) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
-				if (global_list_prog_len > 0 || global_list_folder_len > 0) {
+				if (global_list_prog_size > 0 || global_list_folder_size > 0) {
 					safer_mode = true;
 					printk("MODE: SAFER ON\n");
 					mutex_unlock(&control);
@@ -2322,8 +2323,8 @@ SYSCALL_DEFINE5(execve,
 
 				int_ret = copy_from_user(list_string, str, str_len);
 
-				long list_prog_len;
-				int_ret = kstrtol(list_string, 10, &list_prog_len);
+				long list_prog_size;
+				int_ret = kstrtol(list_string, 10, &list_prog_size);
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 				if (int_ret != 0) {
 					mutex_unlock(&control);
@@ -2331,14 +2332,14 @@ SYSCALL_DEFINE5(execve,
 				}
 
 				/* new list 0 ? */
-				if (list_prog_len < 1) {
+				if (list_prog_size < 1) {
 					printk("NO FILE LIST\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
 				/* new list > MAX_DYN */
-				if (list_prog_len > MAX_DYN) {
+				if (list_prog_size > MAX_DYN) {
 					printk("FILE LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
@@ -2348,7 +2349,7 @@ SYSCALL_DEFINE5(execve,
 				/* check bytes */
 				/* new list */
 				long list_progs_bytes = 0;
-				for (int n = 0; n < list_prog_len; n++) {
+				for (int n = 0; n < list_prog_size; n++) {
 					str = get_user_arg_ptr(_list, n + 1);
 					list_progs_bytes += strnlen_user(str, MAX_ARG_STRLEN);
 				}
@@ -2370,14 +2371,14 @@ SYSCALL_DEFINE5(execve,
 				char **list_prog_temp = NULL;
 
 				/* dyn list */
-				list_prog_temp = kmalloc(list_prog_len * sizeof(char *), GFP_KERNEL);
+				list_prog_temp = kmalloc(list_prog_size * sizeof(char *), GFP_KERNEL);
 				/* Create a new not ok */
 				if (list_prog_temp == NULL) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				for (int n = 0; n < list_prog_len; n++) {
+				for (int n = 0; n < list_prog_size; n++) {
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
@@ -2390,6 +2391,7 @@ SYSCALL_DEFINE5(execve,
 						}
 
 						kfree(list_prog_temp);
+						list_prog_temp = NULL;
 						mutex_unlock(&control);
 						return CONTROL_ERROR;
 					}
@@ -2400,8 +2402,8 @@ SYSCALL_DEFINE5(execve,
 
 				/* clear */
 				/* old list */
-				if (global_list_prog_len > 0) {
-					for (int n = 0; n < global_list_prog_len; n++) {
+				if (global_list_prog_size > 0) {
+					for (int n = 0; n < global_list_prog_size; n++) {
 						kfree(global_list_prog[n]);
 						global_list_prog[n] = NULL;
 					}
@@ -2410,15 +2412,16 @@ SYSCALL_DEFINE5(execve,
 
 				/* global = new */
 				global_list_prog = list_prog_temp;
-				global_list_prog_len = list_prog_len;
+				list_prog_temp = NULL;
+				global_list_prog_size = list_prog_size;
 				global_list_progs_bytes = list_progs_bytes;
 
-				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_len);
+				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_size);
 				printk("FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
 
- 
+
 				mutex_unlock(&control);
-				return(global_list_prog_len);
+				return(global_list_prog_size);
 
 
 		/* set all folder list */
@@ -2460,8 +2463,8 @@ SYSCALL_DEFINE5(execve,
 
 				int_ret = copy_from_user(list_string, str, str_len);
 
-				long list_folder_len;
-				int_ret = kstrtol(list_string, 10, &list_folder_len);
+				long list_folder_size;
+				int_ret = kstrtol(list_string, 10, &list_folder_size);
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; };
 				if (int_ret != 0) {
 					mutex_unlock(&control);
@@ -2470,14 +2473,14 @@ SYSCALL_DEFINE5(execve,
 
 
 				/* new list = 0 ? */
-				if (list_folder_len < 1) {
+				if (list_folder_size < 1) {
 					printk("NO FOLDER LIST\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
 				/* new list > MAX_DYN */
-				if (list_folder_len > MAX_DYN) {
+				if (list_folder_size > MAX_DYN) {
 					printk("FOLDER LIST TO BIG!\n");
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
@@ -2487,7 +2490,7 @@ SYSCALL_DEFINE5(execve,
 				/* check bytes */
 				/* new list */
 				long list_folders_bytes = 0;
-				for (int n = 0; n < list_folder_len; n++) {
+				for (int n = 0; n < list_folder_size; n++) {
 					str = get_user_arg_ptr(_list, n + 1);
 					list_folders_bytes += strnlen_user(str, MAX_ARG_STRLEN);
 				}
@@ -2509,14 +2512,14 @@ SYSCALL_DEFINE5(execve,
 				char **list_folder_temp = NULL;
 
 				/* dyn array */
-				list_folder_temp = kmalloc(list_folder_len * sizeof(char *), GFP_KERNEL);
+				list_folder_temp = kmalloc(list_folder_size * sizeof(char *), GFP_KERNEL);
 				/* Create a new list not ok */
 				if (list_folder_temp == NULL) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
 				}
 
-				for (int n = 0; n < list_folder_len; n++) {
+				for (int n = 0; n < list_folder_size; n++) {
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
@@ -2529,6 +2532,7 @@ SYSCALL_DEFINE5(execve,
 						}
 
 						kfree(list_folder_temp);
+						list_folder_temp = NULL;
 						mutex_unlock(&control);
 						return CONTROL_ERROR;
 					}
@@ -2536,29 +2540,28 @@ SYSCALL_DEFINE5(execve,
 					int_ret = copy_from_user(list_folder_temp[n], str, str_len);
 				}
 
-
 				/* clear */
 				/* old list */
-				if (global_list_folder_len > 0) {
-					for (int n = 0; n < global_list_folder_len; n++) {
+				if (global_list_folder_size > 0) {
+					for (int n = 0; n < global_list_folder_size; n++) {
 						kfree(global_list_folder[n]);
 						global_list_folder[n] = NULL;
 					}
-
 					kfree(global_list_folder);
 				}
 
 				/* global = new */
 				global_list_folder = list_folder_temp;
-				global_list_folder_len = list_folder_len;
+				list_folder_temp = NULL;
+				global_list_folder_size = list_folder_size;
 				global_list_folders_bytes = list_folders_bytes;
 
-				printk("FILE LIST ELEMENTS: %ld\n", global_list_folder_len);
+				printk("FILE LIST ELEMENTS: %ld\n", global_list_folder_size);
 				printk("FILE LIST BYTES   : %ld\n", global_list_folders_bytes);
 
 
 				mutex_unlock(&control);
-				return(global_list_folder_len);
+				return(global_list_folder_size);
 
 		default:	break;
 	}
