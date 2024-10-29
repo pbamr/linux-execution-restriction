@@ -1,4 +1,4 @@
-.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
  * Urheber: 2022.03.28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
@@ -136,9 +136,9 @@
 			 ga:1000;1234;HASH;PATH-FILE
 			 a:*;1234;HASH;PATH-FILE
 
-			 ai:1000;1234;HASH/PATH-FILE
-			 gai:1000;1234;HASH/PATH-FILE
-			 a:1000;1234;HASH/PATH-SCRIPT-FILE
+			 ai:1000;1234;HASH;PATH-FILE
+			 gai:1000;1234;HASH;PATH-FILE
+			 a:1000;1234;HASH;PATH-SCRIPT-FILE
 
 			 d:1000;PATH-FILE
 			 gd:1000;PATH-FILE
@@ -416,6 +416,14 @@ static int besearch_file(char *str_search,
 	return NOT_IN_LIST;
 }
 
+
+
+/*
+	/usr/bin
+	/usr/bin/ls
+
+	check: is "/usr/bin/" in "/usr/bin/ls"
+*/
 
 static int besearch_folder(	char *str_search,
 				char **list,
@@ -845,16 +853,11 @@ user_wildcard_deny(uid_t user_id,
 	if (list_len == 0)
 		return ALLOWED;
 
-
-	char str_user_id[19];
-	char *str_user_file = NULL;
-	sprintf(str_user_id, "%d", user_id); 
-
 	/* user allowed */
 	int string_length = strlen(filename);
 	string_length += strlen("d:*;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -863,7 +866,7 @@ user_wildcard_deny(uid_t user_id,
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%ld;%s;%s\n", step, str_user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  DENY   : a:%d;%ld;%s;%s\n", step, user_id, file_size, hash, filename);
 
 		kfree(str_user_file);
 		return NOT_ALLOWED;
@@ -888,23 +891,18 @@ user_wildcard_allowed(uid_t user_id,
 	if (list_len == 0)
 		return NOT_ALLOWED;
 
-	char str_user_id[19];
 	char str_file_size[19];
-	char *str_user_file = NULL;
-
-	sprintf(str_user_id, "%u", user_id); 
 	sprintf(str_file_size, "%ld", file_size); 
 
 	/* user allowed */
-	int string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
+	int string_length = strlen(str_file_size);
 	string_length += strlen(filename);
 	string_length += strlen(hash);
 
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:*;;;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -917,7 +915,7 @@ user_wildcard_allowed(uid_t user_id,
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: a:%d;%s;%s;%s\n", step, user_id, str_file_size, hash, filename);
 		kfree(str_user_file);
 		str_user_file = NULL;
 		return ALLOWED;
@@ -944,24 +942,21 @@ user_wildcard_folder_allowed(	uid_t user_id,
 	if (list_len == 0)
 		return NOT_ALLOWED;
 
-	char str_user_id[19];
-	sprintf(str_user_id, "%d", user_id); 
-
-	char *str_folder = NULL;
 
 	int string_length = strlen(filename);
 	string_length += strlen("a:*;") + 1;
 
-	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
 		return NOT_ALLOWED;
 
 	strcpy(str_folder, "a:*;");
 	strcat(str_folder, filename);
+
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%ld;%s;%s\n", step, str_user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: a:%d;%ld;%s;%s\n", step, user_id, file_size, hash, filename);
 
 		kfree(str_folder);
 		return ALLOWED;
@@ -988,18 +983,10 @@ user_wildcard_folder_deny(uid_t user_id,
 		return ALLOWED;
 
 
-	char str_user_id[19];
-	char str_file_size[19];
-	char *str_user_file = NULL;
-
-
-	sprintf(str_user_id, "%d", user_id); 
-	sprintf(str_file_size, "%ld", file_size); 
-
 	int string_length = strlen(filename);
 	string_length += strlen("d:*;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -1008,7 +995,7 @@ user_wildcard_folder_deny(uid_t user_id,
 
 	if (besearch_folder(str_user_file, list, list_len) == 0) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%ld;%s;%s\n", step, str_user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  DENY   : a:%d;%ld;%s;%s\n", step, user_id, file_size, hash, filename);
 
 		kfree(str_user_file);
 		return NOT_ALLOWED;
@@ -1873,13 +1860,13 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 					filename,
 					size_hash_sum.file_size,
 					size_hash_sum.hash_string,
-					global_list_prog,
-					global_list_prog_size,
+					global_list_folder,
+					global_list_folder_size,
 					"STAT STEP FIRST:") == NOT_ALLOWED)
 		return RET_SHELL;
 
 	/* wildcard deny user */
-	if (user_wildcard_deny(user_id,
+	if (user_wildcard_deny(	user_id,
 				filename,
 				size_hash_sum.file_size,
 				size_hash_sum.hash_string,
@@ -1920,7 +1907,7 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 		return RET_SHELL;
 
 	/* deny user */
-	if (user_deny(user_id,
+	if (user_deny(	user_id,
 			filename,
 			size_hash_sum.file_size,
 			size_hash_sum.hash_string,
@@ -1943,12 +1930,12 @@ static int exec_first_step(uid_t user_id, const char *filename, char **argv, lon
 
 	/* all wildcard user */
 	if (user_wildcard_allowed(user_id,
-			filename,
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
-			global_list_prog,
-			global_list_prog_size,
-			"STAT STEP FIRST:") == ALLOWED)
+				filename,
+				size_hash_sum.file_size,
+				size_hash_sum.hash_string,
+				global_list_prog,
+				global_list_prog_size,
+				"STAT STEP FIRST:") == ALLOWED)
 		return ALLOWED;;
 
 	/* group allowed folder */
@@ -2063,8 +2050,8 @@ static int exec_second_step(const char *filename)
 						filename,
 						size_hash_sum.file_size,
 						size_hash_sum.hash_string,
-						global_list_prog,
-						global_list_prog_size,
+						global_list_folder,
+						global_list_folder_size,
 						"STAT STEP FIRST:") == NOT_ALLOWED)
 			return RET_SHELL;
 
