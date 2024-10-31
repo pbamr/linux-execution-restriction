@@ -275,8 +275,6 @@ when in doubt remove it
 #define KERNEL_READ_SIZE 2000000
 
 
-
-
 #define RET_SHELL -2
 #define ALLOWED 0
 #define NOT_ALLOWED -1
@@ -2349,13 +2347,14 @@ static int allowed_exec(struct filename *kernel_filename,
 
 
 /*--------------------------------------------------------------------------------*/
-SYSCALL_DEFINE5(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp,
+
+/* SYSCALL NR: 501 or other */
+SYSCALL_DEFINE2(set_execve_list,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
+
+
 
 	uid_t	user_id;
 	int	str_len = 0;

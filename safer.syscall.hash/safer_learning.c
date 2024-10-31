@@ -16,8 +16,8 @@
 
 
 
-   I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
-   Admirable ballet dancers.
+  I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+  "LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 
  */
 
@@ -52,10 +52,10 @@
 
 /* proto. */
 struct  safer_learning_struct {
-	long global_list_learning_len;
+	long global_list_learning_size;
 	char **global_list_learning;
 	long global_list_learning_argv_max;
-	long global_list_learning_argv_len;
+	long global_list_learning_argv_size;
 	char **global_list_learning_argv;
 };
 
@@ -81,10 +81,10 @@ static int safer_learning_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "INFO learning\n\n");
 
 	seq_printf(proc_show, "FILES:\n\n");
-	seq_printf(proc_show, "FILE learning LIST MAX       : %ld\n", learning.global_list_learning_len);
+	seq_printf(proc_show, "FILE learning LIST SIZE      : %ld\n", learning.global_list_learning_size);
 
-	if (learning.global_list_learning_len > 0) {
-		for (n = 0; n < learning.global_list_learning_len; n++) {
+	if (learning.global_list_learning_size > 0) {
+		for (n = 0; n < learning.global_list_learning_size; n++) {
 			seq_printf(proc_show, "%s\n", learning.global_list_learning[n]);
 		}
 	}
@@ -94,7 +94,7 @@ static int safer_learning_display(struct seq_file *proc_show, void *v)
 
 
 	seq_printf(proc_show, "ARGV learning LIST MAX       : %ld\n", learning.global_list_learning_argv_max);
-	seq_printf(proc_show, "ARGV learning LIST LEN       : %ld\n", learning.global_list_learning_argv_len);
+	seq_printf(proc_show, "ARGV learning LIST SIZE      : %ld\n", learning.global_list_learning_argv_size);
 
 	for (n = 0; n < learning.global_list_learning_argv_max; n++) {
 		if (learning.global_list_learning_argv[n] == NULL) return 0;
