@@ -15,9 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+  I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
+  "LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
 
-  I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, VAKHTANG CHABUKIANI and the "LAS CUATRO JOYAS DEL BALLET CUBANO".
-  Admirable ballet dancers.
 
  */
 
@@ -59,8 +59,8 @@ struct  safer_info_struct {
 	bool printk_deny;
 	bool learning_mode;
 	bool change_mode;
-	long global_list_prog_len;
-	long global_list_folder_len;
+	long global_list_prog_size;
+	long global_list_folder_size;
 	char **global_list_prog;
 	char **global_list_folder;
 	long global_hash_size;
@@ -110,8 +110,8 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	else	seq_printf(proc_show, "MODE SAFER CHANGE ALLOWED   : OFF\n");
 
 
-	seq_printf(proc_show, "PROG. LIST MAX              : %ld\n", info.global_list_prog_len);
-	seq_printf(proc_show, "FOLDER LIST MAX             : %ld\n", info.global_list_folder_len);
+	seq_printf(proc_show, "PROG. LIST SIZE             : %ld\n", info.global_list_prog_size);
+	seq_printf(proc_show, "FOLDER LIST SIZE            : %ld\n", info.global_list_folder_size);
 
 	seq_printf(proc_show, "PROG. LIST BYTES            : %ld\n", info.global_list_progs_bytes);
 	seq_printf(proc_show, "FOLDER LIST BYTES           : %ld\n", info.global_list_folders_bytes);
@@ -125,13 +125,13 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "\n\n");
 
 	seq_printf(proc_show, "FOLDER:\n\n");
-	for (n = 0; n < info.global_list_folder_len; n++) {
+	for (n = 0; n < info.global_list_folder_size; n++) {
 		seq_printf(proc_show, "%s\n", info.global_list_folder[n]);
 	}
 
 	seq_printf(proc_show, "\n\n");
 	seq_printf(proc_show, "FILES:\n\n");
-	for (n = 0; n < info.global_list_prog_len; n++) {
+	for (n = 0; n < info.global_list_prog_size; n++) {
 		seq_printf(proc_show, "%s\n", info.global_list_prog[n]);
 	}
 
