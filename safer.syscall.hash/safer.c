@@ -484,7 +484,7 @@ static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max, const 
 		return hash_sum;
 	}
 
-	shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
+	shash = kzalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
 	if (!shash) {
 		hash_sum.retval = ERROR;
 		return hash_sum;
@@ -855,7 +855,7 @@ user_wildcard_deny(uid_t user_id,
 	int string_length = strlen(filename);
 	string_length += strlen("d:*;") + 1;
 
-	char *str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -900,7 +900,7 @@ user_wildcard_allowed(uid_t user_id,
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:*;;;") + 1;
 
-	char *str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -944,7 +944,7 @@ user_wildcard_folder_allowed(	uid_t user_id,
 	int string_length = strlen(filename);
 	string_length += strlen("a:*;") + 1;
 
-	char *str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
 		return NOT_ALLOWED;
 
@@ -984,7 +984,7 @@ user_wildcard_folder_deny(uid_t user_id,
 	int string_length = strlen(filename);
 	string_length += strlen("d:*;") + 1;
 
-	char *str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -1032,7 +1032,7 @@ user_deny(uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("d:;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -1086,7 +1086,7 @@ group_deny(	uid_t user_id,
 		string_length += strlen(filename);
 		string_length += strlen("gd:;") +1;
 
-		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
 			return NOT_ALLOWED;
 
@@ -1136,7 +1136,7 @@ user_folder_deny(uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("d:;") + 1;
 
-	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
 		return NOT_ALLOWED;
 
@@ -1194,7 +1194,7 @@ group_folder_deny(uid_t user_id,
 		string_length += strlen("gd:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
-		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
 			return NOT_ALLOWED;
 
@@ -1250,7 +1250,7 @@ user_allowed(	uid_t user_id,
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:;;;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_user_file)
 		return NOT_ALLOWED;
 
@@ -1316,7 +1316,7 @@ group_allowed(uid_t user_id,
 		string_length += strlen("ga:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
-		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
 			return NOT_ALLOWED;
 
@@ -1372,7 +1372,7 @@ user_folder_allowed(	uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("a:;") + 1;
 
-	str_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_folder)
 		return NOT_ALLOWED;
 
@@ -1432,7 +1432,7 @@ group_folder_allowed(	uid_t user_id,
 		string_length += strlen("ga:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
-		str_group_folder = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_folder)
 			return NOT_ALLOWED;
 
@@ -1487,7 +1487,7 @@ user_interpreter_allowed(uid_t user_id,
 	string_length += strlen(filename);
 	string_length += strlen("ai:;;;") + 1;
 
-	str_user_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (str_user_file == NULL)
 		return NOT_ALLOWED;
 
@@ -1552,7 +1552,7 @@ group_interpreter_allowed(uid_t user_id,
 		string_length += strlen("gai:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
-		str_group_file = kmalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 		if (!str_group_file)
 			return NOT_ALLOWED;
 
@@ -1692,7 +1692,7 @@ param_file(uid_t user_id,
 		str_length += strlen(argv[3]);
 		str_length += strlen("/.class") + 1;
 
-		char *str_class_name = kmalloc(str_length * sizeof(char), GFP_KERNEL);
+		char *str_class_name = kzalloc(str_length * sizeof(char), GFP_KERNEL);
 		if (str_class_name == NULL) return(NOT_ALLOWED);
 
 		strcpy(str_class_name, argv[2]);
@@ -2544,7 +2544,7 @@ SYSCALL_DEFINE2(set_execve_list,
 				/* safer */
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 
-				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				list_string = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
@@ -2600,7 +2600,7 @@ SYSCALL_DEFINE2(set_execve_list,
 				char **list_prog_temp = NULL;
 
 				/* dyn list */
-				list_prog_temp = kmalloc(list_prog_size * sizeof(char *), GFP_KERNEL);
+				list_prog_temp = kzalloc(list_prog_size * sizeof(char *), GFP_KERNEL);
 				/* Create a new not ok */
 				if (list_prog_temp == NULL) {
 					mutex_unlock(&control);
@@ -2611,7 +2611,7 @@ SYSCALL_DEFINE2(set_execve_list,
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-					list_prog_temp[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					list_prog_temp[n] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 					/* Create a new list not ok */
 					if (list_prog_temp[n] == NULL) {
 						for (int n_error = 0; n_error < n; n_error++) {
@@ -2684,7 +2684,7 @@ SYSCALL_DEFINE2(set_execve_list,
 				/* safer */
 				if (list_string != NULL) { kfree(list_string); list_string = NULL; }
 
-				list_string = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+				list_string = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 				if (list_string == NULL) {
 					mutex_unlock(&control);
 					return CONTROL_ERROR;
@@ -2741,7 +2741,7 @@ SYSCALL_DEFINE2(set_execve_list,
 				char **list_folder_temp = NULL;
 
 				/* dyn array */
-				list_folder_temp = kmalloc(list_folder_size * sizeof(char *), GFP_KERNEL);
+				list_folder_temp = kzalloc(list_folder_size * sizeof(char *), GFP_KERNEL);
 				/* Create a new list not ok */
 				if (list_folder_temp == NULL) {
 					mutex_unlock(&control);
@@ -2752,7 +2752,7 @@ SYSCALL_DEFINE2(set_execve_list,
 					str = get_user_arg_ptr(_list, n + 1);		/* String 0 */
 					str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-					list_folder_temp[n] = kmalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+					list_folder_temp[n] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
 					/* Create a new list not ok*/
 					if (list_folder_temp[n] == NULL) {
 						for (int n_error = 0; n_error < n; n_error++) {
