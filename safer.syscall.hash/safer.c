@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2022.09.17, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2025.03.06, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.03.06, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,12 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2024.10.28
+	Date		: 2022.04.22 - 2025.03.06
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.11.0
+	TEST		: Kernel 6.0 - 6.13
 
 			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3
 			  Proxmox, Docker
