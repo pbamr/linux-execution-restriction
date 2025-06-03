@@ -391,11 +391,6 @@ void safer_learning(struct safer_learning_struct *learning)
 
 
 
-static void do_nothing(void) {
-	printk("NOTHING\n");
-}
-
-
 /*--------------------------------------------------------------------------------*/
 static int besearch_file(char *str_search,
 			char **list,
@@ -2022,7 +2017,7 @@ static bool exec_first_step(uid_t user_id, const char *filename, char **argv, lo
 
 
 /*--------------------------------------------------------------------------------*/
-static inline bool exec_second_step(const char *filename)
+static bool exec_second_step(const char *filename)
 {
 
 
@@ -2360,10 +2355,12 @@ static bool allowed_exec(struct filename *kernel_filename,
 
 
 
-/*--------------------------------------------------------------------------------*/
 
-/* SYSCALL NR: 501 or other */
-SYSCALL_DEFINE2(set_execve_list,
+/*--------------------------------------------------------------------------------*/
+SYSCALL_DEFINE5(execve,
+		const char __user *, filename,
+		const char __user *const __user *, _argv,
+		const char __user *const __user *, envp,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -2482,6 +2479,27 @@ SYSCALL_DEFINE2(set_execve_list,
 				mutex_unlock(&control);
 				return CONRTOL_OK;
 
+
+		/* safer show on */
+		/*case 999910:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
+				safer_show_mode = true;
+				printk("MODE: SAFER SHOW ONLY ON\n");
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+		*/
+
+		/* safer show off */
+		/*case 999911:	if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER SHOW ONLY OFF\n");
+				safer_show_mode = false;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+		*/
 
 
 		/* printk deny ON */
@@ -2783,39 +2801,22 @@ SYSCALL_DEFINE2(set_execve_list,
 				mutex_unlock(&control);
 				return(global_list_folder_size);
 
-		default:	printk("ERROR: COMMAND NOT IN LIST\n");
-				return CONTROL_ERROR;
+
+		default:	break;
 	}
-}
 
-
-
-
-
-SYSCALL_DEFINE3(execve,
-		const char __user *, filename,
-		const char __user *const __user *, _argv,
-		const char __user *const __user *, envp)
-{
 
 	if (safer_mode == true) {
+		/*mutex_lock(&allowed_lock);*/
 		struct user_arg_ptr argv = { .ptr.native = _argv };
 		if (allowed_exec(getname(filename), argv) == false) {
+			/*mutex_unlock(&allowed_lock);*/
 			return RET_SHELL;
 		}
+		/*mutex_unlock(&allowed_lock);*/
+
 	}
 
 	return do_execve(getname(filename), _argv, envp);
+
 }
-
-
-
-
-
-
-
-
-
-
-
-
