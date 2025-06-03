@@ -1537,6 +1537,13 @@ static struct linux_binprm *alloc_bprm(int fd, struct filename *filename, int fl
 	struct file *file;
 	int retval = -ENOMEM;
 
+/*
+#ifdef add_safer
+	if (safer_mode == true) {
+		if (exec_second_step(filename->name) == false) return(ERR_PTR(-1));
+	}
+#endif
+*/
 
 	file = do_open_execat(fd, filename, flags);
 	if (IS_ERR(file))
