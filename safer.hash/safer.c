@@ -2244,7 +2244,7 @@ static bool allowed_exec(struct filename *kernel_filename,
 	char			**argv_list = NULL;
 	long			argv_list_len = 0;
 	long			str_len;
-	int			retval;
+	bool			retval;
 	uid_t			user_id;
 
 
