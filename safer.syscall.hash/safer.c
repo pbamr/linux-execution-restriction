@@ -1,5 +1,5 @@
 /* Copyright (c) 2022/03/28, 2025.05.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.05.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.06.07, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -391,11 +391,6 @@ void safer_learning(struct safer_learning_struct *learning)
 
 
 
-static void do_nothing(void) {
-	printk("NOTHING\n");
-}
-
-
 /*--------------------------------------------------------------------------------*/
 static int besearch_file(char *str_search,
 			char **list,
@@ -638,6 +633,8 @@ static ssize_t get_file_size(const char *filename)
 }
 
 
+
+
 /*--------------------------------------------------------------------------------*/
 static void learning_argv(uid_t user_id,
 			const char *filename,
@@ -662,13 +659,13 @@ static void learning_argv(uid_t user_id,
 		return;
 
 	file_size = get_file_size(filename);
-	/* file not exist or empty */
+	// file not exist or empty 
 	if (file_size < 1)
 		return;
 
 
-	/* init list, vollstaendig max Zeilen */
-	/* Only One */
+	// init list, vollstaendig max Zeilen
+	// Only One 
 	if (*list_init == false) {
 		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_KERNEL);
 		if (*list == NULL) {
@@ -712,7 +709,7 @@ static void learning_argv(uid_t user_id,
 
 	if (search(str_learning, *list, *list_len) != 0) {
 
-		/* Wenn Umlauf? */
+		// Wenn Umlauf?
 		if ((*list)[*list_len] != NULL)
 			kfree((*list)[*list_len]);
 
@@ -725,7 +722,7 @@ static void learning_argv(uid_t user_id,
 		strcpy((*list)[*list_len], str_learning);
 
 		*list_len += 1;
-		/* check argv_len > lerning_argv_max */
+		// check argv_len > lerning_argv_max
 		if (*list_len > LEARNING_ARGV_MAX - 1)
 			*list_len = 0;
 
@@ -734,6 +731,9 @@ static void learning_argv(uid_t user_id,
 	kfree(str_learning);
 	return;
 }
+
+
+
 
 
 static void learning(	uid_t user_id,
@@ -769,8 +769,6 @@ static void learning(	uid_t user_id,
 
 	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_learning) {
-
-
 		return;
 	}
 
@@ -786,18 +784,16 @@ static void learning(	uid_t user_id,
 
 	if (search(str_learning, *list, *list_len) != 0) {
 
-		/* init */
-		if (*list_len == 0) {
+		// init
+	if (*list_len == 0) {
 			*list = kzalloc(sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
-
 				kfree(str_learning);
 				return;
 			}
 
 			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[0] == NULL) {
-
 				kfree(str_learning);
 				return;
 			}
@@ -808,7 +804,6 @@ static void learning(	uid_t user_id,
 		else {
 			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
-
 				kfree(str_learning);
 				return;
 			}
@@ -816,9 +811,8 @@ static void learning(	uid_t user_id,
 			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 			if ((*list)[*list_len] == NULL) {
 
-				/* back liste + 1 */
-				*list = krealloc(*list, (*list_len ) * sizeof(char *), GFP_KERNEL);
-
+				// back liste + 1
+				*list = krealloc(*list, *list_len * sizeof(char *), GFP_KERNEL);
 				kfree(str_learning);
 				return;
 			}
@@ -831,6 +825,107 @@ static void learning(	uid_t user_id,
 	kfree(str_learning);
 	return;
 }
+
+
+
+
+/*--------------------------------------------------------------------------------*/
+/* test */
+/*direkter Zugriff auf Liste*/
+/*
+static void learning(	uid_t user_id,
+			const char *filename,
+			char const *hash_alg)
+{
+
+	char	str_user_id[19];
+	char	str_file_size[19];
+	char	*str_learning =  NULL;
+	int	string_length = 0;
+	struct	sum_hash_struct size_hash_sum;
+
+
+	if (filename[0] != '/')
+		return;
+
+	//size_hash_sum = get_file_size_hash_read(filename);
+	size_hash_sum = get_file_size_hash_read(filename);
+	if (size_hash_sum.retval == false) return;
+
+	sprintf(str_user_id, "%u", user_id);
+	sprintf(str_file_size, "%ld", size_hash_sum.file_size);
+
+	string_length = strlen(str_user_id);
+	string_length += strlen(str_file_size);
+	string_length += strlen(filename);
+	string_length += strlen(size_hash_sum.hash_string);
+	string_length += strlen("a:;;;") + 1;
+
+
+	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	if (!str_learning) {
+		return;
+	}
+
+	strcpy(str_learning, "a:");
+	strcat(str_learning, str_user_id);
+	strcat(str_learning, ";");
+	strcat(str_learning, str_file_size);
+	strcat(str_learning, ";");
+	strcat(str_learning, size_hash_sum.hash_string);
+	strcat(str_learning, ";");
+	strcat(str_learning, filename);
+
+
+	if (search(str_learning, global_list_learning, global_list_learning_size) != 0) {
+
+		/// init
+		if (global_list_learning_size == 0) {
+			global_list_learning = kzalloc(sizeof(char *), GFP_KERNEL);
+			if (global_list_learning == NULL) {
+				kfree(str_learning);
+				return;
+			}
+
+			global_list_learning[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+			if (global_list_learning[0] == NULL) {
+				kfree(str_learning);
+				return;
+			}
+
+			strcpy(global_list_learning[0], str_learning);
+			global_list_learning_size = 1;
+		}
+		else {
+			global_list_learning = krealloc(global_list_learning, (global_list_learning_size + 1) * sizeof(char *), GFP_KERNEL);
+			if (global_list_learning == NULL) {
+				kfree(str_learning);
+				return;
+			}
+
+			global_list_learning[global_list_learning_size] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+			if (global_list_learning[global_list_learning_size] == NULL) {
+
+				// back liste + 1
+				global_list_learning = krealloc(global_list_learning, global_list_learning_size * sizeof(char *), GFP_KERNEL);
+				kfree(str_learning);
+				return;
+			}
+
+			strcpy(global_list_learning[global_list_learning_size], str_learning);
+			global_list_learning_size += 1;
+		}
+	}
+
+	kfree(str_learning);
+	return;
+}
+
+*/
+
+
+
+
 
 
 /*--------------------------------------------------------------------------------*/
@@ -2022,7 +2117,7 @@ static bool exec_first_step(uid_t user_id, const char *filename, char **argv, lo
 
 
 /*--------------------------------------------------------------------------------*/
-static inline bool exec_second_step(const char *filename)
+static bool exec_second_step(const char *filename)
 {
 
 
@@ -2047,16 +2142,20 @@ static inline bool exec_second_step(const char *filename)
 	if (learning_mode == true) {
 
 		/* works too */
-		mutex_lock(&learning_lock);
+		if (mutex_trylock(&learning_lock)) {
 
-		learning(user_id,
-			filename,
-			&global_list_learning,
-			&global_list_learning_size,
-			HASH_ALG);
+			learning(user_id,
+				filename,
+				&global_list_learning,
+				&global_list_learning_size,
+				HASH_ALG);
 
-		mutex_unlock(&learning_lock);
+			mutex_unlock(&learning_lock);
+		}
 	}
+
+
+	if (safer_mode == false) return true;
 
 
 
@@ -2231,19 +2330,26 @@ static inline bool exec_second_step(const char *filename)
 
 
 /*--------------------------------------------------------------------------------*/
-static bool allowed_exec(struct filename *kernel_filename,
-			struct user_arg_ptr argv)
+//static bool allowed_exec(const filename *kernel_filename,
+//			 struct user_arg_ptr argv)
+//{
+
+
+/*
+static bool allowed_exec(const char *filename,
+			 struct user_arg_ptr argv)
 {
 
-/*	if (safer_mode == false) {
-		vfree(_argv);
-		return true;
-	}
+	printk("%s\n", filename);
+	return true;
+}
 */
 
 
-
-	//struct user_arg_ptr argv = { .ptr.native = _argv };
+/*--------------------------------------------------------------------------------*/
+static bool allowed_exec(const char *filename,
+			struct user_arg_ptr argv)
+{
 
 	const char __user	*str;
 	char			**argv_list = NULL;
@@ -2256,7 +2362,7 @@ static bool allowed_exec(struct filename *kernel_filename,
 
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
 
-	/* Limit argv[n] = 4000 */
+	/* Limit argv[n] = 10000 */
 	/* Reason glibc */
 	/* A GOOD IDEA? I don't know? */
 	/* But it's works */
@@ -2264,18 +2370,18 @@ static bool allowed_exec(struct filename *kernel_filename,
 	for (int n = 0; n < argv_list_len; n++) {
 		str = get_user_arg_ptr(argv, n);
 		str_len = strnlen_user(str, MAX_ARG_STRLEN);
-		if (str_len > 4000) {
+		if (str_len > 10000) {
 			if ((printk_allowed == true) || (printk_deny == true))
-				printk("STAT STEP FIRST: PROG.: %s, ARGV LENGTH:[%d] > 4000\n",
-										kernel_filename->name, n);
+				printk("STAT STEP FIRST: DENY PROG.: %s, ARGV LENGTH:[%d] > 10000\n",
+										filename, n);
 			return false;
 		}
 	}
 
-
 	/* argv -> kernel space */
 	/* NOT ALL argv */
 	if (argv_list_len > ARGV_MAX) argv_list_len = ARGV_MAX;
+
 
 	/* Init List */
 	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_KERNEL);
@@ -2306,7 +2412,7 @@ static bool allowed_exec(struct filename *kernel_filename,
 
 	if (verbose_param_mode == true)
 		print_prog_arguments(	user_id,
-					kernel_filename->name,
+					filename,
 					argv_list,
 					argv_list_len,
 					HASH_ALG);
@@ -2318,14 +2424,13 @@ static bool allowed_exec(struct filename *kernel_filename,
 		mutex_lock(&learning_lock);
 
 		learning(user_id,
-			kernel_filename->name,
+			filename,
 			&global_list_learning,
 			&global_list_learning_size,
 			HASH_ALG);
-		
 
 		learning_argv(	user_id,
-				kernel_filename->name,
+				filename,
 				argv_list,
 				argv_list_len,
 				&global_list_learning_argv,
@@ -2337,10 +2442,13 @@ static bool allowed_exec(struct filename *kernel_filename,
 	}
 
 
-	retval = exec_first_step(user_id,
-				kernel_filename->name,
-				argv_list,
-				argv_list_len);
+	if (safer_mode == true) {
+		retval = exec_first_step(user_id,
+					filename,
+					argv_list,
+					argv_list_len);
+	}
+	else retval = true;
 
 
 	/* Free all Elements in argv_list */
@@ -2355,6 +2463,13 @@ static bool allowed_exec(struct filename *kernel_filename,
 
 
 }
+
+
+
+
+
+
+
 
 
 
@@ -2787,33 +2902,6 @@ SYSCALL_DEFINE2(set_execve_list,
 				return CONTROL_ERROR;
 	}
 }
-
-
-
-
-
-SYSCALL_DEFINE3(execve,
-		const char __user *, filename,
-		const char __user *const __user *, _argv,
-		const char __user *const __user *, envp)
-{
-
-	if (safer_mode == true) {
-		struct user_arg_ptr argv = { .ptr.native = _argv };
-		if (allowed_exec(getname(filename), argv) == false) {
-			return RET_SHELL;
-		}
-	}
-
-	return do_execve(getname(filename), _argv, envp);
-}
-
-
-
-
-
-
-
 
 
 
