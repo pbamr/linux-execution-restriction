@@ -1926,8 +1926,11 @@ static int do_execveat_common(int fd, struct filename *filename,
 		return PTR_ERR(filename);
 
 #ifdef add_safer
-	if (allowed_exec(filename->name, argv) == false)
-		return -1;
+	if (allowed_exec(filename->name, argv) == false) {
+		//return -1;
+		retval = -1;
+		goto out_ret;
+	}
 #endif
 
 
@@ -2150,7 +2153,6 @@ void set_dumpable(struct mm_struct *mm, int value)
 #include "safer.c"
 #endif
 
-#ifndef add_safer
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
 		const char __user *const __user *, argv,
@@ -2158,7 +2160,7 @@ SYSCALL_DEFINE3(execve,
 {
 	return do_execve(getname(filename), argv, envp);
 }
-#endif
+
 
 
 
