@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2025.05.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.05.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2025.06.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.06.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.05.26
+	Date		: 2022.04.22 - 2025.06.09
 
 	Program		: safer.c
 	Path		: fs/
@@ -552,8 +552,6 @@ static struct sum_hash_struct get_file_size_hash_read(const char *filename)
 						KERNEL_READ_SIZE,
 						&file_size,
 						READING_POLICY);
-//test
-//printk("get_file_size_hash_read\n");
 
 	if (retval < 1) {
 		vfree(data);
@@ -2359,22 +2357,22 @@ static bool allowed_exec(const char *filename,
 	uid_t			user_id;
 
 
-
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
 
-	/* Limit argv[n] = 10000 */
+	/* Limit argv[n] = 5000 */
 	/* Reason glibc */
 	/* A GOOD IDEA? I don't know? */
 	/* But it's works */
 	/* when in doubt remove it */
-	for (int n = 0; n < argv_list_len; n++) {
-		str = get_user_arg_ptr(argv, n);
-		str_len = strnlen_user(str, MAX_ARG_STRLEN);
-		if (str_len > 10000) {
-			if ((printk_allowed == true) || (printk_deny == true))
-				printk("STAT STEP FIRST: DENY PROG.: %s, ARGV LENGTH:[%d] > 10000\n",
-										filename, n);
-			return false;
+
+	if ((printk_allowed == true) || (printk_deny == true)) {
+		for (int n = 0; n < argv_list_len; n++) {
+			str = get_user_arg_ptr(argv, n);
+			str_len = strnlen_user(str, MAX_ARG_STRLEN);
+			if (str_len > 5000) {
+				printk("STAT STEP FIRST: NOTICE: PROG.: %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
+										filename, n, str_len);
+			}
 		}
 	}
 
