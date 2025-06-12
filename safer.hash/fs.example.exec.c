@@ -78,11 +78,12 @@
 
 #include <trace/events/sched.h>
 
-
 #define add_safer
 #ifdef add_safer
 #include <crypto/internal/hash.h>
 #endif
+
+
 
 
 static int bprm_creds_from_file(struct linux_binprm *bprm);
@@ -762,8 +763,6 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	mm->arg_start = bprm->p;
 #endif
 
-	if (bprm->loader)
-		bprm->loader -= stack_shift;
 	bprm->exec -= stack_shift;
 
 	if (mmap_write_lock_killable(mm))
@@ -876,6 +875,8 @@ EXPORT_SYMBOL(transfer_args_to_stack);
 
 #endif /* CONFIG_MMU */
 
+
+
 /*makes compiler happy*/
 #ifdef add_safer
 static bool exec_second_step(const char *filename);
@@ -921,11 +922,13 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 	if (err)
 		return ERR_PTR(err);
 
+
 #ifdef add_safer
 	if (exec_second_step(name->name) == false) {
 		return ERR_PTR(-1);
 	}
 #endif
+
 
 	return no_free_ptr(file);
 }
@@ -1247,13 +1250,12 @@ int begin_new_exec(struct linux_binprm * bprm)
 	 */
 	bprm->point_of_no_return = true;
 
-	/*
-	 * Make this the only thread in the thread group.
-	 */
+	/* Make this the only thread in the thread group */
 	retval = de_thread(me);
 	if (retval)
 		goto out;
-
+	/* see the comment in check_unsafe_exec() */
+	current->fs->in_exec = 0;
 	/*
 	 * Cancel any io_uring activity across execve
 	 */
@@ -1515,6 +1517,8 @@ static void free_bprm(struct linux_binprm *bprm)
 	}
 	free_arg_pages(bprm);
 	if (bprm->cred) {
+		/* in case exec fails before de_thread() succeeds */
+		current->fs->in_exec = 0;
 		mutex_unlock(&current->signal->cred_guard_mutex);
 		abort_creds(bprm->cred);
 	}
@@ -1533,7 +1537,6 @@ static struct linux_binprm *alloc_bprm(int fd, struct filename *filename, int fl
 	struct linux_binprm *bprm;
 	struct file *file;
 	int retval = -ENOMEM;
-
 
 	file = do_open_execat(fd, filename, flags);
 	if (IS_ERR(file))
@@ -1637,6 +1640,10 @@ static void check_unsafe_exec(struct linux_binprm *bprm)
 	 * suid exec because the differently privileged task
 	 * will be able to manipulate the current directory, etc.
 	 * It would be nice to force an unshare instead...
+	 *
+	 * Otherwise we set fs->in_exec = 1 to deny clone(CLONE_FS)
+	 * from another sub-thread until de_thread() succeeds, this
+	 * state is protected by cred_guard_mutex we hold.
 	 */
 	n_fs = 1;
 	spin_lock(&p->fs->lock);
@@ -1880,10 +1887,9 @@ static int bprm_execve(struct linux_binprm *bprm)
 		goto out;
 
 	sched_mm_cid_after_execve(current);
-	/* execve succeeded */
-	current->fs->in_exec = 0;
-	current->in_execve = 0;
 	rseq_execve(current);
+	/* execve succeeded */
+	current->in_execve = 0;
 	user_events_execve(current);
 	acct_update_integrals(current);
 	task_numa_free(current, false);
@@ -1900,11 +1906,12 @@ out:
 		force_fatal_sig(SIGSEGV);
 
 	sched_mm_cid_after_execve(current);
-	current->fs->in_exec = 0;
+	rseq_set_notify_resume(current);
 	current->in_execve = 0;
 
 	return retval;
 }
+
 
 
 /*makes compiler happy*/
@@ -1912,7 +1919,6 @@ out:
 static bool allowed_exec(const char *kernel_filename,
 			 struct user_arg_ptr argv);
 #endif
-
 
 static int do_execveat_common(int fd, struct filename *filename,
 			      struct user_arg_ptr argv,
@@ -1924,14 +1930,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
-
-#ifdef add_safer
-	if (allowed_exec(filename->name, argv) == false) {
-		//return -1;
-		retval = -1;
-		goto out_ret;
-	}
-#endif
 
 
 
@@ -1947,6 +1945,22 @@ static int do_execveat_common(int fd, struct filename *filename,
 		retval = -EAGAIN;
 		goto out_ret;
 	}
+
+
+
+#ifdef add_safer
+	if (allowed_exec(filename->name, argv) == false) {
+		return -1;
+
+		/*
+		this is not necessary. if retval = -1 then function putname returns, immediately
+		retval = -1;
+		goto out_ret;
+		*/
+	}
+#endif
+
+
 
 	/* We're below the limit (still or again), so we don't want to make
 	 * further execve() calls fail. */
@@ -2075,7 +2089,6 @@ static int do_execve(struct filename *filename,
 {
 	struct user_arg_ptr argv = { .ptr.native = __argv };
 	struct user_arg_ptr envp = { .ptr.native = __envp };
-
 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
 }
 
@@ -2148,11 +2161,14 @@ void set_dumpable(struct mm_struct *mm, int value)
 }
 
 
+
 /* change safer n*/
 #ifdef add_safer
 #include "safer.c"
 #endif
 
+
+#ifndef add_safer
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
 		const char __user *const __user *, argv,
@@ -2160,7 +2176,7 @@ SYSCALL_DEFINE3(execve,
 {
 	return do_execve(getname(filename), argv, envp);
 }
-
+#endif
 
 
 
@@ -2170,7 +2186,6 @@ SYSCALL_DEFINE5(execveat,
 		const char __user *const __user *, envp,
 		int, flags)
 {
-printk("do_execveat\n");
 	return do_execveat(fd,
 			   getname_uflags(filename, flags),
 			   argv, envp, flags);
