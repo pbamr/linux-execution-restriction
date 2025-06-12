@@ -1950,13 +1950,9 @@ static int do_execveat_common(int fd, struct filename *filename,
 
 #ifdef add_safer
 	if (allowed_exec(filename->name, argv) == false) {
-		return -1;
-
-		/*
-		this is not necessary. if retval = -1 then function putname returns, immediately
+		//return -1;
 		retval = -1;
 		goto out_ret;
-		*/
 	}
 #endif
 
