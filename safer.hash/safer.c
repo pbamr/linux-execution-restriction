@@ -269,7 +269,7 @@ when in doubt remove it
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 2000000
 
 
 
@@ -286,7 +286,7 @@ when in doubt remove it
 /*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
-/*
+
 static DEFINE_MUTEX(allowed_lock);
 */
 
