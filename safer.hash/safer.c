@@ -472,7 +472,7 @@ static long search(char *str_search,
 static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max)
 {
 
-	char			hash_out[DIGIT * 2];
+	char			hash_out[DIGIT];
 	struct crypto_shash	*hash;
 	struct shash_desc	*shash;
 	struct sum_hash_struct	hash_sum;
