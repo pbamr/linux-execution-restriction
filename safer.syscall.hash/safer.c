@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2025.06.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.06.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.06.09
+	Date		: 2022.04.22 - 2025.07.08
 
 	Program		: safer.c
 	Path		: fs/
@@ -258,11 +258,15 @@ when in doubt remove it
 
 #define HASH_ALG "sha256"
 #define DIGIT 32
-
 /*
 #define HASH_ALG "sha512"
 #define DIGIT 64
 */
+
+#define HASH_STRING_LENGTH (DIGIT * 2) + 1
+
+
+
 
 /*your choice */
 #define MAX_DYN 100000
@@ -319,11 +323,24 @@ static long	global_list_folders_bytes = 0;
 
 /*--------------------------------------------------------------------------------*/
 /* proto. */
-struct sum_hash_struct {
-	bool	retval;
-	char	hash_string[DIGIT * 2 + 1];
-	ssize_t	file_size;
+struct struct_file_info {
+	bool		retval;
+	char		hash_string[HASH_STRING_LENGTH];
+	ssize_t		file_size;
+	char		str_file_size[19];
+	char		str_user_id[19];
+	uid_t		user_id;
+	const char	*fname;
 };
+
+/*--------------------------------------------------------------------------------*/
+/* proto. */
+struct struct_hash_sum {
+	bool	retval;
+	char	hash_string[HASH_STRING_LENGTH];
+};
+
+
 
 
 /*--------------------------------------------------------------------------------*/
@@ -469,130 +486,6 @@ static long search(char *str_search,
 
 
 /*--------------------------------------------------------------------------------*/
-static struct sum_hash_struct get_hash_sum_buffer(char buffer[], int max)
-{
-
-	char			hash_out[DIGIT];
-	struct crypto_shash	*hash;
-	struct shash_desc	*shash;
-	struct sum_hash_struct	hash_sum;
-
-	char			hash_[2];
-
-
-	hash = crypto_alloc_shash(HASH_ALG, 0, 0);
-	if (IS_ERR(hash)) {
-		hash_sum.retval = false;
-		return hash_sum;
-	}
-
-	shash = kzalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
-	if (!shash) {
-		hash_sum.retval = false;
-		crypto_free_shash(hash);
-		return hash_sum;
-	}
-
-	shash->tfm = hash;
-
-
-	if (crypto_shash_init(shash)) {
-		hash_sum.retval = false;
-		crypto_free_shash(hash);
-		kfree(shash);
-		return hash_sum;
-	}
-
-
-	if (crypto_shash_update(shash, buffer, max)) {
-		hash_sum.retval = false;
-		crypto_free_shash(hash);
-		kfree(shash);
-		return hash_sum;
-	}
-
-	if (crypto_shash_final(shash, hash_out)) {
-		hash_sum.retval = false;
-		crypto_free_shash(hash);
-		kfree(shash);
-		return hash_sum;
-	}
-
-	kfree(shash);
-	crypto_free_shash(hash);
-
-
-	for (int n = 0; n < DIGIT; n++) {
-		sprintf(hash_, "%02x", (unsigned char) hash_out[n]);
-		hash_sum.hash_string[n * 2] = hash_[0];
-		hash_sum.hash_string[(n * 2) + 1] = hash_[1];
-	}
-
-	/* Byte 63 = Last DIGIT. Byte 64 = 0. '\0' = 1 Byte */
-	hash_sum.hash_string[DIGIT * 2] = '\0';
-	hash_sum.retval = true;
-
-	return hash_sum;
-}
-
-
-static struct sum_hash_struct get_file_size_hash_read(const char *filename)
-{
-	ssize_t				retval;
-	ssize_t				file_size;
-	void				*data = NULL;
-	struct sum_hash_struct		size_hash_sum;
-	int				max = KERNEL_READ_SIZE;
-
-
-	/* Datei einlesen */
-	retval = kernel_read_file_from_path(	filename,
-						0,
-						&data,
-						KERNEL_READ_SIZE,
-						&file_size,
-						READING_POLICY);
-//test
-//printk("get_file_size_hash_read\n");
-
-	if (retval < 1) {
-		vfree(data);
-		size_hash_sum.file_size = 0;
-		size_hash_sum.hash_string[0] = '\0'; /* '\0' gleich 1 Byte' */
-		size_hash_sum.retval = false;
-		return size_hash_sum;
-	}
-
-	if (file_size < 1) {
-		vfree(data);
-		size_hash_sum.file_size = 0;
-		size_hash_sum.hash_string[0] = '\0';
-		size_hash_sum.retval = false;
-		return size_hash_sum;
-	}
-
-	/* wieviel Bytes von Datei einlesen */
-	if (file_size < max) max = file_size;
-
-	char *buffer = data;
-
-	size_hash_sum = get_hash_sum_buffer(buffer, max);
-	if (size_hash_sum.retval == true) {
-		vfree(data);
-		size_hash_sum.file_size = file_size;
-		return size_hash_sum;
-	}
-
-	vfree(data);
-	size_hash_sum.retval = false;
-	size_hash_sum.file_size = 0;
-	size_hash_sum.hash_string[0] = '\0';
-	return size_hash_sum;
-}
-
-
-
-/*--------------------------------------------------------------------------------*/
 static ssize_t get_file_size(const char *filename)
 {
 
@@ -636,8 +529,150 @@ static ssize_t get_file_size(const char *filename)
 
 
 /*--------------------------------------------------------------------------------*/
-static void learning_argv(uid_t user_id,
-			const char *filename,
+static struct struct_hash_sum get_hash_sum(char buffer[], int max)
+{
+
+	char			hash_out[DIGIT];
+	struct crypto_shash	*hash;
+	struct shash_desc	*shash;
+	struct struct_hash_sum	struct_hash_sum;
+
+	char			hash_[2];
+
+
+	hash = crypto_alloc_shash(HASH_ALG, 0, 0);
+	if (IS_ERR(hash)) {
+		struct_hash_sum.retval = false;
+		return struct_hash_sum;
+	}
+
+	shash = kzalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
+	if (!shash) {
+		struct_hash_sum.retval = false;
+		crypto_free_shash(hash);
+		return struct_hash_sum;
+	}
+
+	shash->tfm = hash;
+
+
+	if (crypto_shash_init(shash)) {
+		struct_hash_sum.retval = false;
+		crypto_free_shash(hash);
+		kfree(shash);
+		return struct_hash_sum;
+	}
+
+
+	if (crypto_shash_update(shash, buffer, max)) {
+		struct_hash_sum.retval = false;
+		crypto_free_shash(hash);
+		kfree(shash);
+		return struct_hash_sum;
+	}
+
+	if (crypto_shash_final(shash, hash_out)) {
+		struct_hash_sum.retval = false;
+		crypto_free_shash(hash);
+		kfree(shash);
+		return struct_hash_sum;
+	}
+
+	kfree(shash);
+	crypto_free_shash(hash);
+
+
+	for (int n = 0; n < DIGIT; n++) {
+		sprintf(hash_, "%02x", (unsigned char) hash_out[n]);
+		struct_hash_sum.hash_string[n * 2] = hash_[0];
+		struct_hash_sum.hash_string[(n * 2) + 1] = hash_[1];
+	}
+
+	/* Byte 63 = Last DIGIT. Byte 64 = 0. '\0' = 1 Byte */
+	struct_hash_sum.hash_string[DIGIT * 2] = '\0';
+	struct_hash_sum.retval = true;
+
+	return struct_hash_sum;
+}
+
+
+static struct struct_file_info get_file_info(const char *fname)
+{
+	ssize_t				retval;
+	ssize_t				file_size;
+	void				*data = NULL;
+	struct struct_file_info		struct_file_info;
+	int				max = KERNEL_READ_SIZE;
+
+
+	struct_file_info.fname = fname;
+	struct_file_info.user_id = get_current_user()->uid.val;
+	sprintf(struct_file_info.str_user_id, "%d", struct_file_info.user_id);
+
+
+
+	struct_file_info.file_size = get_file_size(fname);
+	if (struct_file_info.file_size == ERROR) {
+		struct_file_info.retval = false;
+		return struct_file_info;
+	}
+
+
+	/* Datei einlesen */
+	retval = kernel_read_file_from_path(	fname,
+						0,
+						&data,
+						KERNEL_READ_SIZE,
+						&file_size,
+						READING_POLICY);
+
+	if (retval < 1) {
+		vfree(data);
+		struct_file_info.file_size = ERROR;
+		struct_file_info.hash_string[0] = '\0'; /* '\0' gleich 1 Byte' */
+		struct_file_info.retval = false;
+		return struct_file_info;
+	}
+
+	if (file_size < 1) {
+		vfree(data);
+		struct_file_info.file_size = ERROR;
+		struct_file_info.hash_string[0] = '\0';
+		struct_file_info.retval = false;
+		return struct_file_info;
+	}
+
+	/* wieviel Bytes von Datei einlesen */
+	if (file_size < max) max = file_size;
+
+	char *buffer = data;
+
+	struct struct_hash_sum struct_hash_sum = get_hash_sum(buffer, max);
+	if (struct_hash_sum.retval == true) {
+		vfree(data);
+
+		struct_file_info.file_size = get_file_size(fname);
+		sprintf(struct_file_info.str_file_size, "%ld", struct_file_info.file_size);
+
+		strcpy(struct_file_info.hash_string, struct_hash_sum.hash_string);
+
+		struct_file_info.retval = true;
+
+		return struct_file_info;
+	}
+
+	vfree(data);
+	struct_file_info.retval = false;
+	struct_file_info.file_size = ERROR;
+	struct_file_info.hash_string[0] = '\0';
+	return struct_file_info;
+}
+
+
+
+
+/*--------------------------------------------------------------------------------*/
+static void learning_argv(struct struct_file_info *struct_file_info,
 			char **argv,
 			long argv_len,
 			char ***list,
@@ -646,22 +681,14 @@ static void learning_argv(uid_t user_id,
 
 {
 
-	char	str_user_id[19];
-	char	str_file_size[19];
-
-	ssize_t	file_size;
-
 	char	*str_learning =  NULL;
 	int	string_length = 0;
 
 
-	if (argv_len == 1)
-		return;
+	if (argv_len == 1) return;
 
-	file_size = get_file_size(filename);
 	// file not exist or empty 
-	if (file_size < 1)
-		return;
+	if (struct_file_info->retval == false) return;
 
 
 	// init list, vollstaendig max Zeilen
@@ -674,12 +701,9 @@ static void learning_argv(uid_t user_id,
 		else *list_init = true;
 	}
 
-	sprintf(str_user_id, "%u", user_id);
-	sprintf(str_file_size, "%ld", file_size);
-
-	string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
-	string_length += strlen(filename);
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("a:;;;") + 1;
 
 	//if (argv_len > 10) argv_len = 10;
@@ -694,11 +718,11 @@ static void learning_argv(uid_t user_id,
 
 
 	strcpy(str_learning, "a:");
-	strcat(str_learning, str_user_id);
+	strcat(str_learning, struct_file_info->str_user_id);
 	strcat(str_learning, ";");
-	strcat(str_learning, str_file_size);
+	strcat(str_learning, struct_file_info->str_file_size);
 	strcat(str_learning, ";");
-	strcat(str_learning, filename);
+	strcat(str_learning, struct_file_info->fname);
 	strcat(str_learning, ";");
 
 	for (int n = 1; n < argv_len; n++) {
@@ -735,35 +759,25 @@ static void learning_argv(uid_t user_id,
 
 
 
-
-static void learning(	uid_t user_id,
-			const char *filename,
+static void learning(	struct struct_file_info *struct_file_info,
 			char ***list,
-			long *list_len,
-			char const *hash_alg)
+			long *list_len)
 {
 
-	char	str_user_id[19];
-	char	str_file_size[19];
 	char	*str_learning =  NULL;
 	int	string_length = 0;
-	struct	sum_hash_struct size_hash_sum;
+
+	if (struct_file_info->retval == false) return;
 
 
-	if (filename[0] != '/')
-		return;
+	if (struct_file_info->fname[0] != '/') return;
+	if (struct_file_info->retval == false) return;
 
-	//size_hash_sum = get_file_size_hash_read(filename);
-	size_hash_sum = get_file_size_hash_read(filename);
-	if (size_hash_sum.retval == false) return;
 
-	sprintf(str_user_id, "%u", user_id);
-	sprintf(str_file_size, "%ld", size_hash_sum.file_size);
-
-	string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
-	string_length += strlen(filename);
-	string_length += strlen(size_hash_sum.hash_string);
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->fname);
+	string_length += strlen(struct_file_info->hash_string);
 	string_length += strlen("a:;;;") + 1;
 
 
@@ -773,18 +787,18 @@ static void learning(	uid_t user_id,
 	}
 
 	strcpy(str_learning, "a:");
-	strcat(str_learning, str_user_id);
+	strcat(str_learning, struct_file_info->str_user_id);
 	strcat(str_learning, ";");
-	strcat(str_learning, str_file_size);
+	strcat(str_learning, struct_file_info->str_file_size);
 	strcat(str_learning, ";");
-	strcat(str_learning, size_hash_sum.hash_string);
+	strcat(str_learning, struct_file_info->hash_string);
 	strcat(str_learning, ";");
-	strcat(str_learning, filename);
+	strcat(str_learning, struct_file_info->fname);
 
 
 	if (search(str_learning, *list, *list_len) != 0) {
 
-		// init
+	// init
 	if (*list_len == 0) {
 			*list = kzalloc(sizeof(char *), GFP_KERNEL);
 			if (*list == NULL) {
@@ -823,6 +837,7 @@ static void learning(	uid_t user_id,
 	}
 
 	kfree(str_learning);
+
 	return;
 }
 
@@ -929,24 +944,17 @@ static void learning(	uid_t user_id,
 
 
 /*--------------------------------------------------------------------------------*/
-static void print_prog_arguments(uid_t user_id,
-				const char *filename,
+static void print_prog_arguments(struct struct_file_info *struct_file_info,
 				char **argv,
-				long argv_len,
-				const char *hash_alg)
+				long argv_len)
 {
 
+	if (struct_file_info->retval == false) return;
 
-	struct sum_hash_struct size_hash_sum;
-
-	size_hash_sum = get_file_size_hash_read(filename);
-	if (size_hash_sum.retval == false) return;
-
-
-	printk("USER ID:%u;%ld;%s;%s\n",user_id,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					filename);
+	printk("USER ID:%s;%s;%s;%s\n",struct_file_info->str_user_id,
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
 
 	for (int n = 0; n < argv_len; n++) {
 		/*
@@ -963,21 +971,17 @@ static void print_prog_arguments(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_wildcard_deny(uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
+user_wildcard_deny(struct struct_file_info *struct_file_info,
 		char **list,
 		long list_len,
 		const char *step)
 
 {
 
-	if (list_len == 0)
-		return true;
+	if (list_len == 0) return true;
 
 	/* user allowed */
-	int string_length = strlen(filename);
+	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("d:*;") + 1;
 
 	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -985,11 +989,15 @@ user_wildcard_deny(uid_t user_id,
 		return false;
 
 	strcpy(str_user_file, "d:*;");
-	strcat(str_user_file, filename);
+	strcat(str_user_file, struct_file_info->fname);
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%d;%ld;%s;%s\n", step, user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step, 
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_user_file);
 		return false;
@@ -1002,25 +1010,19 @@ user_wildcard_deny(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_wildcard_allowed(uid_t user_id,
-			const char *filename,
-			ssize_t file_size,
-			char hash[],
+user_wildcard_allowed(struct struct_file_info *struct_file_info,
 			char **list,
 			long list_len,
 			const char *step)
 {
 
-	if (list_len == 0)
-		return false;
+	if (list_len == 0) return false;
 
-	char str_file_size[19];
-	sprintf(str_file_size, "%ld", file_size); 
 
 	/* user allowed */
-	int string_length = strlen(str_file_size);
-	string_length += strlen(filename);
-	string_length += strlen(hash);
+	int string_length = strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->fname);
+	string_length += strlen(struct_file_info->hash_string);
 
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:*;;;") + 1;
@@ -1030,15 +1032,19 @@ user_wildcard_allowed(uid_t user_id,
 		return false;
 
 	strcpy(str_user_file, "a:*;");
-	strcat(str_user_file, str_file_size);
+	strcat(str_user_file, struct_file_info->str_file_size);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, hash);
+	strcat(str_user_file, struct_file_info->hash_string);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, filename);
+	strcat(str_user_file, struct_file_info->fname);
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%d;%s;%s;%s\n", step, user_id, str_file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, 
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1051,21 +1057,17 @@ user_wildcard_allowed(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_wildcard_folder_allowed(	uid_t user_id,
-				const char *filename,
-				ssize_t file_size,
-				char hash[],
+user_wildcard_folder_allowed(struct struct_file_info *struct_file_info,
 				char **list,
 				long list_len,
 				const char *step)
 
 {
 
-	if (list_len == 0)
-		return false;
+	if (list_len == 0) return false;
 
 
-	int string_length = strlen(filename);
+	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("a:*;") + 1;
 
 	char *str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1073,12 +1075,16 @@ user_wildcard_folder_allowed(	uid_t user_id,
 		return false;
 
 	strcpy(str_folder, "a:*;");
-	strcat(str_folder, filename);
+	strcat(str_folder, struct_file_info->fname);
 
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%d;%ld;%s;%s\n", step, user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size,
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_folder);
 		return true;
@@ -1091,21 +1097,17 @@ user_wildcard_folder_allowed(	uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_wildcard_folder_deny(uid_t user_id,
-			const char *filename,
-			ssize_t file_size,
-			char hash[],
+user_wildcard_folder_deny(struct struct_file_info *struct_file_info,
 			char **list,
 			long list_len,
 			const char *step)
 
 {
 
-	if (list_len == 0)
-		return true;
+	if (list_len == 0) return true;
 
 
-	int string_length = strlen(filename);
+	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("d:*;") + 1;
 
 	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1113,11 +1115,15 @@ user_wildcard_folder_deny(uid_t user_id,
 		return false;
 
 	strcpy(str_user_file, "d:*;");
-	strcat(str_user_file, filename);
+	strcat(str_user_file, struct_file_info->fname);
 
 	if (besearch_folder(str_user_file, list, list_len) == 0) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%d;%ld;%s;%s\n", step, user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_user_file);
 		return false;
@@ -1130,30 +1136,24 @@ user_wildcard_folder_deny(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_deny(uid_t user_id,
-	const char *filename,
-	ssize_t file_size,
-	char hash[],
+user_deny(struct struct_file_info *struct_file_info,
 	char **list,
 	long list_len,
 	const char *step)
 
 {
 
-	if (list_len == 0)
-		return true;
+	if (list_len == 0) return true;
 
 
 
-	char str_user_id[19];
 	char *str_user_file = NULL;
 
 
-	sprintf(str_user_id, "%d", user_id); 
 
 	/* user allowed */
-	int string_length = strlen(str_user_id);
-	string_length += strlen(filename);
+	int string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("d:;") + 1;
 
 	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1161,13 +1161,17 @@ user_deny(uid_t user_id,
 		return false;
 
 	strcpy(str_user_file, "d:");
-	strcat(str_user_file, str_user_id);
+	strcat(str_user_file, struct_file_info->str_user_id);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, filename);
+	strcat(str_user_file, struct_file_info->fname);
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%ld;%s;%s\n", step, str_user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string,
+									struct_file_info->fname);
 
 		kfree(str_user_file);
 		return false;
@@ -1180,20 +1184,16 @@ user_deny(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-group_deny(	uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
-		char **list,
-		long list_len,
-		const char *step)
+group_deny(struct struct_file_info *struct_file_info,
+	char **list,
+	long list_len,
+	const char *step)
 {
 
 	if (list_len == 0)
 		return true;
 
 
-	char	str_user_id[19];
 	char	str_group_id[19];
 	char	*str_group_file = NULL;
 	struct	group_info *group_info;
@@ -1201,13 +1201,11 @@ group_deny(	uid_t user_id,
 
 	group_info = get_current_groups();
 
-	sprintf(str_user_id, "%d", user_id); 
-
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
 
 		string_length = strlen(str_group_id);
-		string_length += strlen(filename);
+		string_length += strlen(struct_file_info->fname);
 		string_length += strlen("gd:;") +1;
 
 		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1217,11 +1215,15 @@ group_deny(	uid_t user_id,
 		strcpy(str_group_file, "gd:");
 		strcat(str_group_file, str_group_id);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, filename);
+		strcat(str_group_file, struct_file_info->fname);
 
 		if (besearch_file(str_group_file, list, list_len) == 0) {
 			if (printk_deny == true)
-				printk("%s GROUP/PROG. DENY   : gd:%s;%ld;%s;%s\n", step, str_group_id, file_size, hash, filename);
+				printk("%s GROUP/PROG. DENY   : gd:%s;%s;%s;%s\n", step, 
+										    str_group_id, 
+										    struct_file_info->str_file_size, 
+										    struct_file_info->hash_string, 
+										    struct_file_info->fname);
 
 			kfree(str_group_file);
 			return false;
@@ -1237,28 +1239,21 @@ group_deny(	uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_folder_deny(uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
+user_folder_deny(struct struct_file_info *struct_file_info,
 		char **list,
 		long list_len,
 		const char *step)
 
 {
 
-	if (list_len == 0)
-		return true;
+	if (list_len == 0) return true;
 
 
-	char str_user_id[19];
 	char *str_folder = NULL;
 	int  string_length;
 
-	sprintf(str_user_id, "%d", user_id); 
-
-	string_length = strlen(str_user_id);
-	string_length += strlen(filename);
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("d:;") + 1;
 
 	str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1266,14 +1261,18 @@ user_folder_deny(uid_t user_id,
 		return false;
 
 	strcpy(str_folder, "d:");
-	strcat(str_folder, str_user_id);
+	strcat(str_folder, struct_file_info->str_user_id);
 	strcat(str_folder, ";");
-	strcat(str_folder, filename);
+	strcat(str_folder, struct_file_info->fname);
 
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%ld;%s;%s\n", step, str_user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
+									struct_file_info->str_user_id,
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_folder);
 		return false;
@@ -1286,21 +1285,16 @@ user_folder_deny(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-group_folder_deny(uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
+group_folder_deny(struct struct_file_info *struct_file_info,
 		char **list,
 		long list_len,
 		const char *step)
 
 {
 
-	if (list_len == 0)
-		return true;
+	if (list_len == 0) return true;
 
 
-	char	str_user_id[19];
 	char	str_group_id[19];
 	char	*str_group_folder = NULL;
 	struct	group_info *group_info;
@@ -1308,14 +1302,12 @@ group_folder_deny(uid_t user_id,
 
 	group_info = get_current_groups();
 
-	sprintf(str_user_id, "%d", user_id); 
-
 
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
 
 		string_length = strlen(str_group_id);
-		string_length += strlen(filename);
+		string_length += strlen(struct_file_info->fname);
 		string_length += strlen("gd:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
@@ -1326,13 +1318,17 @@ group_folder_deny(uid_t user_id,
 		strcpy(str_group_folder, "gd:");
 		strcat(str_group_folder, str_group_id);
 		strcat(str_group_folder, ";");
-		strcat(str_group_folder, filename);
+		strcat(str_group_folder, struct_file_info->fname);
 
 
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == 0) {
 			if (printk_deny == true)
-				printk("%s USER/PROG.  DENY   : gd:%s;%ld;%s;%s\n", step, str_group_id, file_size, hash, filename);
+				printk("%s USER/PROG.  DENY   : gd:%s;%s;%s;%s\n", step,
+										str_group_id, 
+										struct_file_info->str_file_size, 
+										struct_file_info->hash_string, 
+										struct_file_info->fname);
 
 			kfree(str_group_folder);
 			return false;
@@ -1348,51 +1344,45 @@ group_folder_deny(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_allowed(	uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
+user_allowed(	struct struct_file_info *struct_file_info,
 		char **list,
 		long list_len,
 		const char *step)
 {
 
-	if (list_len == 0)
-		return false;
+	if (list_len == 0) return false;
 
 
-	char str_user_id[19];
-	char str_file_size[19];
 	char *str_user_file = NULL;
 
-	sprintf(str_user_id, "%u", user_id); 
-	sprintf(str_file_size, "%ld", file_size); 
-
 	/* user allowed */
-	int string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
-	string_length += strlen(filename);
-	string_length += strlen(hash);
+	int string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->fname);
+	string_length += strlen(struct_file_info->hash_string);
 
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:;;;") + 1;
 
 	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-	if (!str_user_file)
-		return false;
+	if (!str_user_file) return false;
 
 	strcpy(str_user_file, "a:");
-	strcat(str_user_file, str_user_id);
+	strcat(str_user_file, struct_file_info->str_user_id);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, str_file_size);
+	strcat(str_user_file, struct_file_info->str_file_size);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, hash);
+	strcat(str_user_file, struct_file_info->hash_string);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, filename);
+	strcat(str_user_file, struct_file_info->fname);
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1405,10 +1395,7 @@ user_allowed(	uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-group_allowed(uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
+group_allowed(struct struct_file_info *struct_file_info,
 		char **list,
 		long list_len,
 		const char *step)
@@ -1416,11 +1403,8 @@ group_allowed(uid_t user_id,
 {
 
 
-	if (list_len == 0)
-		return false;
+	if (list_len == 0) return false;
 
-	char	str_user_id[19];
-	char	str_file_size[19];
 	char	str_group_id[19];
 	char	*str_group_file = NULL;
 	struct	group_info *group_info;
@@ -1428,36 +1412,37 @@ group_allowed(uid_t user_id,
 
 	group_info = get_current_groups();
 
-	sprintf(str_user_id, "%d", user_id); 
 
 
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
-		sprintf(str_file_size, "%ld", file_size);
 
 		string_length = strlen(str_group_id);
-		string_length += strlen(str_file_size);
-		string_length += strlen(filename);
-		string_length += strlen(hash);
+		string_length += strlen(struct_file_info->str_file_size);
+		string_length += strlen(struct_file_info->fname);
+		string_length += strlen(struct_file_info->hash_string);
 		string_length += strlen("ga:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
 		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-		if (!str_group_file)
-			return false;
+		if (!str_group_file) return false;
 
 		strcpy(str_group_file, "ga:");
 		strcat(str_group_file, str_group_id);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, str_file_size);
+		strcat(str_group_file, struct_file_info->str_file_size);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, hash);
+		strcat(str_group_file, struct_file_info->hash_string);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, filename);
+		strcat(str_group_file, struct_file_info->fname);
 
 		if (besearch_file(str_group_file, list, list_len) == 0) {
 			if (printk_allowed == true)
-				printk("%s GROUP/PROG. ALLOWED: ga:%s;%s;%s;%s\n", step, str_group_id, str_file_size, hash, filename);
+				printk("%s GROUP/PROG. ALLOWED: ga:%s;%s;%s;%s\n", step, 
+										str_group_id, 
+										struct_file_info->str_file_size, 
+										struct_file_info->hash_string, 
+										struct_file_info->fname);
 
 			kfree(str_group_file);
 			return true;
@@ -1473,42 +1458,39 @@ group_allowed(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_folder_allowed(	uid_t user_id,
-			const char *filename,
-			ssize_t file_size,
-			char hash[],
+user_folder_allowed(struct struct_file_info *struct_file_info,
 			char **list,
 			long list_len,
 			const char *step)
 
 {
 
-	if (list_len == 0)
-		return false;
+	if (list_len == 0) return false;
 
 
-	char str_user_id[19];
 	char *str_folder = NULL;
 	int  string_length;
 
-	sprintf(str_user_id, "%d", user_id); 
 
-	string_length = strlen(str_user_id);
-	string_length += strlen(filename);
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("a:;") + 1;
 
 	str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-	if (!str_folder)
-		return false;
+	if (!str_folder) return false;
 
 	strcpy(str_folder, "a:");
-	strcat(str_folder, str_user_id);
+	strcat(str_folder, struct_file_info->str_user_id);
 	strcat(str_folder, ";");
-	strcat(str_folder, filename);
+	strcat(str_folder, struct_file_info->fname);
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%ld;%s;%s\n", step, str_user_id, file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, 
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_folder);
 		return true;
@@ -1522,10 +1504,7 @@ user_folder_allowed(	uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-group_folder_allowed(	uid_t user_id,
-			const char *filename,
-			ssize_t file_size,
-			char hash[],
+group_folder_allowed(struct struct_file_info *struct_file_info,
 			char **list,
 			long list_len,
 			const char *step)
@@ -1533,12 +1512,10 @@ group_folder_allowed(	uid_t user_id,
 {
 
 
-	if (list_len == 0)
-		return false;
+	if (list_len == 0) return false;
 
 
 
-	char	str_user_id[19];
 	char	str_group_id[19];
 	char	*str_group_folder = NULL;
 	struct	group_info *group_info;
@@ -1547,14 +1524,12 @@ group_folder_allowed(	uid_t user_id,
 
 	group_info = get_current_groups();
 
-	sprintf(str_user_id, "%d", user_id); 
-
 
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
 
 		string_length = strlen(str_group_id);
-		string_length += strlen(filename);
+		string_length += strlen(struct_file_info->fname);
 		string_length += strlen("ga:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
@@ -1565,13 +1540,17 @@ group_folder_allowed(	uid_t user_id,
 		strcpy(str_group_folder, "ga:");
 		strcat(str_group_folder, str_group_id);
 		strcat(str_group_folder, ";");
-		strcat(str_group_folder, filename);
+		strcat(str_group_folder, struct_file_info->fname);
 
 
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == 0) {
 			if (printk_allowed == true)
-				printk("%s USER/PROG.  ALLOWED: ga:%s;%ld;%s;%s\n", step, str_group_id, file_size, hash, filename);
+				printk("%s USER/PROG.  ALLOWED: ga:%s;%s;%s;%s\n", step,
+										str_group_id,
+										struct_file_info->str_file_size,
+										struct_file_info->hash_string,
+										struct_file_info->fname);
 
 			kfree(str_group_folder);
 			return true;
@@ -1588,31 +1567,22 @@ group_folder_allowed(	uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-user_interpreter_allowed(uid_t user_id,
-			const char *filename,
-			ssize_t file_size,
-			char hash[],
+user_interpreter_allowed(struct struct_file_info *struct_file_info,
 			char **list,
 			long list_len,
 			const char *step)
 
 {
 
-	char	str_user_id[19];
-	char	str_file_size[19];
 	char	*str_user_file = NULL;
 	int	string_length;
 
 
-	sprintf(str_user_id, "%d", user_id); 
-	sprintf(str_file_size, "%ld", file_size); 
-
-
 	/* user allowed interpreter */
-	string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
-	string_length += strlen(hash);
-	string_length += strlen(filename);
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->hash_string);
+	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("ai:;;;") + 1;
 
 	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
@@ -1620,18 +1590,22 @@ user_interpreter_allowed(uid_t user_id,
 		return false;
 
 	strcpy(str_user_file, "ai:");
-	strcat(str_user_file, str_user_id);
+	strcat(str_user_file, struct_file_info->str_user_id);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, str_file_size);
+	strcat(str_user_file, struct_file_info->str_file_size);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, hash);
+	strcat(str_user_file, struct_file_info->hash_string);
 	strcat(str_user_file, ";");
-	strcat(str_user_file, filename);
+	strcat(str_user_file, struct_file_info->fname);
 
 
 	if (besearch_file(str_user_file, list, list_len) == 0) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: ai:%s;%s;%s;%s\n", step, str_user_id, str_file_size, hash, filename);
+			printk("%s USER/PROG.  ALLOWED: ai:%s;%s;%s;%s\n", step,
+									struct_file_info->str_user_id, 
+									struct_file_info->str_file_size, 
+									struct_file_info->hash_string, 
+									struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1645,18 +1619,13 @@ user_interpreter_allowed(uid_t user_id,
 
 /*--------------------------------------------------------------------------------*/
 static bool
-group_interpreter_allowed(uid_t user_id,
-			const char *filename,
-			ssize_t file_size,
-			char hash[],
+group_interpreter_allowed(struct struct_file_info *struct_file_info,
 			char **list,
 			long list_len,
 			const char *step)
 
 {
 
-	char	str_user_id[19];
-	char	str_file_size[19];
 	char	str_group_id[19];
 	char	*str_group_file = NULL;
 	struct	group_info *group_info;
@@ -1664,17 +1633,15 @@ group_interpreter_allowed(uid_t user_id,
 
 	group_info = get_current_groups();
 
-	sprintf(str_user_id, "%d", user_id);
 
 
 	for (int n = 0; n < group_info->ngroups; n++) {
 		sprintf(str_group_id, "%u", group_info->gid[n].val);
-		sprintf(str_file_size, "%ld", file_size);
 
 		string_length = strlen(str_group_id);
-		string_length += strlen(str_file_size);
-		string_length += strlen(filename);
-		string_length += strlen(hash);
+		string_length += strlen(struct_file_info->str_file_size);
+		string_length += strlen(struct_file_info->fname);
+		string_length += strlen(struct_file_info->hash_string);
 		string_length += strlen("gai:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
@@ -1685,15 +1652,19 @@ group_interpreter_allowed(uid_t user_id,
 		strcpy(str_group_file, "gai:");
 		strcat(str_group_file, str_group_id);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, str_file_size);
+		strcat(str_group_file, struct_file_info->str_file_size);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, hash);
+		strcat(str_group_file, struct_file_info->hash_string);
 		strcat(str_group_file, ";");
-		strcat(str_group_file, filename);
+		strcat(str_group_file, struct_file_info->fname);
 
 		if (besearch_file(str_group_file, list, list_len) == 0) {
 			if (printk_allowed == true)
-				printk("%s GROUP/PROG. ALLOWED: gai:%s;%s;%s;%s\n", step, str_group_id, str_file_size, hash, filename);
+				printk("%s GROUP/PROG. ALLOWED: gai:%s;%s;%s;%s\n", step, 
+										    str_group_id, 
+										    struct_file_info->str_file_size, 
+										    struct_file_info->hash_string, 
+										    struct_file_info->fname);
 
 			kfree(str_group_file);
 			return true;
@@ -1713,10 +1684,7 @@ group_interpreter_allowed(uid_t user_id,
 /* 0 allowed */
 /* -1 deny */
 static bool
-param_file(uid_t user_id,
-		const char *filename,
-		ssize_t file_size,
-		char hash[],
+param_file(struct struct_file_info *struct_file_info,
 		char **argv,
 		long argv_len,
 		char **list,
@@ -1725,8 +1693,6 @@ param_file(uid_t user_id,
 
 {
 
-	struct sum_hash_struct size_hash_sum;
-
 
 	if (argv_len == 1) return false;
 
@@ -1734,75 +1700,59 @@ param_file(uid_t user_id,
 	/* check interpreter and files */
 	/* user allowed interpreter */
 	/* check "ai:  gai:"  */
-	if (user_interpreter_allowed(user_id,
-					filename,
-					file_size,
-					hash,
+	if (user_interpreter_allowed(struct_file_info,
 					list,
 					list_len,
 					step) == false)
-		if (group_interpreter_allowed(user_id,
-						filename,
-						file_size,
-						hash,
+		if (group_interpreter_allowed(struct_file_info,
 						list,
 						list_len,
 						step) == false)
-							return false;
+			return false;
 
+
+	struct struct_file_info struct_param_info;
 
 	/* java */
 	if (strcmp(argv[1], "-jar") == 0) {
 		if (argv_len != 3) return false;
 
-		size_hash_sum = get_file_size_hash_read(argv[2]);
-		if (size_hash_sum.retval == false) {
+		struct_param_info = get_file_info(argv[2]);
+		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
-				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n",user_id,
-											argv[2]);
+				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n", struct_param_info.user_id,
+											     argv[2]);
 			return false;
 		}
 
 		/* check file/prog is in the list: allowed or deny */
 		/* deny user not required. not in the list is the same */
-		if (user_deny(user_id,
-				argv[2],
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (user_deny(&struct_param_info,
 				list,
 				list_len,
 				step) == false) return false;
 
-		if (group_deny(user_id,
-				argv[2],
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (group_deny(&struct_param_info,
 				list,
 				list_len,
 				step) == false) return false;
 
-		if (user_allowed(user_id,
-				argv[2],
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (user_allowed(&struct_param_info,
 				list,
 				list_len,
 				step) == true) return true;
 
-		if (group_allowed(user_id,
-				argv[2],
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (group_allowed(&struct_param_info,
 				list,
 				list_len,
 				step) == true) return true;
 
 		if (printk_deny == true)
-			printk("%s USER/SCRIPT DENY   : a:%d;%ld;%s;%s\n", step,
-									user_id,
-									size_hash_sum.file_size,
-									size_hash_sum.hash_string,
-									argv[2]);
+			printk("%s USER/SCRIPT DENY   : a:%s;%s;%s;%s\n", step,
+									struct_param_info.str_user_id,
+									struct_param_info.str_file_size,
+									struct_param_info.hash_string,
+									struct_param_info.fname);
 
 		return false;
 
@@ -1826,11 +1776,11 @@ param_file(uid_t user_id,
 		strcat(str_class_name, argv[3]);
 		strcat(str_class_name, ".class");
 
-		size_hash_sum = get_file_size_hash_read(str_class_name);
-		if (size_hash_sum.retval == false) {
+		struct_param_info = get_file_info(str_class_name);
+		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
-				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n",user_id,
-											str_class_name);
+				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n",struct_param_info.str_user_id,
+											    struct_param_info.fname);
 
 			kfree(str_class_name);
 			return false;
@@ -1838,10 +1788,7 @@ param_file(uid_t user_id,
 
 		/* check file/prog is in the list: allowed or deny */
 		/* deny user not required. not in the list is the same */
-		if (user_deny(user_id,
-				str_class_name,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (user_deny(&struct_param_info,
 				list,
 				list_len,
 				step) == false) {
@@ -1850,10 +1797,7 @@ param_file(uid_t user_id,
 			return false;
 		}
 
-		if (group_deny(user_id,
-				str_class_name,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (group_deny(&struct_param_info,
 				list,
 				list_len,
 				step) == false) {
@@ -1862,10 +1806,7 @@ param_file(uid_t user_id,
 			return false;
 		}
 
-		if (user_allowed(user_id,
-				str_class_name,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (user_allowed(&struct_param_info,
 				list,
 				list_len,
 				step) == true) {
@@ -1874,10 +1815,7 @@ param_file(uid_t user_id,
 			return true;
 		}
 
-		if (group_allowed(user_id,
-				str_class_name,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+		if (group_allowed(&struct_param_info,
 				list,
 				list_len,
 				step) == true) {
@@ -1887,11 +1825,11 @@ param_file(uid_t user_id,
 		}
 
 		if (printk_deny == true)
-			printk("%s USER/SCRIPT DENY   : d:%d;%ld;%s;%s\n", step,
-									user_id,
-									size_hash_sum.file_size,
-									size_hash_sum.hash_string,
-									str_class_name);
+			printk("%s USER/SCRIPT DENY   : d:%s;%s;%s;%s\n", step,
+									struct_param_info.str_user_id,
+									struct_param_info.str_file_size,
+									struct_param_info.hash_string,
+									struct_param_info.fname);
 
 		kfree(str_class_name);
 
@@ -1900,99 +1838,79 @@ param_file(uid_t user_id,
 
 
 	/* other */
-	size_hash_sum = get_file_size_hash_read(argv[1]);
-	if (size_hash_sum.retval == false)
+	struct struct_file_info struct_other_file_info = get_file_info(argv[1]);
+	if (struct_other_file_info.retval == false)
 		return false;
 
 
 	/* check file/prog is in the list: allowed or deny */
 	/* deny user not required. not in the list is the same */
-	if (user_deny(user_id,
-			argv[1],
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (user_deny(&struct_other_file_info,
 			list,
 			list_len,
 			step) == false) return false;
 
-	if (group_deny(user_id,
-			argv[1],
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (group_deny(&struct_other_file_info,
 			list,
 			list_len,
 			step) == false) return false;
 
-	if (user_allowed(user_id,
-			argv[1],
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (user_allowed(&struct_other_file_info,
 			list,
 			list_len,
 			step) == true) return true;
 
-	if (group_allowed(user_id,
-			argv[1],
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (group_allowed(&struct_other_file_info,
 			list,
 			list_len,
 			step) == true) return true;
 
 	if (printk_deny == true)
-		printk("%s USER/SCRIPT DENY   : d:%d;%ld;%s;%s\n", step,
-								user_id,
-								size_hash_sum.file_size,
-								size_hash_sum.hash_string,
-								argv[1]);
+		printk("%s USER/SCRIPT DENY   : d:%s;%s;%s;%s\n", step,
+								struct_other_file_info.str_user_id,
+								struct_other_file_info.str_file_size,
+								struct_other_file_info.hash_string,
+								struct_other_file_info.fname);
 
 	/* not found */
 	return false;
 }
 
 
+
+
 /*--------------------------------------------------------------------------------*/
-static bool exec_first_step(uid_t user_id, const char *filename, char **argv, long argv_len)
+static bool exec_first_step(struct struct_file_info *struct_file_info,
+			    char **argv,
+			    long argv_len)
 {
 
-	struct sum_hash_struct size_hash_sum;
+	if (struct_file_info->retval == false) {
+		if ((printk_allowed == true) || (printk_deny == true)) {
+			printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n", struct_file_info->str_user_id,
+										      struct_file_info->fname);
+		}
 
-
-	/* if Size = 0 not check */
-	/* PATH wrong? Prog search file. not check */
-	size_hash_sum = get_file_size_hash_read(filename);
-	if (size_hash_sum.retval == false) {
-		if ((printk_allowed == true) || (printk_deny == true))
-			printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n",user_id,
-										filename);
 		return true;
 	}
 
 	/* deny wildcard folder */
-	if (user_wildcard_folder_deny(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
+	if (user_wildcard_folder_deny(	struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
 					"STAT STEP FIRST:") == false)
 		return false;
 
-	/* wildcard deny user */
-	if (user_wildcard_deny(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+
+/* wildcard deny user */
+	if (user_wildcard_deny(	struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
 				"STAT STEP FIRST:") == false)
 		return false;
 
 	/* group deny folder */
-	if (group_folder_deny(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+	if (group_folder_deny(	struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP FIRST:") == false)
@@ -2000,30 +1918,21 @@ static bool exec_first_step(uid_t user_id, const char *filename, char **argv, lo
 
 	/* deny group */
 	/* if global_list_prog_size = 0, safer_mode not true */
-	if (group_deny( user_id,
-			filename,
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (group_deny(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP FIRST:") == false)
 		return false;
 
 	/* deny folder */
-	if (user_folder_deny(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+	if (user_folder_deny(struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP FIRST:") == false)
 		return false;
 
 	/* deny user */
-	if (user_deny(	user_id,
-			filename,
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (user_deny(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP FIRST:") == false)
@@ -2032,60 +1941,42 @@ static bool exec_first_step(uid_t user_id, const char *filename, char **argv, lo
 /*--------------------------------------------------------------------------------*/
 
 	/* user wildcard allowed folder */
-	if (user_wildcard_folder_allowed(user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
+	if (user_wildcard_folder_allowed(struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
 					"STAT STEP FIRST:") == true)
 		return true;
 
 	/* all wildcard user */
-	if (user_wildcard_allowed(user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+	if (user_wildcard_allowed(struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
 				"STAT STEP FIRST:") == true)
 		return true;
 
 	/* group allowed folder */
-	if (group_folder_allowed(user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+	if (group_folder_allowed(struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP FIRST:") == true)
 		return true;
 
 	/* allowed group */
-	if (group_allowed(user_id,
-			filename,
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (group_allowed(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP FIRST:") == true)
 		return true;
 
 	/* user allowed folder */
-	if (user_folder_allowed(user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
+	if (user_folder_allowed(struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP FIRST:") == true)
 		return true;
 
 	/* allowed user */
-	if (user_allowed(user_id,
-			filename,
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (user_allowed(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP FIRST:") == true)
@@ -2094,22 +1985,19 @@ static bool exec_first_step(uid_t user_id, const char *filename, char **argv, lo
 	/* user allowed interpreter and allowed group script file*/
 	/* 0 allowed */
 	/* -1 deny */
-	if (param_file(user_id,
-			filename,
-			size_hash_sum.file_size,
-			size_hash_sum.hash_string,
+	if (param_file(struct_file_info,
 			argv,
 			argv_len,
 			global_list_prog,
 			global_list_prog_size,
-				"STAT STEP FIRST:") == true)
+			"STAT STEP FIRST:") == true)
 		return true;
 
 	if (printk_deny == true)
-		printk("STAT STEP FIRST: USER/PROG.  DENY   : a:%d;%ld;%s;%s\n", user_id,
-										size_hash_sum.file_size,
-										size_hash_sum.hash_string,
-										filename);
+		printk("STAT STEP FIRST: USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info->str_user_id,
+										struct_file_info->str_file_size,
+										struct_file_info->hash_string,
+										struct_file_info->fname);
 
 	return false;
 
@@ -2120,21 +2008,16 @@ static bool exec_first_step(uid_t user_id, const char *filename, char **argv, lo
 static bool exec_second_step(const char *filename)
 {
 
-
-	//if (safer_mode == false) return true;
-
-	struct sum_hash_struct size_hash_sum;
 	bool retval;
-	uid_t user_id = get_current_user()->uid.val;
-
-
 
 	/* if size = 0 not check */
 	/* if path not correct not check */
-	size_hash_sum = get_file_size_hash_read(filename);
-	if (size_hash_sum.retval == false) {
-		if ((printk_allowed == true) || (printk_deny == true))
-			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%d;;;%s\n", user_id, filename);
+	struct struct_file_info struct_file_info = get_file_info(filename);
+	if (struct_file_info.retval == false) {
+		if ((printk_allowed == true) || (printk_deny == true)) {
+			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%s;;;%s\n",   struct_file_info.str_user_id, 
+											struct_file_info.fname);
+		}
 		return true;
 	}
 
@@ -2144,11 +2027,9 @@ static bool exec_second_step(const char *filename)
 		/* works too */
 		if (mutex_trylock(&learning_lock)) {
 
-			learning(user_id,
-				filename,
+			learning(&struct_file_info,
 				&global_list_learning,
-				&global_list_learning_size,
-				HASH_ALG);
+				&global_list_learning_size);
 
 			mutex_unlock(&learning_lock);
 		}
@@ -2162,163 +2043,121 @@ static bool exec_second_step(const char *filename)
 
 /*-------------------------------------------------------------------------------------------*/
 	/* deny wildcard folder */
-	retval = user_wildcard_folder_deny(	user_id,
-						filename,
-						size_hash_sum.file_size,
-						size_hash_sum.hash_string,
-						global_list_folder,
-						global_list_folder_size,
-						"STAT STEP FIRST:");
+	retval = user_wildcard_folder_deny(&struct_file_info,
+					global_list_folder,
+					global_list_folder_size,
+					"STAT STEP FIRST:");
 	if (retval == false) return false;
 
 /*-------------------------------------------------------------------------------------------*/
 
 	/* deny wildcard user */
-	retval = user_wildcard_deny(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					global_list_prog,
-					global_list_prog_size,
-					"STAT STEP SEC  :");
+	retval = user_wildcard_deny(&struct_file_info,
+				global_list_prog,
+				global_list_prog_size,
+				"STAT STEP SEC  :");
 	if (retval == false) return false;
 
 /*-------------------------------------------------------------------------------------------*/
 
 	/* group deny folder */
-	retval = group_folder_deny(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					global_list_folder,
-					global_list_folder_size,
-					"STAT STEP SEC  :");
+	retval = group_folder_deny(&struct_file_info,
+				global_list_folder,
+				global_list_folder_size,
+				"STAT STEP SEC  :");
 	if (retval == false) return false;
 
 /*-------------------------------------------------------------------------------------------*/
 
 	/* deny group */
 	/* if global_list_prog_size = 0, safer_mode not true */
-	retval = group_deny(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
-				global_list_prog,
-				global_list_prog_size,
-				"STAT STEP SEC  :");
+	retval = group_deny(&struct_file_info,
+			global_list_prog,
+			global_list_prog_size,
+			"STAT STEP SEC  :");
 	if (retval == false) return false;
 
 /*-------------------------------------------------------------------------------------------*/
 
 	/* deny folder */
-	retval = user_folder_deny(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					global_list_folder,
-					global_list_folder_size,
-					"STAT STEP SEC  :");
-	if (retval == false) return false;
-
-/*-------------------------------------------------------------------------------------------*/
-
-	/* deny user */
-	retval = user_deny(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
-				global_list_prog,
-				global_list_prog_size,
+	retval = user_folder_deny(&struct_file_info,
+				global_list_folder,
+				global_list_folder_size,
 				"STAT STEP SEC  :");
 	if (retval == false) return false;
 
 /*-------------------------------------------------------------------------------------------*/
 
+	/* deny user */
+	retval = user_deny(&struct_file_info,
+			global_list_prog,
+			global_list_prog_size,
+			"STAT STEP SEC  :");
+	if (retval == false) return false;
+
+/*-------------------------------------------------------------------------------------------*/
+
 	/* allowed wildcard folder */
-	if (user_wildcard_folder_allowed(	user_id,
-						filename,
-						size_hash_sum.file_size,
-						size_hash_sum.hash_string,
-						global_list_folder,
-						global_list_folder_size,
-						"STAT STEP SEC  :") == true)
+	if (user_wildcard_folder_allowed(&struct_file_info,
+					global_list_folder,
+					global_list_folder_size,
+					"STAT STEP SEC  :") == true)
 		return true;
 
 	/* allowed wildcard user */
-	if (user_wildcard_allowed(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					global_list_prog,
-					global_list_prog_size,
-					"STAT STEP SEC  :") == true)
+	if (user_wildcard_allowed(&struct_file_info,
+				global_list_prog,
+				global_list_prog_size,
+				"STAT STEP SEC  :") == true)
 		return true;
 
 	/* group allowed folder */
-	if (group_folder_allowed(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					global_list_folder,
-					global_list_folder_size,
-					"STAT STEP SEC  :") == true)
+	if (group_folder_allowed(&struct_file_info,
+				global_list_folder,
+				global_list_folder_size,
+				"STAT STEP SEC  :") == true)
 		return true;
 
 	/* allowed group */
-	if (group_allowed(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
-				global_list_prog,
-				global_list_prog_size,
-				"STAT STEP SEC  :") == true)
+	if (group_allowed(&struct_file_info,
+			global_list_prog,
+			global_list_prog_size,
+			"STAT STEP SEC  :") == true)
 		return true;
 
 	/* allowed user folder */
-	if (user_folder_allowed(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
-					global_list_folder,
-					global_list_folder_size,
-					"STAT STEP SEC  :") == true)
-		return true;
-
-	/* allowed user */
-	if (user_allowed(	user_id,
-				filename,
-				size_hash_sum.file_size,
-				size_hash_sum.hash_string,
-				global_list_prog,
-				global_list_prog_size,
+	if (user_folder_allowed(&struct_file_info,
+				global_list_folder,
+				global_list_folder_size,
 				"STAT STEP SEC  :") == true)
 		return true;
 
+	/* allowed user */
+	if (user_allowed(&struct_file_info,
+			global_list_prog,
+			global_list_prog_size,
+			"STAT STEP SEC  :") == true)
+		return true;
+
 	/* group allowed interpreter */
-	if (group_interpreter_allowed(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
+	if (group_interpreter_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
 					"STAT STEP SEC  :") == true)
 		return true;
 
 	/* user allowed interpreter */
-	if (user_interpreter_allowed(	user_id,
-					filename,
-					size_hash_sum.file_size,
-					size_hash_sum.hash_string,
+	if (user_interpreter_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
 					"STAT STEP SEC  :") == true)
 		return true;
 
 	if (printk_deny == true) {
-		printk("STAT STEP SEC  : USER/PROG.  DENY   : a:%d;%ld;%s;%s\n",user_id,
-										size_hash_sum.file_size,
-										size_hash_sum.hash_string,
-										filename);
+		printk("STAT STEP SEC  : USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
+										struct_file_info.str_file_size,
+										struct_file_info.hash_string,
+										struct_file_info.fname);
 	}
 
 	/* filter end */
@@ -2327,23 +2166,6 @@ static bool exec_second_step(const char *filename)
 
 
 
-
-
-/*--------------------------------------------------------------------------------*/
-//static bool allowed_exec(const filename *kernel_filename,
-//			 struct user_arg_ptr argv)
-//{
-
-
-/*
-static bool allowed_exec(const char *filename,
-			 struct user_arg_ptr argv)
-{
-
-	printk("%s\n", filename);
-	return true;
-}
-*/
 
 
 /*--------------------------------------------------------------------------------*/
@@ -2356,17 +2178,9 @@ static bool allowed_exec(const char *filename,
 	long			argv_list_len = 0;
 	long			str_len;
 	bool			retval;
-	uid_t			user_id;
-
 
 
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
-
-	/* Limit argv[n] = 5000 */
-	/* Reason glibc */
-	/* A GOOD IDEA? I don't know? */
-	/* But it's works */
-	/* when in doubt remove it */
 
 	if ((printk_allowed == true) || (printk_deny == true)) {
 		for (int n = 0; n < argv_list_len; n++) {
@@ -2374,7 +2188,9 @@ static bool allowed_exec(const char *filename,
 			str_len = strnlen_user(str, MAX_ARG_STRLEN);
 			if (str_len > 5000) {
 				printk("STAT STEP FIRST: NOTICE: PROG.: %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
-										filename, n, str_len);
+													filename,
+													n,
+													str_len);
 			}
 		}
 	}
@@ -2409,14 +2225,14 @@ static bool allowed_exec(const char *filename,
 	}
 
 
-	user_id = get_current_user()->uid.val;
+
+	struct struct_file_info struct_file_info = get_file_info(filename);
+
 
 	if (verbose_param_mode == true)
-		print_prog_arguments(	user_id,
-					filename,
+		print_prog_arguments(	&struct_file_info,
 					argv_list,
-					argv_list_len,
-					HASH_ALG);
+					argv_list_len);
 
 
 	if (learning_mode == true) {
@@ -2424,14 +2240,11 @@ static bool allowed_exec(const char *filename,
 		/* works too */
 		mutex_lock(&learning_lock);
 
-		learning(user_id,
-			filename,
+		learning(&struct_file_info,
 			&global_list_learning,
-			&global_list_learning_size,
-			HASH_ALG);
+			&global_list_learning_size);
 
-		learning_argv(	user_id,
-				filename,
+		learning_argv(	&struct_file_info,
 				argv_list,
 				argv_list_len,
 				&global_list_learning_argv,
@@ -2444,8 +2257,7 @@ static bool allowed_exec(const char *filename,
 
 
 	if (safer_mode == true) {
-		retval = exec_first_step(user_id,
-					filename,
+		retval = exec_first_step(&struct_file_info,
 					argv_list,
 					argv_list_len);
 	}
@@ -2459,7 +2271,6 @@ static bool allowed_exec(const char *filename,
 
 	kfree(argv_list);
 
-
 	return retval;
 
 
@@ -2467,19 +2278,11 @@ static bool allowed_exec(const char *filename,
 
 
 
-
-
-
-
-
-
-
-
-
 /*--------------------------------------------------------------------------------*/
-
-/* SYSCALL NR: 501 or other */
-SYSCALL_DEFINE2(set_execve_list,
+SYSCALL_DEFINE5(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -2493,13 +2296,12 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 
-	user_id = get_current_user()->uid.val;
-
 	/* command part, future ? */
 	switch(number) {
 
 		/* safer on */
-		case 999900:	if (user_id != 0) return CONTROL_ERROR;
+		case 999900:	user_id = get_current_user()->uid.val;
+				if (user_id != 0) return CONTROL_ERROR;
 				if (change_mode == false) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
@@ -2517,7 +2319,8 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 		/* safer off */
-		case 999901:	if (change_mode == false) return CONTROL_ERROR;
+		case 999901:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER OFF\n");
@@ -2527,14 +2330,16 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 		/* stat */
-		case 999902:	if (change_mode == false) return CONTROL_ERROR;
+		case 999902:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				printk("SAFER STATE         : %d\n", safer_mode);
 				return(safer_mode);
 
 
 		/* printk allowed on */
-		case 999903:	if (change_mode == false) return CONTROL_ERROR;
+		case 999903:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK ALLOWED ON\n");
@@ -2544,7 +2349,8 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 		/* printk allowed off */
-		case 999904:	if (change_mode == false) return CONTROL_ERROR;
+		case 999904:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK ALLOWED OFF\n");
@@ -2553,7 +2359,8 @@ SYSCALL_DEFINE2(set_execve_list,
 				return CONRTOL_OK;
 
 
-		case 999905:	if (change_mode == false) return CONTROL_ERROR;
+		case 999905:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
@@ -2562,7 +2369,8 @@ SYSCALL_DEFINE2(set_execve_list,
 				return CONRTOL_OK;
 
 
-		case 999906:	if (change_mode == false) return CONTROL_ERROR;
+		case 999906:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: learning ON\n");
@@ -2571,7 +2379,8 @@ SYSCALL_DEFINE2(set_execve_list,
 				return CONRTOL_OK;
 
 
-		case 999907:	if (change_mode == false) return CONTROL_ERROR;
+		case 999907:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: learning OFF\n");
@@ -2580,7 +2389,8 @@ SYSCALL_DEFINE2(set_execve_list,
 				return CONRTOL_OK;
 
 
-		case 999908:	if (change_mode == false) return CONTROL_ERROR;
+		case 999908:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: verbose paramter mode ON\n");
@@ -2590,7 +2400,8 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 
-		case 999909:	if (change_mode == false) return CONTROL_ERROR;
+		case 999909:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: verbose parameter mode OFF\n");
@@ -2599,9 +2410,9 @@ SYSCALL_DEFINE2(set_execve_list,
 				return CONRTOL_OK;
 
 
-
 		/* printk deny ON */
-		case 999912:	if (change_mode == false) return CONTROL_ERROR;
+		case 999912:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK DENY ON\n");
@@ -2611,7 +2422,8 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 		/* printk deny OFF */
-		case 999913:	if (change_mode == false) return CONTROL_ERROR;
+		case 999913:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK DENY OFF\n");
@@ -2623,7 +2435,7 @@ SYSCALL_DEFINE2(set_execve_list,
 
 		/* set all list */
 		case 999920:
-
+				user_id = get_current_user()->uid.val;
 				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
@@ -2761,7 +2573,7 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 		/* set all folder list */
-		case 999921:
+		case 999921:	user_id = get_current_user()->uid.val;
 				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
@@ -2899,12 +2711,10 @@ SYSCALL_DEFINE2(set_execve_list,
 				mutex_unlock(&control);
 				return(global_list_folder_size);
 
-		default:	printk("ERROR: COMMAND NOT IN LIST\n");
-				return CONTROL_ERROR;
+
+		default:	break;
 	}
+
+	return do_execve(getname(filename), argv, envp);
+
 }
-
-
-
-
-
