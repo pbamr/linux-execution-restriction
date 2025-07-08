@@ -2278,11 +2278,18 @@ static bool allowed_exec(const char *filename,
 
 
 
+
+
+
+
+
+
+
+
 /*--------------------------------------------------------------------------------*/
-SYSCALL_DEFINE5(execve,
-		const char __user *, filename,
-		const char __user *const __user *, argv,
-		const char __user *const __user *, envp,
+
+/* SYSCALL NR: 501 or other */
+SYSCALL_DEFINE2(set_execve_list,
 		const loff_t, number,
 		const char __user *const __user *, list)
 {
@@ -2296,12 +2303,13 @@ SYSCALL_DEFINE5(execve,
 
 
 
+	user_id = get_current_user()->uid.val;
+
 	/* command part, future ? */
 	switch(number) {
 
 		/* safer on */
-		case 999900:	user_id = get_current_user()->uid.val;
-				if (user_id != 0) return CONTROL_ERROR;
+		case 999900:	if (user_id != 0) return CONTROL_ERROR;
 				if (change_mode == false) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
@@ -2319,8 +2327,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		/* safer off */
-		case 999901:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999901:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER OFF\n");
@@ -2330,16 +2337,14 @@ SYSCALL_DEFINE5(execve,
 
 
 		/* stat */
-		case 999902:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999902:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				printk("SAFER STATE         : %d\n", safer_mode);
 				return(safer_mode);
 
 
 		/* printk allowed on */
-		case 999903:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999903:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK ALLOWED ON\n");
@@ -2349,8 +2354,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		/* printk allowed off */
-		case 999904:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999904:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK ALLOWED OFF\n");
@@ -2359,8 +2363,7 @@ SYSCALL_DEFINE5(execve,
 				return CONRTOL_OK;
 
 
-		case 999905:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999905:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: NO MORE CHANGES ALLOWED\n");
@@ -2369,8 +2372,7 @@ SYSCALL_DEFINE5(execve,
 				return CONRTOL_OK;
 
 
-		case 999906:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999906:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: learning ON\n");
@@ -2379,8 +2381,7 @@ SYSCALL_DEFINE5(execve,
 				return CONRTOL_OK;
 
 
-		case 999907:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999907:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: learning OFF\n");
@@ -2389,8 +2390,7 @@ SYSCALL_DEFINE5(execve,
 				return CONRTOL_OK;
 
 
-		case 999908:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999908:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: verbose paramter mode ON\n");
@@ -2400,8 +2400,7 @@ SYSCALL_DEFINE5(execve,
 
 
 
-		case 999909:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999909:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: verbose parameter mode OFF\n");
@@ -2410,9 +2409,9 @@ SYSCALL_DEFINE5(execve,
 				return CONRTOL_OK;
 
 
+
 		/* printk deny ON */
-		case 999912:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999912:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK DENY ON\n");
@@ -2422,8 +2421,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		/* printk deny OFF */
-		case 999913:	user_id = get_current_user()->uid.val;
-				if (change_mode == false) return CONTROL_ERROR;
+		case 999913:	if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK DENY OFF\n");
@@ -2435,7 +2433,7 @@ SYSCALL_DEFINE5(execve,
 
 		/* set all list */
 		case 999920:
-				user_id = get_current_user()->uid.val;
+
 				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
@@ -2573,7 +2571,7 @@ SYSCALL_DEFINE5(execve,
 
 
 		/* set all folder list */
-		case 999921:	user_id = get_current_user()->uid.val;
+		case 999921:
 				if (change_mode == false) return CONTROL_ERROR;
 				if (user_id != 0) return CONTROL_ERROR;
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
@@ -2711,10 +2709,12 @@ SYSCALL_DEFINE5(execve,
 				mutex_unlock(&control);
 				return(global_list_folder_size);
 
-
-		default:	break;
+		default:	printk("ERROR: COMMAND NOT IN LIST\n");
+				return CONTROL_ERROR;
 	}
-
-	return do_execve(getname(filename), argv, envp);
-
 }
+
+
+
+
+
