@@ -409,7 +409,7 @@ void safer_learning(struct safer_learning_struct *learning)
 
 
 /*--------------------------------------------------------------------------------*/
-static int besearch_file(char *str_search,
+static bool besearch_file(char *str_search,
 			char **list,
 			long elements)
 {
@@ -425,12 +425,12 @@ static int besearch_file(char *str_search,
 
 		int_ret = strcmp(list[middle], str_search);
 
-		if (int_ret == 0) return 0;
+		if (int_ret == 0) return true;
 		else if (int_ret < 0) left = middle + 1;
 		else if (int_ret > 0) right = middle - 1;
 	}
 
-	return NOT_IN_LIST;
+	return false;
 }
 
 
@@ -442,7 +442,7 @@ static int besearch_file(char *str_search,
 	check: is "/usr/bin/" in "/usr/bin/ls"
 */
 
-static int besearch_folder(	char *str_search,
+static bool besearch_folder(	char *str_search,
 				char **list,
 				long elements)
 {
@@ -462,26 +462,26 @@ static int besearch_folder(	char *str_search,
 
 		int_ret = strncmp(list[middle], str_search, strlen(list[middle]));
 
-		if (int_ret == 0) return 0;
+		if (int_ret == 0) return true;
 		else if (int_ret < 0) left = middle + 1;
 		else if (int_ret > 0) right = middle - 1;
 	}
 
-	return NOT_IN_LIST;
+	return false;
 }
 
 
-static long search(char *str_search,
+static bool search(char *str_search,
 		char **list,
 		long elements)
 {
 	long n;
 
 	for (n = 0; n < elements; n++) {
-		if (strncmp(list[n], str_search, strlen(list[n])) == 0) return 0;
+		if (strncmp(list[n], str_search, strlen(list[n])) == 0) return true;
 	}
 
-	return NOT_IN_LIST;
+	return false;
 }
 
 
@@ -731,7 +731,7 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 	}
 
 
-	if (search(str_learning, *list, *list_len) != 0) {
+	if (search(str_learning, *list, *list_len) != true) {
 
 		// Wenn Umlauf?
 		if ((*list)[*list_len] != NULL)
@@ -796,7 +796,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 	strcat(str_learning, struct_file_info->fname);
 
 
-	if (search(str_learning, *list, *list_len) != 0) {
+	if (search(str_learning, *list, *list_len) != true) {
 
 	// init
 	if (*list_len == 0) {
@@ -991,7 +991,7 @@ user_wildcard_deny(struct struct_file_info *struct_file_info,
 	strcpy(str_user_file, "d:*;");
 	strcat(str_user_file, struct_file_info->fname);
 
-	if (besearch_file(str_user_file, list, list_len) == 0) {
+	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
 			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step, 
 									struct_file_info->str_user_id, 
@@ -1038,7 +1038,7 @@ user_wildcard_allowed(struct struct_file_info *struct_file_info,
 	strcat(str_user_file, ";");
 	strcat(str_user_file, struct_file_info->fname);
 
-	if (besearch_file(str_user_file, list, list_len) == 0) {
+	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
 			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, 
 									struct_file_info->str_user_id, 
@@ -1078,7 +1078,7 @@ user_wildcard_folder_allowed(struct struct_file_info *struct_file_info,
 	strcat(str_folder, struct_file_info->fname);
 
 	/* Importend! Need qsorted list */
-	if (besearch_folder(str_folder, list, list_len) == 0) {
+	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_allowed == true)
 			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
@@ -1117,7 +1117,7 @@ user_wildcard_folder_deny(struct struct_file_info *struct_file_info,
 	strcpy(str_user_file, "d:*;");
 	strcat(str_user_file, struct_file_info->fname);
 
-	if (besearch_folder(str_user_file, list, list_len) == 0) {
+	if (besearch_folder(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
 			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
@@ -1165,7 +1165,7 @@ user_deny(struct struct_file_info *struct_file_info,
 	strcat(str_user_file, ";");
 	strcat(str_user_file, struct_file_info->fname);
 
-	if (besearch_file(str_user_file, list, list_len) == 0) {
+	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
 			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
@@ -1217,7 +1217,7 @@ group_deny(struct struct_file_info *struct_file_info,
 		strcat(str_group_file, ";");
 		strcat(str_group_file, struct_file_info->fname);
 
-		if (besearch_file(str_group_file, list, list_len) == 0) {
+		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_deny == true)
 				printk("%s GROUP/PROG. DENY   : gd:%s;%s;%s;%s\n", step, 
 										    str_group_id, 
@@ -1266,7 +1266,7 @@ user_folder_deny(struct struct_file_info *struct_file_info,
 	strcat(str_folder, struct_file_info->fname);
 
 	/* Importend! Need qsorted list */
-	if (besearch_folder(str_folder, list, list_len) == 0) {
+	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_deny == true)
 			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id,
@@ -1322,7 +1322,7 @@ group_folder_deny(struct struct_file_info *struct_file_info,
 
 
 		/* Importend! Need qsorted list */
-		if (besearch_folder(str_group_folder, list, list_len) == 0) {
+		if (besearch_folder(str_group_folder, list, list_len) == true) {
 			if (printk_deny == true)
 				printk("%s USER/PROG.  DENY   : gd:%s;%s;%s;%s\n", step,
 										str_group_id, 
@@ -1376,7 +1376,7 @@ user_allowed(	struct struct_file_info *struct_file_info,
 	strcat(str_user_file, ";");
 	strcat(str_user_file, struct_file_info->fname);
 
-	if (besearch_file(str_user_file, list, list_len) == 0) {
+	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
 			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
@@ -1436,7 +1436,7 @@ group_allowed(struct struct_file_info *struct_file_info,
 		strcat(str_group_file, ";");
 		strcat(str_group_file, struct_file_info->fname);
 
-		if (besearch_file(str_group_file, list, list_len) == 0) {
+		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_allowed == true)
 				printk("%s GROUP/PROG. ALLOWED: ga:%s;%s;%s;%s\n", step, 
 										str_group_id, 
@@ -1484,7 +1484,7 @@ user_folder_allowed(struct struct_file_info *struct_file_info,
 	strcat(str_folder, ";");
 	strcat(str_folder, struct_file_info->fname);
 	/* Importend! Need qsorted list */
-	if (besearch_folder(str_folder, list, list_len) == 0) {
+	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_allowed == true)
 			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, 
 									struct_file_info->str_user_id, 
@@ -1544,7 +1544,7 @@ group_folder_allowed(struct struct_file_info *struct_file_info,
 
 
 		/* Importend! Need qsorted list */
-		if (besearch_folder(str_group_folder, list, list_len) == 0) {
+		if (besearch_folder(str_group_folder, list, list_len) == true) {
 			if (printk_allowed == true)
 				printk("%s USER/PROG.  ALLOWED: ga:%s;%s;%s;%s\n", step,
 										str_group_id,
@@ -1599,7 +1599,7 @@ user_interpreter_allowed(struct struct_file_info *struct_file_info,
 	strcat(str_user_file, struct_file_info->fname);
 
 
-	if (besearch_file(str_user_file, list, list_len) == 0) {
+	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
 			printk("%s USER/PROG.  ALLOWED: ai:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
@@ -1658,7 +1658,7 @@ group_interpreter_allowed(struct struct_file_info *struct_file_info,
 		strcat(str_group_file, ";");
 		strcat(str_group_file, struct_file_info->fname);
 
-		if (besearch_file(str_group_file, list, list_len) == 0) {
+		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_allowed == true)
 				printk("%s GROUP/PROG. ALLOWED: gai:%s;%s;%s;%s\n", step, 
 										    str_group_id, 
