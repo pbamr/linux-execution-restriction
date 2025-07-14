@@ -97,7 +97,7 @@
 
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
-	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Cesare Pugni, Tschaikowski and Leon Minkus. Admirable ballet dancers and composers/musician.
 
 */
 
@@ -129,6 +129,11 @@
 
 #define PRINTK_ARGV_ON 8
 #define PRINTK_ARGV_OFF 9
+
+#define PRINTK_UK_ON 14
+#define PRINTK_UK_OFF 15
+
+
 
 /*
 #define PRINTK_SHOW_ON 10
@@ -790,6 +795,10 @@ int ErrorMessage()
 	printf("Parameter   :  <SVON>    Safer MODE: VERBOSE PARAM ON\n");
 	printf("Parameter   :  <SVOFF>   Safer MODE: VERBOSE PARAM OFF\n");
 	printf("\n");
+	printf("Parameter   :  <SVUKON>  Safer MODE: VERBOSE UNKNOWN FILE ON\n");
+	printf("Parameter   :  <SVUKOFF> Safer MODE: VERBOSE UNKNOWN FILE OFF\n");
+
+	printf("\n");
 	//printf("Parameter   :  <SHOWON>  Safer MODE: SAFER SHOW ONLY ON\n");
 	//printf("Parameter   :  <SHOWOFF> Safer MODE: SAFER SHOW ONLY OFF\n");
 	//printf("\n");
@@ -831,24 +840,28 @@ void main(int argc, char *argv[]) {
 	if (argc == 2) {
 		for(;;) {
 
-			if (strcmp(argv[1], "SON") == 0) { NUMBER = SAFER_ON; break; }
-			if (strcmp(argv[1], "SOFF") == 0) { NUMBER = SAFER_OFF; break; }
+			if (strcmp(argv[1], "SON")  == 0)   { NUMBER = SAFER_ON; break; }
+			if (strcmp(argv[1], "SOFF") == 0)  { NUMBER = SAFER_OFF; break; }
 
-			if (strcmp(argv[1], "STAT") == 0) { NUMBER = STAT; break; }
+			if (strcmp(argv[1], "STAT") == 0)  { NUMBER = STAT; break; }
 
-			if (strcmp(argv[1], "PAON") == 0) { NUMBER = PRINTK_ALLOWED_ON; break; }
+			if (strcmp(argv[1], "PAON") == 0)  { NUMBER = PRINTK_ALLOWED_ON; break; }
 			if (strcmp(argv[1], "PAOFF") == 0) { NUMBER = PRINTK_ALLOWED_OFF; break; }
 
-			if (strcmp(argv[1], "PDON") == 0) { NUMBER = PRINTK_DENY_ON; break; }
+			if (strcmp(argv[1], "PDON") == 0)  { NUMBER = PRINTK_DENY_ON; break; }
 			if (strcmp(argv[1], "PDOFF") == 0) { NUMBER = PRINTK_DENY_OFF; break; };
 
 			if (strcmp(argv[1], "SLOCK") == 0) { NUMBER = SAFER_LOCK; break; }
 
-			if (strcmp(argv[1], "SLON") == 0) { NUMBER = PRINTK_LEARNING_ON; break; }
+			if (strcmp(argv[1], "SLON") == 0)  { NUMBER = PRINTK_LEARNING_ON; break; }
 			if (strcmp(argv[1], "SLOFF") == 0) { NUMBER = PRINTK_LEARNING_OFF; break; }
 
-			if (strcmp(argv[1], "SVON") == 0) { NUMBER = PRINTK_ARGV_ON; break; }
+			if (strcmp(argv[1], "SVON") == 0)  { NUMBER = PRINTK_ARGV_ON; break; }
 			if (strcmp(argv[1], "SVOFF") == 0) { NUMBER = PRINTK_ARGV_OFF; break; }
+
+			if (strcmp(argv[1], "SVUKON") == 0)  { NUMBER = PRINTK_UK_ON; break; }
+			if (strcmp(argv[1], "SVUKOFF") == 0) { NUMBER = PRINTK_UK_OFF; break; }
+
 
 			//if (strcmp(argv[1], "SHOWON") == 0) { NUMBER = PRINTK_SHOW_ON; break; }
 			//if (strcmp(argv[1], "SHOWOFF") == 0) { NUMBER = PRINTK_SHOW_OFF; break; }
