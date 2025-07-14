@@ -228,7 +228,10 @@ Interpreter not allowed:
 
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
-	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Cesare Pugni, Tschaikowski and Leon Minkus. Admirable ballet dancers and composers/musician.
+
+	
+
 */
 
 
@@ -302,6 +305,7 @@ static bool	printk_deny = false;
 static bool	learning_mode = true;
 static bool	change_mode = true;	/*true = change_mode allowed */
 static bool	verbose_param_mode = false;
+static bool	verbose_file_unknown = true;
 
 static char	**global_list_prog = NULL;
 static long	global_list_prog_size = 0;
@@ -767,11 +771,9 @@ static void learning(	struct struct_file_info *struct_file_info,
 	char	*str_learning =  NULL;
 	int	string_length = 0;
 
+
 	if (struct_file_info->retval == false) return;
-
-
 	if (struct_file_info->fname[0] != '/') return;
-	if (struct_file_info->retval == false) return;
 
 
 	string_length = strlen(struct_file_info->str_user_id);
@@ -941,32 +943,35 @@ static void learning(	uid_t user_id,
 
 
 
-
-
 /*--------------------------------------------------------------------------------*/
 static void print_prog_arguments(struct struct_file_info *struct_file_info,
 				char **argv,
-				long argv_len)
+				long argv_len,
+				long org_argv_len)
 {
 
 	if (struct_file_info->retval == false) return;
 
-	printk("USER ID:%s;%s;%s;%s\n",struct_file_info->str_user_id,
-					struct_file_info->str_file_size,
-					struct_file_info->hash_string,
-					struct_file_info->fname);
+	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
+					(*struct_file_info).str_file_size,
+					(*struct_file_info).hash_string,
+					(*struct_file_info).fname);
+
+	printk("ORG LEN:%ld \n", org_argv_len);
+
 
 	for (int n = 0; n < argv_len; n++) {
 		/*
 		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
 		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
 		*/
-		printk("argv[%d]:%s\n", n, argv[n]);
+		printk("argv[%d]:%.1000s\n", n, argv[n]);
 
 	}
 
 	return;
 }
+
 
 
 /*--------------------------------------------------------------------------------*/
@@ -1885,8 +1890,9 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 			    long argv_len)
 {
 
+	/* file not exist. */
 	if (struct_file_info->retval == false) {
-		if ((printk_allowed == true) || (printk_deny == true)) {
+		if (verbose_file_unknown) {
 			printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n", struct_file_info->str_user_id,
 										      struct_file_info->fname);
 		}
@@ -2014,7 +2020,7 @@ static bool exec_second_step(const char *filename)
 	/* if path not correct not check */
 	struct struct_file_info struct_file_info = get_file_info(filename);
 	if (struct_file_info.retval == false) {
-		if ((printk_allowed == true) || (printk_deny == true)) {
+		if (verbose_file_unknown) {
 			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%s;;;%s\n",   struct_file_info.str_user_id, 
 											struct_file_info.fname);
 		}
@@ -2178,9 +2184,11 @@ static bool allowed_exec(const char *filename,
 	long			argv_list_len = 0;
 	long			str_len;
 	bool			retval;
+	long			org_argv_list_len = 0;
 
 
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
+	org_argv_list_len = argv_list_len;
 
 	if ((printk_allowed == true) || (printk_deny == true)) {
 		for (int n = 0; n < argv_list_len; n++) {
@@ -2232,7 +2240,8 @@ static bool allowed_exec(const char *filename,
 	if (verbose_param_mode == true)
 		print_prog_arguments(	&struct_file_info,
 					argv_list,
-					argv_list_len);
+					argv_list_len,
+					org_argv_list_len);
 
 
 	if (learning_mode == true) {
@@ -2428,6 +2437,28 @@ SYSCALL_DEFINE5(execve,
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK DENY OFF\n");
 				printk_deny = false;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+
+
+		/* printk verbose_file_unknown ON */
+		case 999914:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE ON\n");
+				verbose_file_unknown = true;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+
+
+		/* printk verbose_file_unknown OFF */
+		case 999915:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE OFF\n");
+				verbose_file_unknown = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
 
