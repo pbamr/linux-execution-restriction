@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2025.08.01, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.08.01, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,14 +21,14 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.07.08
+	Date		: 2022.04.22 - 2025.08.01
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.15.0
+	TEST		: Kernel 6.0 - 6.16.0
 
-			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3
+			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3, .......
 			  Proxmox, Docker
 
 	Functionality	: Programm execution restriction
@@ -276,7 +276,7 @@ when in doubt remove it
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2000000
+#define KERNEL_READ_SIZE 2123457
 
 
 
@@ -293,15 +293,11 @@ when in doubt remove it
 /*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
-/*
-static DEFINE_MUTEX(allowed_lock);
-*/
 
 
 static bool	safer_mode = false;
-
 static bool	printk_allowed = false;
-static bool	printk_deny = false;
+static bool	printk_deny = true;
 static bool	learning_mode = true;
 static bool	change_mode = true;	/*true = change_mode allowed */
 static bool	verbose_param_mode = false;
@@ -2045,15 +2041,16 @@ static bool exec_second_step(const char *filename)
 	if (safer_mode == false) return true;
 
 
-
-
 /*-------------------------------------------------------------------------------------------*/
 	/* deny wildcard folder */
 	retval = user_wildcard_folder_deny(&struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
 					"STAT STEP FIRST:");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
+
+
+
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2062,7 +2059,8 @@ static bool exec_second_step(const char *filename)
 				global_list_prog,
 				global_list_prog_size,
 				"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
+
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2071,7 +2069,7 @@ static bool exec_second_step(const char *filename)
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2081,7 +2079,7 @@ static bool exec_second_step(const char *filename)
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2090,7 +2088,7 @@ static bool exec_second_step(const char *filename)
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2099,7 +2097,7 @@ static bool exec_second_step(const char *filename)
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2167,7 +2165,10 @@ static bool exec_second_step(const char *filename)
 	}
 
 	/* filter end */
+not_allowed:
+
 	return false;
+
 }
 
 
@@ -2237,12 +2238,12 @@ static bool allowed_exec(const char *filename,
 	struct struct_file_info struct_file_info = get_file_info(filename);
 
 
-	if (verbose_param_mode == true)
+	if (verbose_param_mode == true) {
 		print_prog_arguments(	&struct_file_info,
 					argv_list,
 					argv_list_len,
 					org_argv_list_len);
-
+	}
 
 	if (learning_mode == true) {
 
@@ -2282,8 +2283,10 @@ static bool allowed_exec(const char *filename,
 
 	return retval;
 
-
 }
+
+
+
 
 
 
