@@ -707,12 +707,12 @@ static void print_prog_arguments(struct struct_file_info *struct_file_info,
 
 
 /*--------------------------------------------------------------------------------*/
-static void learning_argv(struct struct_file_info *struct_file_info,
-			char **argv,
-			long argv_len,
-			char ***list,
-			long *list_len,
-			bool *list_init)
+static void learning_argv(	struct struct_file_info *struct_file_info,
+							char **argv,
+							long argv_len,
+							char ***list,
+							long *list_len,
+							bool *list_init)
 
 {
 
@@ -787,8 +787,8 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 
 
 static void learning(	struct struct_file_info *struct_file_info,
-			char ***list,
-			long *list_len)
+						char ***list,
+						long *list_len)
 {
 
 	char	*str_learning =  NULL;
