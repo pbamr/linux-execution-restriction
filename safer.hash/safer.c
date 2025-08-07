@@ -671,6 +671,41 @@ static struct struct_file_info get_file_info(const char *fname)
 
 
 
+
+
+
+
+/*--------------------------------------------------------------------------------*/
+static void print_prog_arguments(struct struct_file_info *struct_file_info,
+				char **argv,
+				long argv_len,
+				long org_argv_len)
+{
+
+	if (struct_file_info->retval == false) return;
+
+	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
+					(*struct_file_info).str_file_size,
+					(*struct_file_info).hash_string,
+					(*struct_file_info).fname);
+
+	printk("ORG LEN:%ld \n", org_argv_len);
+
+
+	for (int n = 0; n < argv_len; n++) {
+		/*
+		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
+		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
+		*/
+		printk("argv[%d]:%.1000s\n", n, argv[n]);
+
+	}
+
+	return;
+}
+
+
+
 /*--------------------------------------------------------------------------------*/
 static void learning_argv(struct struct_file_info *struct_file_info,
 			char **argv,
@@ -737,22 +772,14 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 		if ((*list)[*list_len] != NULL)
 			kfree((*list)[*list_len]);
 
-		(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[*list_len] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-		strcpy((*list)[*list_len], str_learning);
+		(*list)[*list_len] = str_learning;
 
 		*list_len += 1;
 		// check argv_len > lerning_argv_max
 		if (*list_len > LEARNING_ARGV_MAX - 1)
 			*list_len = 0;
-
 	}
 
-	kfree(str_learning);
 	return;
 }
 
@@ -804,13 +831,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 				return;
 			}
 
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[0] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy((*list)[0], str_learning);
+			(*list)[0] = str_learning;
 			*list_len = 1;
 		}
 		else {
@@ -820,153 +841,15 @@ static void learning(	struct struct_file_info *struct_file_info,
 				return;
 			}
 
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[*list_len] == NULL) {
-
-				// back liste + 1
-				*list = krealloc(*list, *list_len * sizeof(char *), GFP_KERNEL);
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy((*list)[*list_len], str_learning);
+			(*list)[*list_len] = str_learning;
 			*list_len += 1;
 		}
 	}
 
-	kfree(str_learning);
-
 	return;
 }
 
 
-
-
-/*--------------------------------------------------------------------------------*/
-/* test */
-/*direkter Zugriff auf Liste*/
-/*
-static void learning(	uid_t user_id,
-			const char *filename,
-			char const *hash_alg)
-{
-
-	char	str_user_id[19];
-	char	str_file_size[19];
-	char	*str_learning =  NULL;
-	int	string_length = 0;
-	struct	sum_hash_struct size_hash_sum;
-
-
-	if (filename[0] != '/')
-		return;
-
-	//size_hash_sum = get_file_size_hash_read(filename);
-	size_hash_sum = get_file_size_hash_read(filename);
-	if (size_hash_sum.retval == false) return;
-
-	sprintf(str_user_id, "%u", user_id);
-	sprintf(str_file_size, "%ld", size_hash_sum.file_size);
-
-	string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
-	string_length += strlen(filename);
-	string_length += strlen(size_hash_sum.hash_string);
-	string_length += strlen("a:;;;") + 1;
-
-
-	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-	if (!str_learning) {
-		return;
-	}
-
-	strcpy(str_learning, "a:");
-	strcat(str_learning, str_user_id);
-	strcat(str_learning, ";");
-	strcat(str_learning, str_file_size);
-	strcat(str_learning, ";");
-	strcat(str_learning, size_hash_sum.hash_string);
-	strcat(str_learning, ";");
-	strcat(str_learning, filename);
-
-
-	if (search(str_learning, global_list_learning, global_list_learning_size) != 0) {
-
-		/// init
-		if (global_list_learning_size == 0) {
-			global_list_learning = kzalloc(sizeof(char *), GFP_KERNEL);
-			if (global_list_learning == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			global_list_learning[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (global_list_learning[0] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy(global_list_learning[0], str_learning);
-			global_list_learning_size = 1;
-		}
-		else {
-			global_list_learning = krealloc(global_list_learning, (global_list_learning_size + 1) * sizeof(char *), GFP_KERNEL);
-			if (global_list_learning == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			global_list_learning[global_list_learning_size] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (global_list_learning[global_list_learning_size] == NULL) {
-
-				// back liste + 1
-				global_list_learning = krealloc(global_list_learning, global_list_learning_size * sizeof(char *), GFP_KERNEL);
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy(global_list_learning[global_list_learning_size], str_learning);
-			global_list_learning_size += 1;
-		}
-	}
-
-	kfree(str_learning);
-	return;
-}
-
-*/
-
-
-
-
-/*--------------------------------------------------------------------------------*/
-static void print_prog_arguments(struct struct_file_info *struct_file_info,
-				char **argv,
-				long argv_len,
-				long org_argv_len)
-{
-
-	if (struct_file_info->retval == false) return;
-
-	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
-					(*struct_file_info).str_file_size,
-					(*struct_file_info).hash_string,
-					(*struct_file_info).fname);
-
-	printk("ORG LEN:%ld \n", org_argv_len);
-
-
-	for (int n = 0; n < argv_len; n++) {
-		/*
-		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
-		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
-		*/
-		printk("argv[%d]:%.1000s\n", n, argv[n]);
-
-	}
-
-	return;
-}
 
 
 
