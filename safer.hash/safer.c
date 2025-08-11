@@ -276,7 +276,7 @@ when in doubt remove it
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 2000000
 
 
 
@@ -310,8 +310,7 @@ static char	**global_list_learning = NULL;
 static long	global_list_learning_size = 0;
 
 static char	**global_list_learning_argv = NULL;
-static long	global_list_learning_argv_size = 0;
-static bool	global_list_learning_argv_init = false;
+static long	global_list_learning_argv_size = -1;
 
 static char	**global_list_folder = NULL;
 static long	global_list_folder_size = 0;
@@ -706,13 +705,13 @@ static void print_prog_arguments(struct struct_file_info *struct_file_info,
 
 
 
+
 /*--------------------------------------------------------------------------------*/
-static void learning_argv(	struct struct_file_info *struct_file_info,
-							char **argv,
-							long argv_len,
-							char ***list,
-							long *list_len,
-							bool *list_init)
+static void learning_argv(struct struct_file_info *struct_file_info,
+			char **argv,
+			long argv_len,
+			char ***list,
+			long *list_len)
 
 {
 
@@ -728,12 +727,12 @@ static void learning_argv(	struct struct_file_info *struct_file_info,
 
 	// init list, vollstaendig max Zeilen
 	// Only One 
-	if (*list_init == false) {
+	if (*list_len == -1) {
 		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_KERNEL);
 		if (*list == NULL) {
 			return;
 		}
-		else *list_init = true;
+		else *list_len = 0;
 	}
 
 	string_length = strlen(struct_file_info->str_user_id);
@@ -751,7 +750,6 @@ static void learning_argv(	struct struct_file_info *struct_file_info,
 	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_learning) return;
 
-
 	strcpy(str_learning, "a:");
 	strcat(str_learning, struct_file_info->str_user_id);
 	strcat(str_learning, ";");
@@ -765,19 +763,22 @@ static void learning_argv(	struct struct_file_info *struct_file_info,
 		strcat(str_learning, ";");
 	}
 
+	if (search(str_learning, *list, *list_len) == true) {
+		kfree(str_learning);
+		return;
+	}
 
-	if (search(str_learning, *list, *list_len) != true) {
+	/* wenn umlauf */
+	if ( (*list)[*list_len] != NULL) {
+		kfree((*list)[*list_len]);
+	}
 
-		// Wenn Umlauf?
-		if ((*list)[*list_len] != NULL)
-			kfree((*list)[*list_len]);
+	(*list)[*list_len] = str_learning;
 
-		(*list)[*list_len] = str_learning;
-
-		*list_len += 1;
-		// check argv_len > lerning_argv_max
-		if (*list_len > LEARNING_ARGV_MAX - 1)
-			*list_len = 0;
+	*list_len += 1;
+	// check argv_len > lerning_argv_max
+	if (*list_len > LEARNING_ARGV_MAX - 1) {
+		*list_len = 0;
 	}
 
 	return;
@@ -786,9 +787,11 @@ static void learning_argv(	struct struct_file_info *struct_file_info,
 
 
 
+
+
 static void learning(	struct struct_file_info *struct_file_info,
-						char ***list,
-						long *list_len)
+			char ***list,
+			long *list_len)
 {
 
 	char	*str_learning =  NULL;
@@ -2141,8 +2144,7 @@ static bool allowed_exec(const char *filename,
 				argv_list,
 				argv_list_len,
 				&global_list_learning_argv,
-				&global_list_learning_argv_size,
-				&global_list_learning_argv_init);
+				&global_list_learning_argv_size);
 
 		mutex_unlock(&learning_lock);
 
