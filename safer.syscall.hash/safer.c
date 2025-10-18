@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2025.08.01, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.08.01, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,14 +21,14 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.07.08
+	Date		: 2022.04.22 - 2025.08.01
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.15.0
+	TEST		: Kernel 6.0 - 6.17.0
 
-			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3
+			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3, .......
 			  Proxmox, Docker
 
 	Functionality	: Programm execution restriction
@@ -228,8 +228,15 @@ Interpreter not allowed:
 
 
 	I would like to remember ALICIA ALONSO, MAYA PLISETSKAYA, CARLA FRACCI, EVA EVDOKIMOVA, VAKHTANG CHABUKIANI and the
-	"LAS CUATRO JOYAS DEL BALLET CUBANO". Admirable ballet dancers.
+	"LAS CUATRO JOYAS DEL BALLET CUBANO". Cesare Pugni, Tschaikowski and Leon Minkus. Admirable ballet dancers and composers/musician.
+
+	
+
 */
+
+
+
+
 
 
 /*
@@ -286,18 +293,15 @@ when in doubt remove it
 /*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
-/*
-static DEFINE_MUTEX(allowed_lock);
-*/
 
 
 static bool	safer_mode = false;
-
 static bool	printk_allowed = false;
-static bool	printk_deny = false;
+static bool	printk_deny = true;
 static bool	learning_mode = true;
 static bool	change_mode = true;	/*true = change_mode allowed */
 static bool	verbose_param_mode = false;
+static bool	verbose_file_unknown = true;
 
 static char	**global_list_prog = NULL;
 static long	global_list_prog_size = 0;
@@ -306,8 +310,7 @@ static char	**global_list_learning = NULL;
 static long	global_list_learning_size = 0;
 
 static char	**global_list_learning_argv = NULL;
-static long	global_list_learning_argv_size = 0;
-static bool	global_list_learning_argv_init = false;
+static long	global_list_learning_argv_size = -1;
 
 static char	**global_list_folder = NULL;
 static long	global_list_folder_size = 0;
@@ -667,13 +670,48 @@ static struct struct_file_info get_file_info(const char *fname)
 
 
 
+
+
+
+
+/*--------------------------------------------------------------------------------*/
+static void print_prog_arguments(struct struct_file_info *struct_file_info,
+				char **argv,
+				long argv_len,
+				long org_argv_len)
+{
+
+	if (struct_file_info->retval == false) return;
+
+	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
+					(*struct_file_info).str_file_size,
+					(*struct_file_info).hash_string,
+					(*struct_file_info).fname);
+
+	printk("ORG LEN:%ld \n", org_argv_len);
+
+
+	for (int n = 0; n < argv_len; n++) {
+		/*
+		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
+		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
+		*/
+		printk("argv[%d]:%.1000s\n", n, argv[n]);
+
+	}
+
+	return;
+}
+
+
+
+
 /*--------------------------------------------------------------------------------*/
 static void learning_argv(struct struct_file_info *struct_file_info,
 			char **argv,
 			long argv_len,
 			char ***list,
-			long *list_len,
-			bool *list_init)
+			long *list_len)
 
 {
 
@@ -689,12 +727,12 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 
 	// init list, vollstaendig max Zeilen
 	// Only One 
-	if (*list_init == false) {
+	if (*list_len == -1) {
 		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_KERNEL);
 		if (*list == NULL) {
 			return;
 		}
-		else *list_init = true;
+		else *list_len = 0;
 	}
 
 	string_length = strlen(struct_file_info->str_user_id);
@@ -712,7 +750,6 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
 	if (!str_learning) return;
 
-
 	strcpy(str_learning, "a:");
 	strcat(str_learning, struct_file_info->str_user_id);
 	strcat(str_learning, ";");
@@ -726,31 +763,28 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 		strcat(str_learning, ";");
 	}
 
-
-	if (search(str_learning, *list, *list_len) != true) {
-
-		// Wenn Umlauf?
-		if ((*list)[*list_len] != NULL)
-			kfree((*list)[*list_len]);
-
-		(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[*list_len] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-		strcpy((*list)[*list_len], str_learning);
-
-		*list_len += 1;
-		// check argv_len > lerning_argv_max
-		if (*list_len > LEARNING_ARGV_MAX - 1)
-			*list_len = 0;
-
+	if (search(str_learning, *list, *list_len) == true) {
+		kfree(str_learning);
+		return;
 	}
 
-	kfree(str_learning);
+	/* wenn umlauf */
+	if ( (*list)[*list_len] != NULL) {
+		kfree((*list)[*list_len]);
+	}
+
+	(*list)[*list_len] = str_learning;
+
+	*list_len += 1;
+	// check argv_len > lerning_argv_max
+	if (*list_len > LEARNING_ARGV_MAX - 1) {
+		*list_len = 0;
+	}
+
 	return;
 }
+
+
 
 
 
@@ -763,11 +797,9 @@ static void learning(	struct struct_file_info *struct_file_info,
 	char	*str_learning =  NULL;
 	int	string_length = 0;
 
+
 	if (struct_file_info->retval == false) return;
-
-
 	if (struct_file_info->fname[0] != '/') return;
-	if (struct_file_info->retval == false) return;
 
 
 	string_length = strlen(struct_file_info->str_user_id);
@@ -802,13 +834,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 				return;
 			}
 
-			(*list)[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[0] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy((*list)[0], str_learning);
+			(*list)[0] = str_learning;
 			*list_len = 1;
 		}
 		else {
@@ -818,151 +844,16 @@ static void learning(	struct struct_file_info *struct_file_info,
 				return;
 			}
 
-			(*list)[*list_len] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if ((*list)[*list_len] == NULL) {
-
-				// back liste + 1
-				*list = krealloc(*list, *list_len * sizeof(char *), GFP_KERNEL);
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy((*list)[*list_len], str_learning);
+			(*list)[*list_len] = str_learning;
 			*list_len += 1;
 		}
 	}
 
-	kfree(str_learning);
-
 	return;
 }
 
 
 
-
-/*--------------------------------------------------------------------------------*/
-/* test */
-/*direkter Zugriff auf Liste*/
-/*
-static void learning(	uid_t user_id,
-			const char *filename,
-			char const *hash_alg)
-{
-
-	char	str_user_id[19];
-	char	str_file_size[19];
-	char	*str_learning =  NULL;
-	int	string_length = 0;
-	struct	sum_hash_struct size_hash_sum;
-
-
-	if (filename[0] != '/')
-		return;
-
-	//size_hash_sum = get_file_size_hash_read(filename);
-	size_hash_sum = get_file_size_hash_read(filename);
-	if (size_hash_sum.retval == false) return;
-
-	sprintf(str_user_id, "%u", user_id);
-	sprintf(str_file_size, "%ld", size_hash_sum.file_size);
-
-	string_length = strlen(str_user_id);
-	string_length += strlen(str_file_size);
-	string_length += strlen(filename);
-	string_length += strlen(size_hash_sum.hash_string);
-	string_length += strlen("a:;;;") + 1;
-
-
-	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-	if (!str_learning) {
-		return;
-	}
-
-	strcpy(str_learning, "a:");
-	strcat(str_learning, str_user_id);
-	strcat(str_learning, ";");
-	strcat(str_learning, str_file_size);
-	strcat(str_learning, ";");
-	strcat(str_learning, size_hash_sum.hash_string);
-	strcat(str_learning, ";");
-	strcat(str_learning, filename);
-
-
-	if (search(str_learning, global_list_learning, global_list_learning_size) != 0) {
-
-		/// init
-		if (global_list_learning_size == 0) {
-			global_list_learning = kzalloc(sizeof(char *), GFP_KERNEL);
-			if (global_list_learning == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			global_list_learning[0] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (global_list_learning[0] == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy(global_list_learning[0], str_learning);
-			global_list_learning_size = 1;
-		}
-		else {
-			global_list_learning = krealloc(global_list_learning, (global_list_learning_size + 1) * sizeof(char *), GFP_KERNEL);
-			if (global_list_learning == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			global_list_learning[global_list_learning_size] = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-			if (global_list_learning[global_list_learning_size] == NULL) {
-
-				// back liste + 1
-				global_list_learning = krealloc(global_list_learning, global_list_learning_size * sizeof(char *), GFP_KERNEL);
-				kfree(str_learning);
-				return;
-			}
-
-			strcpy(global_list_learning[global_list_learning_size], str_learning);
-			global_list_learning_size += 1;
-		}
-	}
-
-	kfree(str_learning);
-	return;
-}
-
-*/
-
-
-
-
-
-
-/*--------------------------------------------------------------------------------*/
-static void print_prog_arguments(struct struct_file_info *struct_file_info,
-				char **argv,
-				long argv_len)
-{
-
-	if (struct_file_info->retval == false) return;
-
-	printk("USER ID:%s;%s;%s;%s\n",struct_file_info->str_user_id,
-					struct_file_info->str_file_size,
-					struct_file_info->hash_string,
-					struct_file_info->fname);
-
-	for (int n = 0; n < argv_len; n++) {
-		/*
-		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
-		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
-		*/
-		printk("argv[%d]:%s\n", n, argv[n]);
-
-	}
-
-	return;
-}
 
 
 /*--------------------------------------------------------------------------------*/
@@ -1881,8 +1772,9 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 			    long argv_len)
 {
 
+	/* file not exist. */
 	if (struct_file_info->retval == false) {
-		if ((printk_allowed == true) || (printk_deny == true)) {
+		if (verbose_file_unknown) {
 			printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n", struct_file_info->str_user_id,
 										      struct_file_info->fname);
 		}
@@ -2010,7 +1902,7 @@ static bool exec_second_step(const char *filename)
 	/* if path not correct not check */
 	struct struct_file_info struct_file_info = get_file_info(filename);
 	if (struct_file_info.retval == false) {
-		if ((printk_allowed == true) || (printk_deny == true)) {
+		if (verbose_file_unknown) {
 			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%s;;;%s\n",   struct_file_info.str_user_id, 
 											struct_file_info.fname);
 		}
@@ -2035,15 +1927,16 @@ static bool exec_second_step(const char *filename)
 	if (safer_mode == false) return true;
 
 
-
-
 /*-------------------------------------------------------------------------------------------*/
 	/* deny wildcard folder */
 	retval = user_wildcard_folder_deny(&struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
 					"STAT STEP FIRST:");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
+
+
+
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2052,7 +1945,8 @@ static bool exec_second_step(const char *filename)
 				global_list_prog,
 				global_list_prog_size,
 				"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
+
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2061,7 +1955,7 @@ static bool exec_second_step(const char *filename)
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2071,7 +1965,7 @@ static bool exec_second_step(const char *filename)
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2080,7 +1974,7 @@ static bool exec_second_step(const char *filename)
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2089,7 +1983,7 @@ static bool exec_second_step(const char *filename)
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP SEC  :");
-	if (retval == false) return false;
+	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
 
@@ -2157,7 +2051,10 @@ static bool exec_second_step(const char *filename)
 	}
 
 	/* filter end */
+not_allowed:
+
 	return false;
+
 }
 
 
@@ -2174,9 +2071,11 @@ static bool allowed_exec(const char *filename,
 	long			argv_list_len = 0;
 	long			str_len;
 	bool			retval;
+	long			org_argv_list_len = 0;
 
 
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
+	org_argv_list_len = argv_list_len;
 
 	if ((printk_allowed == true) || (printk_deny == true)) {
 		for (int n = 0; n < argv_list_len; n++) {
@@ -2225,11 +2124,12 @@ static bool allowed_exec(const char *filename,
 	struct struct_file_info struct_file_info = get_file_info(filename);
 
 
-	if (verbose_param_mode == true)
+	if (verbose_param_mode == true) {
 		print_prog_arguments(	&struct_file_info,
 					argv_list,
-					argv_list_len);
-
+					argv_list_len,
+					org_argv_list_len);
+	}
 
 	if (learning_mode == true) {
 
@@ -2244,8 +2144,7 @@ static bool allowed_exec(const char *filename,
 				argv_list,
 				argv_list_len,
 				&global_list_learning_argv,
-				&global_list_learning_argv_size,
-				&global_list_learning_argv_init);
+				&global_list_learning_argv_size);
 
 		mutex_unlock(&learning_lock);
 
@@ -2269,8 +2168,9 @@ static bool allowed_exec(const char *filename,
 
 	return retval;
 
-
 }
+
+
 
 
 
@@ -2417,6 +2317,28 @@ SYSCALL_DEFINE2(set_execve_list,
 				if (!mutex_trylock(&control)) return CONTROL_ERROR;
 				printk("MODE: SAFER PRINTK DENY OFF\n");
 				printk_deny = false;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+
+
+		/* printk verbose_file_unknown ON */
+		case 999914:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE ON\n");
+				verbose_file_unknown = true;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+
+
+		/* printk verbose_file_unknown OFF */
+		case 999915:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE OFF\n");
+				verbose_file_unknown = false;
 				mutex_unlock(&control);
 				return CONRTOL_OK;
 
