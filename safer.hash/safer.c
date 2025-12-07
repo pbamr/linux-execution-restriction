@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2025.08.01, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.08.01, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.12.07, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,14 +21,14 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.08.01
+	Date		: 2022.04.22 - 2025.12.07
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.16.0
+	TEST		: Kernel 6.0 - 6.18.0
 
-			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3, .......
+			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen Zen 3
 			  Proxmox, Docker
 
 	Functionality	: Programm execution restriction
@@ -251,6 +251,7 @@ when in doubt remove it
 
 
 /*--------------------------------------------------------------------------------*/
+
 /* HASH ?*/
 
 /* Your choice */
@@ -261,6 +262,7 @@ when in doubt remove it
 
 #define HASH_ALG "sha256"
 #define DIGIT 32
+
 /*
 #define HASH_ALG "sha512"
 #define DIGIT 64
@@ -275,13 +277,13 @@ when in doubt remove it
 #define MAX_DYN 100000
 #define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
+
 #define LEARNING_ARGV_MAX 5000
-#define KERNEL_READ_SIZE 2000000
+#define LEARNING_MAX 50000
 
+#define KERNEL_READ_SIZE 3000000
 
-
-
-#define RET_SHELL -1
+//#define RET_SHELL -1
 #define ALLOWED 0
 #define NOT_ALLOWED -1
 #define CONTROL_ERROR -1
@@ -293,9 +295,13 @@ when in doubt remove it
 /*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
+/*
+static DEFINE_MUTEX(allowed_lock);
+*/
 
 
 static bool	safer_mode = false;
+static bool	ONLY_SHOW_DENY = false;
 static bool	printk_allowed = false;
 static bool	printk_deny = true;
 static bool	learning_mode = true;
@@ -307,7 +313,7 @@ static char	**global_list_prog = NULL;
 static long	global_list_prog_size = 0;
 
 static char	**global_list_learning = NULL;
-static long	global_list_learning_size = 0;
+static long	global_list_learning_size = -1;
 
 static char	**global_list_learning_argv = NULL;
 static long	global_list_learning_argv_size = -1;
@@ -318,6 +324,25 @@ static long	global_list_folder_size = 0;
 static long	global_list_progs_bytes = 0;
 static long	global_list_folders_bytes = 0;
 
+static long	global_execve_counter = 0;
+static long	global_execve_deny_counter = 0;
+static long	global_execve_allow_counter = 0;
+static long	global_execve_first_step_counter = 0;
+static long	global_execve_sec_step_counter = 0;
+static long	global_execve_path_wrong_counter = 0;
+
+
+/* Kernel HASH ermitteln */
+#define KERNEL "/boot/vmlinuz-6.18.0"
+static ssize_t	KERNEL_SIZE = 0;
+static char	KERNEL_HASH[HASH_STRING_LENGTH];
+
+
+/* look in the function
+	"exec_second_step(const char *filename)"
+for the variable initramfs_start_delay
+*/
+static long initramfs_start_delay = -5;
 
 
 /*--------------------------------------------------------------------------------*/
@@ -343,27 +368,37 @@ struct struct_hash_sum {
 
 
 /*--------------------------------------------------------------------------------*/
-/* proto. */
+/* proto. /proc/safer.info */
 struct  safer_info_struct {
-	bool safer_mode;
-	bool printk_allowed;
-	bool printk_deny;
-	bool learning_mode;
-	bool change_mode;
-	long global_list_prog_size;
-	long global_list_folder_size;
-	char **global_list_prog;
-	char **global_list_folder;
-	long global_hash_size;
-	long global_list_progs_bytes;
-	long global_list_folders_bytes;
+	bool	safer_mode;
+	bool	ONLY_SHOW_DENY;
+	bool	printk_allowed;
+	bool	printk_deny;
+	bool	learning_mode;
+	bool	change_mode;
+	long	global_list_prog_size;
+	long	global_list_folder_size;
+	char	**global_list_prog;
+	char	**global_list_folder;
+	long	global_hash_size;
+	long	global_list_progs_bytes;
+	long	global_list_folders_bytes;
+	long	global_execve_counter;
+	long	global_execve_deny_counter;
+	long	global_execve_allow_counter;
+	long	global_execve_first_step_counter;
+	long	global_execve_sec_step_counter;
+	long	global_execve_path_wrong_counter;
+	ssize_t	KERNEL_SIZE;
+	char	KERNEL_HASH[HASH_STRING_LENGTH];
 };
 
 
-/* proto. */
+/* proto. /proc/safer.learning */
 struct  safer_learning_struct {
 	long global_list_learning_size;
 	char **global_list_learning;
+	long global_list_learning_max;
 	long global_list_learning_argv_max;
 	long global_list_learning_argv_size;
 	char **global_list_learning_argv;
@@ -375,10 +410,11 @@ void safer_info(struct safer_info_struct *info);
 void safer_learning(struct safer_learning_struct *learning);
 
 
-/* DATA: Only over function */
+/* DATA: Only over function /proc/safer.info */
 void safer_info(struct safer_info_struct *info)
 {
 	info->safer_mode = safer_mode;
+	info->ONLY_SHOW_DENY = ONLY_SHOW_DENY;
 	info->printk_allowed = printk_allowed;
 	info->printk_deny = printk_deny;
 	info->learning_mode = learning_mode;
@@ -390,15 +426,24 @@ void safer_info(struct safer_info_struct *info)
 	info->global_hash_size = KERNEL_READ_SIZE;
 	info->global_list_progs_bytes = global_list_progs_bytes;
 	info->global_list_folders_bytes = global_list_folders_bytes;
+	info->global_execve_counter = global_execve_counter;
+	info->global_execve_deny_counter = global_execve_deny_counter;
+	info->global_execve_allow_counter = global_execve_allow_counter;
+	info->global_execve_first_step_counter = global_execve_first_step_counter;
+	info->global_execve_sec_step_counter = global_execve_sec_step_counter;
+	info->global_execve_path_wrong_counter = global_execve_path_wrong_counter;
+	info->KERNEL_SIZE = KERNEL_SIZE;
+	strcpy(info->KERNEL_HASH, KERNEL_HASH);
 	return;
 }
 
 
-/* DATA: Only over function */
+/* DATA: Only over function /proc/safer.learning */
 void safer_learning(struct safer_learning_struct *learning)
 {
 	learning->global_list_learning_size = global_list_learning_size;
 	learning->global_list_learning = global_list_learning;
+	learning->global_list_learning_max = LEARNING_MAX;
 	learning->global_list_learning_argv_max = LEARNING_ARGV_MAX;
 	learning->global_list_learning_argv_size = global_list_learning_argv_size;
 	learning->global_list_learning_argv = global_list_learning_argv;
@@ -528,7 +573,7 @@ static ssize_t get_file_size(const char *filename)
 
 
 /*--------------------------------------------------------------------------------*/
-static struct struct_hash_sum get_hash_sum(char buffer[], int max)
+static struct struct_hash_sum get_hash_sum(char buffer[], u32 max)
 {
 
 	char			hash_out[DIGIT];
@@ -595,20 +640,20 @@ static struct struct_hash_sum get_hash_sum(char buffer[], int max)
 }
 
 
-static struct struct_file_info get_file_info(const char *fname)
+
+
+static struct struct_file_info get_file_info(const char *fname, u32 max)
 {
 	ssize_t				retval;
 	ssize_t				file_size;
 	void				*data = NULL;
 	struct struct_file_info		struct_file_info;
-	int				max = KERNEL_READ_SIZE;
+	/* u32				max = KERNEL_READ_SIZE; */
 
 
 	struct_file_info.fname = fname;
 	struct_file_info.user_id = get_current_user()->uid.val;
 	sprintf(struct_file_info.str_user_id, "%d", struct_file_info.user_id);
-
-
 
 	struct_file_info.file_size = get_file_size(fname);
 	if (struct_file_info.file_size == ERROR) {
@@ -666,43 +711,6 @@ static struct struct_file_info get_file_info(const char *fname)
 	struct_file_info.hash_string[0] = '\0';
 	return struct_file_info;
 }
-
-
-
-
-
-
-
-
-/*--------------------------------------------------------------------------------*/
-static void print_prog_arguments(struct struct_file_info *struct_file_info,
-				char **argv,
-				long argv_len,
-				long org_argv_len)
-{
-
-	if (struct_file_info->retval == false) return;
-
-	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
-					(*struct_file_info).str_file_size,
-					(*struct_file_info).hash_string,
-					(*struct_file_info).fname);
-
-	printk("ORG LEN:%ld \n", org_argv_len);
-
-
-	for (int n = 0; n < argv_len; n++) {
-		/*
-		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
-		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
-		*/
-		printk("argv[%d]:%.1000s\n", n, argv[n]);
-
-	}
-
-	return;
-}
-
 
 
 
@@ -785,11 +793,8 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 }
 
 
-
-
-
-
-static void learning(	struct struct_file_info *struct_file_info,
+/*
+static void learning_old(struct struct_file_info *struct_file_info,
 			char ***list,
 			long *list_len)
 {
@@ -852,7 +857,102 @@ static void learning(	struct struct_file_info *struct_file_info,
 	return;
 }
 
+*/
 
+
+static void learning(	struct struct_file_info *struct_file_info,
+			char ***list,
+			long *list_len)
+{
+
+	char	*str_learning =  NULL;
+	int	string_length = 0;
+
+
+	if (struct_file_info->retval == false) return;
+	if (struct_file_info->fname[0] != '/') return;
+
+
+	/* init pointer list*/
+	if (*list_len == -1) {
+		*list = kzalloc(sizeof(char *) * LEARNING_MAX, GFP_KERNEL);
+		if (*list == NULL) {
+			return;
+		}
+		else *list_len = 0;
+	}
+
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->fname);
+	string_length += strlen(struct_file_info->hash_string);
+	string_length += strlen("a:;;;") + 1;
+
+
+	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	if (!str_learning) {
+		return;
+	}
+
+	strcpy(str_learning, "a:");
+	strcat(str_learning, struct_file_info->str_user_id);
+	strcat(str_learning, ";");
+	strcat(str_learning, struct_file_info->str_file_size);
+	strcat(str_learning, ";");
+	strcat(str_learning, struct_file_info->hash_string);
+	strcat(str_learning, ";");
+	strcat(str_learning, struct_file_info->fname);
+
+	if (search(str_learning, *list, *list_len) == true) {
+		kfree(str_learning);
+		return;
+	}
+
+	/* wenn umlauf. alten speicher freigeben*/
+	if ( (*list)[*list_len] != NULL) {
+		kfree((*list)[*list_len]);
+	}
+
+	(*list)[*list_len] = str_learning;
+
+	*list_len += 1;
+	// check _len > lerning_max
+	if (*list_len > LEARNING_MAX - 1) {
+		*list_len = 0;
+	}
+
+	return;
+}
+
+
+/*--------------------------------------------------------------------------------*/
+static void print_prog_arguments(struct struct_file_info *struct_file_info,
+				char **argv,
+				long argv_len,
+				long org_argv_len)
+{
+
+	if (struct_file_info->retval == false) return;
+
+	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
+					(*struct_file_info).str_file_size,
+					(*struct_file_info).hash_string,
+					(*struct_file_info).fname);
+
+	printk("ORG LEN:%ld \n", org_argv_len);
+
+
+	for (int n = 0; n < argv_len; n++) {
+		/*
+		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
+		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
+		*/
+		printk("argv[%d]:%.1000s\n", n, argv[n]);
+
+	}
+
+	return;
+}
 
 
 
@@ -1604,7 +1704,7 @@ param_file(struct struct_file_info *struct_file_info,
 	if (strcmp(argv[1], "-jar") == 0) {
 		if (argv_len != 3) return false;
 
-		struct_param_info = get_file_info(argv[2]);
+		struct_param_info = get_file_info(argv[2], KERNEL_READ_SIZE);
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
 				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n", struct_param_info.user_id,
@@ -1663,7 +1763,7 @@ param_file(struct struct_file_info *struct_file_info,
 		strcat(str_class_name, argv[3]);
 		strcat(str_class_name, ".class");
 
-		struct_param_info = get_file_info(str_class_name);
+		struct_param_info = get_file_info(str_class_name, KERNEL_READ_SIZE);
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
 				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n",struct_param_info.str_user_id,
@@ -1712,7 +1812,7 @@ param_file(struct struct_file_info *struct_file_info,
 		}
 
 		if (printk_deny == true)
-			printk("%s USER/SCRIPT DENY   : d:%s;%s;%s;%s\n", step,
+			printk("%s USER/SCRIPT DENY   : a:%s;%s;%s;%s\n", step,
 									struct_param_info.str_user_id,
 									struct_param_info.str_file_size,
 									struct_param_info.hash_string,
@@ -1725,7 +1825,7 @@ param_file(struct struct_file_info *struct_file_info,
 
 
 	/* other */
-	struct struct_file_info struct_other_file_info = get_file_info(argv[1]);
+	struct struct_file_info struct_other_file_info = get_file_info(argv[1], KERNEL_READ_SIZE);
 	if (struct_other_file_info.retval == false)
 		return false;
 
@@ -1753,7 +1853,7 @@ param_file(struct struct_file_info *struct_file_info,
 			step) == true) return true;
 
 	if (printk_deny == true)
-		printk("%s USER/SCRIPT DENY   : d:%s;%s;%s;%s\n", step,
+		printk("%s USER/SCRIPT DENY   : a:%s;%s;%s;%s\n", step,
 								struct_other_file_info.str_user_id,
 								struct_other_file_info.str_file_size,
 								struct_other_file_info.hash_string,
@@ -1779,6 +1879,7 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 										      struct_file_info->fname);
 		}
 
+		global_execve_path_wrong_counter++;
 		return true;
 	}
 
@@ -1895,19 +1996,39 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 /*--------------------------------------------------------------------------------*/
 static bool exec_second_step(const char *filename)
 {
+	/* Since kernel 6.15, there's an error when starting a "initramfs"
+	Solution: Delay activation of "exec_second_step"
+	Reason:  "get_file_info" is not working so early in the system startup process.
+
+	However, I will not change "get_file_info".
+	This will probably cost more than this short delay and the initial query.
+	*/
+	if (initramfs_start_delay < 0) {
+		initramfs_start_delay++;
+		return true;
+	}
 
 	bool retval;
+	struct struct_file_info struct_file_info;
+
 
 	/* if size = 0 not check */
 	/* if path not correct not check */
-	struct struct_file_info struct_file_info = get_file_info(filename);
+	struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
+
 	if (struct_file_info.retval == false) {
 		if (verbose_file_unknown) {
 			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%s;;;%s\n",   struct_file_info.str_user_id, 
 											struct_file_info.fname);
 		}
+		global_execve_path_wrong_counter++;
 		return true;
 	}
+
+
+
+
+	global_execve_sec_step_counter++;
 
 
 	if (learning_mode == true) {
@@ -1922,7 +2043,6 @@ static bool exec_second_step(const char *filename)
 			mutex_unlock(&learning_lock);
 		}
 	}
-
 
 	if (safer_mode == false) return true;
 
@@ -1991,57 +2111,73 @@ static bool exec_second_step(const char *filename)
 	if (user_wildcard_folder_allowed(&struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
-					"STAT STEP SEC  :") == true)
+					"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* allowed wildcard user */
 	if (user_wildcard_allowed(&struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
-				"STAT STEP SEC  :") == true)
+				"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* group allowed folder */
 	if (group_folder_allowed(&struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP SEC  :") == true)
+				"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* allowed group */
 	if (group_allowed(&struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP SEC  :") == true)
+			"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* allowed user folder */
 	if (user_folder_allowed(&struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP SEC  :") == true)
+				"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* allowed user */
 	if (user_allowed(&struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP SEC  :") == true)
+			"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* group allowed interpreter */
 	if (group_interpreter_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
-					"STAT STEP SEC  :") == true)
+					"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	/* user allowed interpreter */
 	if (user_interpreter_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
-					"STAT STEP SEC  :") == true)
+					"STAT STEP SEC  :") == true) {
+		global_execve_allow_counter++;
 		return true;
+	}
 
 	if (printk_deny == true) {
 		printk("STAT STEP SEC  : USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
@@ -2052,6 +2188,11 @@ static bool exec_second_step(const char *filename)
 
 	/* filter end */
 not_allowed:
+	global_execve_deny_counter++;
+
+	if (ONLY_SHOW_DENY == true) {
+		return true;
+	}
 
 	return false;
 
@@ -2074,6 +2215,21 @@ static bool allowed_exec(const char *filename,
 	long			org_argv_list_len = 0;
 
 
+	if (KERNEL_SIZE == 0) {
+		struct struct_file_info struct_kernel_file_info = get_file_info(KERNEL, 500000000);
+		if (struct_kernel_file_info.retval == true) {
+			KERNEL_SIZE = struct_kernel_file_info.file_size;
+			strcpy(KERNEL_HASH, struct_kernel_file_info.hash_string);
+
+			printk("KERNEL-INFO  : %s\n", KERNEL);
+			printk("KERNEL SIZE  : %ld\n", KERNEL_SIZE);
+			printk("KERNEL HASH  : %s\n", KERNEL_HASH);
+		}
+	}
+
+
+
+	/* NOTICE long Para. */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
 	org_argv_list_len = argv_list_len;
 
@@ -2081,7 +2237,7 @@ static bool allowed_exec(const char *filename,
 		for (int n = 0; n < argv_list_len; n++) {
 			str = get_user_arg_ptr(argv, n);
 			str_len = strnlen_user(str, MAX_ARG_STRLEN);
-			if (str_len > 5000) {
+			if (str_len > 10000) {
 				printk("STAT STEP FIRST: NOTICE: PROG.: %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
 													filename,
 													n,
@@ -2089,6 +2245,7 @@ static bool allowed_exec(const char *filename,
 			}
 		}
 	}
+
 
 	/* argv -> kernel space */
 	/* NOT ALL argv */
@@ -2121,7 +2278,7 @@ static bool allowed_exec(const char *filename,
 
 
 
-	struct struct_file_info struct_file_info = get_file_info(filename);
+	struct struct_file_info struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
 
 
 	if (verbose_param_mode == true) {
@@ -2150,14 +2307,29 @@ static bool allowed_exec(const char *filename,
 
 	}
 
+	global_execve_first_step_counter++;
 
 	if (safer_mode == true) {
 		retval = exec_first_step(&struct_file_info,
 					argv_list,
 					argv_list_len);
-	}
-	else retval = true;
 
+		if (retval == true) {
+			global_execve_allow_counter++;
+		}
+		else {
+			global_execve_deny_counter++;
+		}
+
+		/* ONLY SHOW DENY */
+		if (ONLY_SHOW_DENY == true) {
+			retval = true;
+		}
+	}
+	else {
+		retval = true;
+		global_execve_allow_counter++;
+	}
 
 	/* Free all Elements in argv_list */
 	for (int n = 0; n < argv_list_len; n++) {
@@ -2165,6 +2337,7 @@ static bool allowed_exec(const char *filename,
 	}
 
 	kfree(argv_list);
+
 
 	return retval;
 
@@ -2350,6 +2523,26 @@ SYSCALL_DEFINE5(execve,
 				mutex_unlock(&control);
 				return CONRTOL_OK;
 
+
+
+		case 999916:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER PRINTK ONLY SHOW DENY ON\n");
+				ONLY_SHOW_DENY = true;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
+
+
+		case 999917:	user_id = get_current_user()->uid.val;
+				if (change_mode == false) return CONTROL_ERROR;
+				if (user_id != 0) return CONTROL_ERROR;
+				if (!mutex_trylock(&control)) return CONTROL_ERROR;
+				printk("MODE: SAFER PRINTK ONLY SHOW DENY OFF\n");
+				ONLY_SHOW_DENY = false;
+				mutex_unlock(&control);
+				return CONRTOL_OK;
 
 
 		/* set all list */
@@ -2633,6 +2826,8 @@ SYSCALL_DEFINE5(execve,
 
 		default:	break;
 	}
+
+	global_execve_counter++;
 
 	return do_execve(getname(filename), argv, envp);
 
