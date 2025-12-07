@@ -47,21 +47,32 @@
 #include <linux/utsname.h>
 
 
+
 /* proto. */
 struct  safer_info_struct {
-	bool safer_mode;
-	bool printk_allowed;
-	bool printk_deny;
-	bool learning_mode;
-	bool change_mode;
-	long global_list_prog_size;
-	long global_list_folder_size;
-	char **global_list_prog;
-	char **global_list_folder;
-	long global_hash_size;
-	long global_list_progs_bytes;
-	long global_list_folders_bytes;
+	bool	safer_mode;
+	bool	ONLY_SHOW_DENY;
+	bool	printk_allowed;
+	bool	printk_deny;
+	bool	learning_mode;
+	bool	change_mode;
+	long	global_list_prog_size;
+	long	global_list_folder_size;
+	char	**global_list_prog;
+	char	**global_list_folder;
+	long	global_hash_size;
+	long	global_list_progs_bytes;
+	long	global_list_folders_bytes;
+	long	global_execve_counter;
+	long	global_execve_deny_counter;
+	long	global_execve_allow_counter;
+	long	global_execve_first_step_counter;
+	long	global_execve_sec_step_counter;
+	long	global_execve_path_wrong_counter;
+	ssize_t	KERNEL_SIZE;
+	char	KERNEL_HASH[(64 * 2) + 1]; /* Max */
 };
+
 
 
 static struct safer_info_struct info;
@@ -75,15 +86,38 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	uid_t	user_id;
 
 	user_id = get_current_user()->uid.val;
-	if (user_id != 0) return(0);
+	if (user_id != 0) return 0;
 
 	safer_info(&info);
 
 	seq_printf(proc_show, "INFO SAFER\n\n");
 
+#define KERNEL "/boot/vmlinuz-6.18.0"
+
+	seq_printf(proc_show, "KERNEL INFO\n");
+	seq_printf(proc_show, "KERNEL NAME: %s\n", KERNEL);
+	seq_printf(proc_show, "KERNEL SIZE: %ld\n", info.KERNEL_SIZE);
+	seq_printf(proc_show, "KERNEL HASH: %s\n\n", info.KERNEL_HASH);
+
+
+	seq_printf(proc_show, "SYSCALL <EXECVE>            : %ld\n\n", info.global_execve_counter);
+
+	seq_printf(proc_show, "SYSCALL <EXECVE> first      : %ld\n", info.global_execve_first_step_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> sec.       : %ld\n\n", info.global_execve_sec_step_counter);
+
+	seq_printf(proc_show, "SYSCALL <EXECVE> ALLOWED    : %ld\n", info.global_execve_allow_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> DENY       : %ld\n\n", info.global_execve_deny_counter);
+
+	seq_printf(proc_show, "SYSCALL <EXECVE> PATH WRONG : %ld\n\n", info.global_execve_path_wrong_counter);
+
+
 	if (info.safer_mode == true)
 		seq_printf(proc_show, "MODE SAFER                  : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER                  : OFF\n");
+
+	if (info.ONLY_SHOW_DENY == true)
+		seq_printf(proc_show, "ONLY_SHOW_DENY              : ON\n");
+	else	seq_printf(proc_show, "ONLY_SHOW_DENY              : OFF\n");
 
 	if (info.printk_allowed == true)
 		seq_printf(proc_show, "MODE PRINTK ALLOWED         : ON\n");
