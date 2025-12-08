@@ -1,13 +1,14 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22, 2023.07.11
+	Date		: 2022.04.22, 2025.12.071
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 6.4.2
-			  Lenovo X230, T460
+	TEST		: Kernel 6.0 - 6.18.0
+			  	  Lenovo X230, T460, T470s, etc.
+				  Only INTEL and AMD 64 Bit
 
 	
 
