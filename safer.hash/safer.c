@@ -2005,6 +2005,7 @@ static bool exec_second_step(const char *filename)
 	*/
 	if (initramfs_start_delay < 0) {
 		initramfs_start_delay++;
+		printk("FILE NAME DELAY: %s\n", filename);
 		return true;
 	}
 
