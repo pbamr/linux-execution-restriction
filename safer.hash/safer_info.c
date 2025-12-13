@@ -63,12 +63,12 @@ struct  safer_info_struct {
 	long	global_hash_size;
 	long	global_list_progs_bytes;
 	long	global_list_folders_bytes;
-	long	global_execve_counter;
-	long	global_execve_deny_counter;
-	long	global_execve_allow_counter;
-	long	global_execve_first_step_counter;
-	long	global_execve_sec_step_counter;
-	long	global_execve_path_wrong_counter;
+	long	global_statistics_execve_counter;
+	long	global_statistics_execve_deny_counter;
+	long	global_statistics_execve_allow_counter;
+	long	global_statistics_execve_first_step_counter;
+	long	global_statistics_execve_sec_step_counter;
+	long	global_statistics_execve_path_wrong_counter;
 	ssize_t	KERNEL_SIZE;
 	char	KERNEL_HASH[(64 * 2) + 1]; /* Max */
 };
@@ -100,15 +100,15 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "KERNEL HASH: %s\n\n", info.KERNEL_HASH);
 
 
-	seq_printf(proc_show, "SYSCALL <EXECVE>            : %ld\n\n", info.global_execve_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE>            : %ld\n\n", info.global_statistics_execve_counter);
 
-	seq_printf(proc_show, "SYSCALL <EXECVE> first      : %ld\n", info.global_execve_first_step_counter);
-	seq_printf(proc_show, "SYSCALL <EXECVE> sec.       : %ld\n\n", info.global_execve_sec_step_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> first      : %ld\n", info.global_statistics_execve_first_step_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> sec.       : %ld\n\n", info.global_statistics_execve_sec_step_counter);
 
-	seq_printf(proc_show, "SYSCALL <EXECVE> ALLOWED    : %ld\n", info.global_execve_allow_counter);
-	seq_printf(proc_show, "SYSCALL <EXECVE> DENY       : %ld\n\n", info.global_execve_deny_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> ALLOWED    : %ld\n", info.global_statistics_execve_allow_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> DENY       : %ld\n\n", info.global_statistics_execve_deny_counter);
 
-	seq_printf(proc_show, "SYSCALL <EXECVE> PATH WRONG : %ld\n\n", info.global_execve_path_wrong_counter);
+	seq_printf(proc_show, "SYSCALL <EXECVE> PATH WRONG : %ld\n\n", info.global_statistics_execve_path_wrong_counter);
 
 
 	if (info.safer_mode == true)
