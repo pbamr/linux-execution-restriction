@@ -1,5 +1,5 @@
 /* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.12.078, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.12.13, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,12 +17,11 @@
 
 
 
-
 /*
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.12.07
+	Date		: 2022.04.22 - 2025.12.13
 
 	Program		: safer.c
 	Path		: fs/
@@ -259,18 +258,18 @@ when in doubt remove it
 /*
 #define HASH_ALG "md5"
 #define DIGIT 16
+#define HASH_STRING_LENGTH (DIGIT * 2) + 1
 */
 
 #define HASH_ALG "sha256"
 #define DIGIT 32
+#define HASH_STRING_LENGTH (DIGIT * 2) + 1
 
 /*
 #define HASH_ALG "sha512"
 #define DIGIT 64
-*/
-
 #define HASH_STRING_LENGTH (DIGIT * 2) + 1
-
+*/
 
 
 
@@ -325,12 +324,12 @@ static long	global_list_folder_size = 0;
 static long	global_list_progs_bytes = 0;
 static long	global_list_folders_bytes = 0;
 
-static long	global_execve_counter = 0;
-static long	global_execve_deny_counter = 0;
-static long	global_execve_allow_counter = 0;
-static long	global_execve_first_step_counter = 0;
-static long	global_execve_sec_step_counter = 0;
-static long	global_execve_path_wrong_counter = 0;
+static long	global_statistics_execve_counter = 0;
+static long	global_statistics_execve_deny_counter = 0;
+static long	global_statistics_execve_allow_counter = 0;
+static long	global_statistics_execve_first_step_counter = 0;
+static long	global_statistics_execve_sec_step_counter = 0;
+static long	global_statistics_execve_path_wrong_counter = 0;
 
 
 /* Kernel HASH ermitteln */
@@ -343,7 +342,7 @@ static char	KERNEL_HASH[HASH_STRING_LENGTH];
 	"exec_second_step(const char *filename)"
 for the variable initramfs_start_delay
 */
-static long initramfs_start_delay = -5;
+static int initramfs_start_delay = -5;
 
 
 /*--------------------------------------------------------------------------------*/
@@ -384,12 +383,13 @@ struct  safer_info_struct {
 	long	global_hash_size;
 	long	global_list_progs_bytes;
 	long	global_list_folders_bytes;
-	long	global_execve_counter;
-	long	global_execve_deny_counter;
-	long	global_execve_allow_counter;
-	long	global_execve_first_step_counter;
-	long	global_execve_sec_step_counter;
-	long	global_execve_path_wrong_counter;
+
+	long	global_statistics_execve_counter;
+	long	global_statistics_execve_deny_counter;
+	long	global_statistics_execve_allow_counter;
+	long	global_statistics_execve_first_step_counter;
+	long	global_statistics_execve_sec_step_counter;
+	long	global_statistics_execve_path_wrong_counter;
 	ssize_t	KERNEL_SIZE;
 	char	KERNEL_HASH[HASH_STRING_LENGTH];
 };
@@ -427,12 +427,12 @@ void safer_info(struct safer_info_struct *info)
 	info->global_hash_size = KERNEL_READ_SIZE;
 	info->global_list_progs_bytes = global_list_progs_bytes;
 	info->global_list_folders_bytes = global_list_folders_bytes;
-	info->global_execve_counter = global_execve_counter;
-	info->global_execve_deny_counter = global_execve_deny_counter;
-	info->global_execve_allow_counter = global_execve_allow_counter;
-	info->global_execve_first_step_counter = global_execve_first_step_counter;
-	info->global_execve_sec_step_counter = global_execve_sec_step_counter;
-	info->global_execve_path_wrong_counter = global_execve_path_wrong_counter;
+	info->global_statistics_execve_counter = global_statistics_execve_counter;
+	info->global_statistics_execve_deny_counter = global_statistics_execve_deny_counter;
+	info->global_statistics_execve_allow_counter = global_statistics_execve_allow_counter;
+	info->global_statistics_execve_first_step_counter = global_statistics_execve_first_step_counter;
+	info->global_statistics_execve_sec_step_counter = global_statistics_execve_sec_step_counter;
+	info->global_statistics_execve_path_wrong_counter = global_statistics_execve_path_wrong_counter;
 	info->KERNEL_SIZE = KERNEL_SIZE;
 	strcpy(info->KERNEL_HASH, KERNEL_HASH);
 	return;
@@ -1880,7 +1880,7 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 										      struct_file_info->fname);
 		}
 
-		global_execve_path_wrong_counter++;
+		global_statistics_execve_path_wrong_counter++;
 		return true;
 	}
 
@@ -2023,19 +2023,22 @@ static bool exec_second_step(const char *filename)
 			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%s;;;%s\n",   struct_file_info.str_user_id, 
 											struct_file_info.fname);
 		}
-		global_execve_path_wrong_counter++;
+		global_statistics_execve_path_wrong_counter++;
 		return true;
 	}
 
 
 
 
-	global_execve_sec_step_counter++;
+	global_statistics_execve_sec_step_counter++;
 
 
 	if (learning_mode == true) {
 
-		/* works too */
+		/*
+		works too
+		accept silent learning losses
+		*/
 		if (mutex_trylock(&learning_lock)) {
 
 			learning(&struct_file_info,
@@ -2114,7 +2117,7 @@ static bool exec_second_step(const char *filename)
 					global_list_folder,
 					global_list_folder_size,
 					"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2123,7 +2126,7 @@ static bool exec_second_step(const char *filename)
 				global_list_prog,
 				global_list_prog_size,
 				"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2132,7 +2135,7 @@ static bool exec_second_step(const char *filename)
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2141,7 +2144,7 @@ static bool exec_second_step(const char *filename)
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2150,7 +2153,7 @@ static bool exec_second_step(const char *filename)
 				global_list_folder,
 				global_list_folder_size,
 				"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2159,7 +2162,7 @@ static bool exec_second_step(const char *filename)
 			global_list_prog,
 			global_list_prog_size,
 			"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2168,7 +2171,7 @@ static bool exec_second_step(const char *filename)
 					global_list_prog,
 					global_list_prog_size,
 					"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2177,7 +2180,7 @@ static bool exec_second_step(const char *filename)
 					global_list_prog,
 					global_list_prog_size,
 					"STAT STEP SEC  :") == true) {
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
@@ -2190,7 +2193,7 @@ static bool exec_second_step(const char *filename)
 
 	/* filter end */
 not_allowed:
-	global_execve_deny_counter++;
+	global_statistics_execve_deny_counter++;
 
 	if (ONLY_SHOW_DENY == true) {
 		return true;
@@ -2309,7 +2312,7 @@ static bool allowed_exec(const char *filename,
 
 	}
 
-	global_execve_first_step_counter++;
+	global_statistics_execve_first_step_counter++;
 
 	if (safer_mode == true) {
 		retval = exec_first_step(&struct_file_info,
@@ -2317,10 +2320,10 @@ static bool allowed_exec(const char *filename,
 					argv_list_len);
 
 		if (retval == true) {
-			global_execve_allow_counter++;
+			global_statistics_execve_allow_counter++;
 		}
 		else {
-			global_execve_deny_counter++;
+			global_statistics_execve_deny_counter++;
 		}
 
 		/* ONLY SHOW DENY */
@@ -2330,7 +2333,7 @@ static bool allowed_exec(const char *filename,
 	}
 	else {
 		retval = true;
-		global_execve_allow_counter++;
+		global_statistics_execve_allow_counter++;
 	}
 
 	/* Free all Elements in argv_list */
@@ -2344,7 +2347,6 @@ static bool allowed_exec(const char *filename,
 	return retval;
 
 }
-
 
 
 
@@ -2802,5 +2804,13 @@ SYSCALL_DEFINE2(set_execve_list,
 
 
 
+SYSCALL_DEFINE3(execve,
+		const char __user *, filename,
+		const char __user *const __user *, argv,
+		const char __user *const __user *, envp)
+{
+	global_statistics_execve_counter++;
+	return do_execve(getname(filename), argv, envp);
 
+}
 
