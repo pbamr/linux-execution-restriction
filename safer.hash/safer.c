@@ -1,5 +1,5 @@
 /* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2025.12.13, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2025.12.29, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2025.12.13
+	Date		: 2022.04.22 - 2025.12.29
 
 	Program		: safer.c
 	Path		: fs/
@@ -2665,25 +2665,28 @@ printk("POINT: execve\n");
 					int_ret = copy_from_user(list_prog_temp[n], str, str_len);
 				}
 
-
 				/* clear */
 				/* old list */
-				if (global_list_prog_size > 0) {
-					for (int n = 0; n < global_list_prog_size; n++) {
-						kfree(global_list_prog[n]);
-						global_list_prog[n] = NULL;
-					}
-					kfree(global_list_prog);
-				}
+				char **global_list_prog_temp = global_list_prog;
+				char global_list_prog_size_temp = global_list_prog_size;
 
 				/* global = new */
 				global_list_prog = list_prog_temp;
-				list_prog_temp = NULL;
 				global_list_prog_size = list_prog_size;
 				global_list_progs_bytes = list_progs_bytes;
+				list_prog_temp = NULL;
 
 				printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_size);
 				printk("FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
+
+
+				if (global_list_prog_size_temp > 0) {
+					for (int n = 0; n < global_list_prog_size_temp; n++) {
+						kfree(global_list_prog_temp[n]);
+						global_list_prog_temp[n] = NULL;
+					}
+					kfree(global_list_prog_temp);
+				}
 
 
 				mutex_unlock(&control);
@@ -2808,22 +2811,27 @@ printk("POINT: execve\n");
 
 				/* clear */
 				/* old list */
-				if (global_list_folder_size > 0) {
-					for (int n = 0; n < global_list_folder_size; n++) {
-						kfree(global_list_folder[n]);
-						global_list_folder[n] = NULL;
-					}
-					kfree(global_list_folder);
-				}
+				char **global_list_folder_temp = global_list_folder;
+				char global_list_folder_size_temp = global_list_folder_size;
 
 				/* global = new */
 				global_list_folder = list_folder_temp;
-				list_folder_temp = NULL;
 				global_list_folder_size = list_folder_size;
 				global_list_folders_bytes = list_folders_bytes;
+				list_folder_temp = NULL;
 
 				printk("FILE LIST ELEMENTS: %ld\n", global_list_folder_size);
 				printk("FILE LIST BYTES   : %ld\n", global_list_folders_bytes);
+
+
+				if (global_list_folder_size_temp > 0) {
+					for (int n = 0; n < global_list_folder_size_temp; n++) {
+						kfree(global_list_folder_temp[n]);
+						global_list_folder_temp[n] = NULL;
+					}
+					kfree(global_list_folder_temp);
+				}
+
 
 
 				mutex_unlock(&control);
@@ -2838,64 +2846,4 @@ printk("POINT: execve\n");
 	return do_execve(getname(filename), argv, envp);
 
 }
-
-
-
-
-/*
-
-		*****************************************************************
-		First Test
-		SYSCALL excve
-
-
-		do_execve(getname(filename), argv, envp);
-
-		do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
-			first test <allowed>
-
-		*****************************************************************
-
-
-		*****************************************************************
-		Second Test
-
-		fs:execve.c			alloc_bprm		kernel_execve
-
-		open_exec
-			fs:binfmt_elf.c
-			fs:binfmt_elf_fdpic.c
-			fs:binfmt_misc.c
-			fs:binfmt_script.c
-
-
-			fs:fanotify:fanotify.c
-			fs:fanotify:fsnotify.c
-			fs:smb:client:cifspdu.h
-			fs:smb:client:cifssmb.c
-
-
-
-
-		fs:execve.c			alloc_bprm		kernel_execve
-		init:initramfs.c		kernel_execve
-		init:main.c			kernel_execve
-		kernel:umh.c			kernel_execve
-		include:linux:binfmts.h		kernel_execve
-
-		int kernel_execve(const char *kernel_filename, const char *const *argv, const char *const *envp)
-			alloc_bprm(int fd, struct filename *filename, int flags)
-				do_open_execat(int fd, struct filename *name, int flags)
-					second test <allowed>
-
-
-		open_exec(const char *name)
-			do_open_execat(int fd, struct filename *name, int flags)
-				second test <allowed>
-
-
-
-*/
-
-
 
