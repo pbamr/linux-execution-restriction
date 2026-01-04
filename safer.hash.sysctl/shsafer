@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/sh
 #* Copyright (c) 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 # * Urheber: 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 #
@@ -19,7 +19,7 @@
 
 #simple
 
-echo "bsafer 2026/1, Peter Boettcher";
+echo "shsafer 2026/1, Peter Boettcher";
 echo ""
 
 
@@ -147,15 +147,19 @@ if [ "$order" = "PLIST" ]; then
 
 		#list size
 		lines=$(wc -l pppp | awk '{print $1}');
-		sysctl -w kernel.safer.safer_prog=$lines;
+		echo $lines;
+		echo $lines > /proc/sys/kernel/safer/safer_prog
+
 
 		#read;
 		while read line 
 		do
-			sysctl -w kernel.safer.safer_prog=$line;
+			echo $line;
+			echo $line > /proc/sys/kernel/safer/safer_prog
+
 		done < pppp
 
-		rm pppp
+		#rm pppp
 		rm ppp
 		rm pp
 		rm p
@@ -180,20 +184,21 @@ if [ "$order" = "FLIST" ]; then
 		sed -n '/\/$/p' ff > fff
 
 		#sortieren
-		LC_ALL=C sort -u fff >ffff
+		LC_ALL=C sort fff | uniq  > ffff
 
 		#list size
 		lines=$(wc -l ffff | awk '{print $1}');
-		sysctl -w kernel.safer.safer_folder=$lines;
+		echo $lines;
+		echo $lines > /proc/sys/kernel/safer/safer_folder
 
-		#read;
 		while read line 
 		do
-			sysctl -w kernel.safer.safer_folder=$line;
+			echo $line > /proc/sys/kernel/safer/safer_folder
+			echo $line
 		done < ffff
 
 
-		rm ffff
+		#cat ffff
 		rm fff
 		rm ff
 		rm f
