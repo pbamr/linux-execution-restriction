@@ -1,0 +1,266 @@
+#!/usr/bin/bash
+#* Copyright (c) 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+# * Urheber: 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+#
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 2, or (at your option)
+# * any later version.
+#
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+#
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>
+# */
+
+
+#simple
+
+echo "bsafer 2026/1, Peter Boettcher";
+echo ""
+
+
+#Abfrage ob 1ter Parameter OK, bzw. vorhanden ist. Wenn nicht Abbruch
+#case "$1" in
+#'')
+#	echo "ERROR: There is no Parameter 1";
+#	exit 1;
+#	;;
+#*)
+#esac
+
+
+
+
+
+
+order=$1;
+
+#----------------------------------------------------------
+if [ "$order" = "SON" ]; then
+	sysctl kernel.safer.safer_active=1;
+	exit 0;
+fi
+
+if [ "$order" = "SOFF" ]; then
+	sysctl kernel.safer.safer_active=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "PAON" ]; then
+	sysctl kernel.safer.safer_printk_allowed=1;
+	exit 0;
+fi
+
+if [ "$order" = "PAOFF" ]; then
+	sysctl kernel.safer.safer_printk_allowed=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "PDON" ]; then
+	sysctl kernel.safer.safer_printk_deny=1;
+	exit 0;
+fi
+
+if [ "$order" = "PDOFF" ]; then
+	sysctl kernel.safer.safer_printk_deny=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "SLON" ]; then
+	sysctl kernel.safer.safer_learning=1;
+	exit 0;
+fi
+
+if [ "$order" = "SLOFF" ]; then
+	sysctl kernel.safer.safer_learning=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "SVON" ]; then
+	sysctl kernel.safer.safer_param_verbose=1;
+	exit 0;
+fi
+
+if [ "$order" = "SVOFF" ]; then
+	sysctl kernel.safer.safer_param_verbose=0;
+	exit 0;
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "SVUKON" ]; then
+	sysctl kernel.safer.safer_show_unknown_file=1;
+	exit 0;
+fi
+
+if [ "$order" = "SVUKOFF" ]; then
+	sysctl kernel.safer.safer_show_unknown_file=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "SODON" ]; then
+	sysctl kernel.safer.safer_show_deny=1;
+	exit 0;
+fi
+
+if [ "$order" = "SODOFF" ]; then
+	sysctl kernel.safer.safer_show_deny=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SLOCK" ]; then
+	sysctl kernel.safer.safer_lock=1;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "PLIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > p
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' p > pp
+
+		#Zeilen mit '/' am Ende entfernen
+		sed '/\/$/d' pp > ppp
+
+		#sortieren
+		LC_ALL=C sort -u ppp > pppp
+
+		#list size
+		lines=$(wc -l pppp | awk '{print $1}');
+		sysctl -w kernel.safer.safer_prog=$lines;
+
+		#read;
+		while read line 
+		do
+			sysctl -w kernel.safer.safer_prog=$line;
+		done < pppp
+
+		rm pppp
+		rm ppp
+		rm pp
+		rm p
+
+		exit 0;
+	fi
+fi
+
+
+#----------------------------------------------------------
+
+if [ "$order" = "FLIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > f
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' f > ff
+
+		#Zeilen mit '/' am Ende isolieren
+		sed -n '/\/$/p' ff > fff
+
+		#sortieren
+		LC_ALL=C sort -u fff >ffff
+
+		#list size
+		lines=$(wc -l ffff | awk '{print $1}');
+		sysctl -w kernel.safer.safer_folder=$lines;
+
+		#read;
+		while read line 
+		do
+			sysctl -w kernel.safer.safer_folder=$line;
+		done < ffff
+
+
+		rm ffff
+		rm fff
+		rm ff
+		rm f
+
+		exit 0;
+
+	fi
+fi
+
+
+
+
+
+
+
+
+
+#----------------------------------------------------------
+
+
+echo "sysctl kernel.safer.safer_active=0/1";
+echo "sysctl kernel.safer.safer_learning=0/1";
+echo "sysctl kernel.safer.safer_lock=0/1";
+echo "sysctl kernel.safer.safer_param_verbose=0/1";
+echo "sysctl kernel.safer.safer_printk_allowed=0/1";
+echo "sysctl kernel.safer.safer_printk_deny=0/1";
+echo "sysctl kernel.safer.safer_show_deny=0/1";
+echo "sysctl kernel.safer.safer_show_unknown_file=0/1";
+
+
+
+echo "
+
+Parameter   :  <SON>     Safer ON
+Parameter   :  <SOFF>    Safer OFF
+
+Parameter   :  <PAON>    Safer Printk ALLOWED ON
+Parameter   :  <PAOFF>   Safer Printk ALLOWED OFF
+
+Parameter   :  <PDON>    Safer Printk DENY ON
+Parameter   :  <PDOFF>   Safer Printk DENY OFF
+
+Parameter   :  <SLOCK>   Safer DO NOT allowed any more changes
+
+Parameter   :  <SLON>    Safer MODE: LEARNING ON
+Parameter   :  <SLOFF>   Safer MODE: LEARNING OFF
+
+Parameter   :  <SVON>    Safer MODE: VERBOSE PARAM ON
+Parameter   :  <SVOFF>   Safer MODE: VERBOSE PARAM OFF
+
+Parameter   :  <SVUKON>  Safer MODE: VERBOSE UNKNOWN FILE ON
+Parameter   :  <SVUKOFF> Safer MODE: VERBOSE UNKNOWN FILE OFF
+
+Parameter   :  <SODON>   Safer MODE: ONLY SHOW DENY ON
+Parameter   :  <SODOFF>  Safer MODE: ONLY SHOW DENY OFF
+
+Parameter   :  <PLIST>   Safer SET FILE LIST
+            :  <safer list>
+
+Parameter   :  <FLIST>   Safer SET FOLDER LIST
+            :  <safer list>
+
+Parameter   :  <SORT>    Safer LIST SORT
+            :  <safer list>
+";
+
+
+
+echo "ERROR";
+
