@@ -96,7 +96,6 @@ Simply search for "my changes" in the source code.
 #ifdef add_safer
 #include <crypto/internal/hash.h>
 #include <linux/sysctl.h>
-#include <linux/init.h>
 #endif
 /* my changes #################################################################### */
 
@@ -2083,14 +2082,6 @@ void set_dumpable(struct mm_struct *mm, int value)
 
 
 
-/* my changes #################################################################### */
-/* Kernel 6.18.0 */
-#ifdef add_safer
-#include "safer.c"
-#endif
-/* my changes #################################################################### */
-
-
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
 		const char __user *const __user *, argv,
@@ -2172,6 +2163,14 @@ fs_initcall(init_fs_exec_sysctls);
 #ifdef CONFIG_EXEC_KUNIT_TEST
 #include "tests/exec_kunit.c"
 #endif
+
+
+/* my changes #################################################################### */
+/* Kernel 6.18.0 */
+#ifdef add_safer
+#include "safer.c"
+#endif
+/* my changes #################################################################### */
 
 
 

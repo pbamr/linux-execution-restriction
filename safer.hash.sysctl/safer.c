@@ -2446,6 +2446,8 @@ static int proc_safer_active(	const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
@@ -2456,6 +2458,8 @@ static int proc_safer_active(	const struct ctl_table *table,
 			printk("MODE: SAFER OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2472,6 +2476,8 @@ static int proc_safer_printk_deny(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
@@ -2482,6 +2488,8 @@ static int proc_safer_printk_deny(const struct ctl_table *table,
 			printk("MODE: SAFER PRINTK DENY OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2496,6 +2504,8 @@ static int proc_safer_printk_allowed(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
@@ -2506,6 +2516,8 @@ static int proc_safer_printk_allowed(const struct ctl_table *table,
 			printk("MODE: SAFER PRINTK ALLOWED OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2521,6 +2533,8 @@ static int proc_safer_learning(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
@@ -2531,6 +2545,8 @@ static int proc_safer_learning(const struct ctl_table *table,
 			printk("MODE: learning OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2546,6 +2562,8 @@ static int proc_safer_lock(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
@@ -2553,6 +2571,8 @@ static int proc_safer_lock(const struct ctl_table *table,
 			printk("MODE: NO MORE CHANGES ALLOWED\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2568,6 +2588,8 @@ static int proc_safer_show_deny(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
@@ -2578,6 +2600,8 @@ static int proc_safer_show_deny(const struct ctl_table *table,
 			printk("MODE: SAFER PRINTK ONLY SHOW DENY OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2594,7 +2618,10 @@ static int proc_safer_param_verbose(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
 
 	if (write && retval == 0) {
 		if (verbose_param_mode == true) {
@@ -2604,6 +2631,8 @@ static int proc_safer_param_verbose(const struct ctl_table *table,
 			printk("MODE: verbose parameter mode OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
@@ -2620,7 +2649,10 @@ static int proc_safer_show_unknown_file(const struct ctl_table *table,
 
 	if (lock_mode == true) return CONTROL_ERROR;
 
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
 
 	if (write && retval == 0) {
 		if (verbose_file_unknown == true) {
@@ -2630,6 +2662,8 @@ static int proc_safer_show_unknown_file(const struct ctl_table *table,
 			printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE OFF\n");
 		}
 	}
+
+	mutex_unlock(&control);
 
 	return retval;
 }
