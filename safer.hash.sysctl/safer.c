@@ -289,7 +289,7 @@ when in doubt remove it
 #define LIST_MAX 50000
 #define LIST_MIN 1
 
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 3000000
 
 //#define RET_SHELL -1
 #define ALLOWED 0
