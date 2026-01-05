@@ -134,8 +134,8 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	else	seq_printf(proc_show, "MODE LEARNING               : OFF\n");
 
 	if (info.lock_mode == false)
-		seq_printf(proc_show, "MODE SAFER LOCK ALLOWED     : ON\n");
-	else	seq_printf(proc_show, "MODE SAFER LOCK ALLOWED     : OFF\n");
+		seq_printf(proc_show, "MODE SAFER LOCK             : OFF\n");
+	else	seq_printf(proc_show, "MODE SAFER LOCK             : ON\n");
 
 
 	seq_printf(proc_show, "PROG. LIST SIZE             : %ld\n", info.global_list_prog_size);

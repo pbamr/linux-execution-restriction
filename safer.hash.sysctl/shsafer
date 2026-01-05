@@ -148,6 +148,7 @@ if [ "$order" = "PLIST" ]; then
 		#list size
 		lines=$(wc -l pppp | awk '{print $1}');
 		echo $lines;
+		#sysctl -w kernel.safer.safer_prog=$lines;
 		echo $lines > /proc/sys/kernel/safer/safer_prog
 
 
@@ -155,6 +156,7 @@ if [ "$order" = "PLIST" ]; then
 		while read line 
 		do
 			echo $line;
+			#sysctl -w kernel.safer.safer_prog=$line;
 			echo $line > /proc/sys/kernel/safer/safer_prog
 
 		done < pppp
@@ -189,10 +191,13 @@ if [ "$order" = "FLIST" ]; then
 		#list size
 		lines=$(wc -l ffff | awk '{print $1}');
 		echo $lines;
+		#sysctl -w kernel.safer.safer_folder=$lines;
 		echo $lines > /proc/sys/kernel/safer/safer_folder
 
 		while read line 
 		do
+			#echo $line;
+			#sysctl -w kernel.safer.safer_folder=$line;
 			echo $line > /proc/sys/kernel/safer/safer_folder
 			echo $line
 		done < ffff
@@ -261,6 +266,8 @@ Parameter   :  <PLIST>   Safer SET FILE LIST
 Parameter   :  <FLIST>   Safer SET FOLDER LIST
             :  <safer list>
 
+Parameter   :  <SORT>    Safer LIST SORT
+            :  <safer list>
 ";
 
 

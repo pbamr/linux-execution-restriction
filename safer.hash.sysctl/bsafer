@@ -1,6 +1,6 @@
 #!/usr/bin/bash
-#* Copyright (c) 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
-# * Urheber: 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+#* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+# * Urheber: 2022.03.28, 2025.12.13, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 #
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -143,19 +143,22 @@ if [ "$order" = "PLIST" ]; then
 		sed '/\/$/d' pp > ppp
 
 		#sortieren
+		#sort -h ppp | uniq  > pppp
 		LC_ALL=C sort -u ppp > pppp
 
 		#list size
 		lines=$(wc -l pppp | awk '{print $1}');
+		echo $lines;
 		sysctl -w kernel.safer.safer_prog=$lines;
 
 		#read;
 		while read line 
 		do
+			#echo $line;
 			sysctl -w kernel.safer.safer_prog=$line;
 		done < pppp
 
-		rm pppp
+		#rm pppp
 		rm ppp
 		rm pp
 		rm p
@@ -180,20 +183,22 @@ if [ "$order" = "FLIST" ]; then
 		sed -n '/\/$/p' ff > fff
 
 		#sortieren
-		LC_ALL=C sort -u fff >ffff
+		LC_ALL=C sort fff | uniq  > ffff
 
 		#list size
 		lines=$(wc -l ffff | awk '{print $1}');
+		echo $lines;
 		sysctl -w kernel.safer.safer_folder=$lines;
 
 		#read;
 		while read line 
 		do
+			#echo $line;
 			sysctl -w kernel.safer.safer_folder=$line;
 		done < ffff
 
 
-		rm ffff
+		#cat ffff
 		rm fff
 		rm ff
 		rm f
@@ -256,7 +261,13 @@ Parameter   :  <PLIST>   Safer SET FILE LIST
 Parameter   :  <FLIST>   Safer SET FOLDER LIST
             :  <safer list>
 
+Parameter   :  <SORT>    Safer LIST SORT
+            :  <safer list>
 ";
+
+
+
+
 
 
 

@@ -289,7 +289,7 @@ when in doubt remove it
 #define LIST_MAX 50000
 #define LIST_MIN 1
 
-#define KERNEL_READ_SIZE 3000000
+#define KERNEL_READ_SIZE 2123457
 
 //#define RET_SHELL -1
 #define ALLOWED 0
@@ -2673,6 +2673,19 @@ static int proc_safer_prog(const struct ctl_table *table,
 			return CONTROL_ERROR;
 		}
 
+		if (list_prog_start != -1) {
+			printk("FREE: list_prog_temp, %ld, %ld\n",list_prog_start, list_prog_size );
+			for (int n = 0; n < list_prog_start; n++) {
+				if (list_prog_temp[n] != NULL) {
+					kfree(list_prog_temp[n]);
+					list_prog_temp[n] = NULL;
+				}
+			}
+			kfree(list_prog_temp);
+			list_prog_temp = NULL;
+		}
+
+
 		list_prog_temp = kzalloc(list_prog_size_temp * sizeof(char *), GFP_KERNEL);
 		/* Create not ok */
 		if (list_prog_temp == NULL) {
@@ -2736,8 +2749,10 @@ static int proc_safer_prog(const struct ctl_table *table,
 
 		if (global_list_prog_size_temp > 0) {
 			for (int n = 0; n < global_list_prog_size_temp; n++) {
-				kfree(global_list_prog_temp[n]);
-				global_list_prog_temp[n] = NULL;
+				if (global_list_prog_temp[n] != NULL) {
+					kfree(global_list_prog_temp[n]);
+					global_list_prog_temp[n] = NULL;
+				}
 			}
 			kfree(global_list_prog_temp);
 			global_list_prog_temp = NULL;
@@ -2786,6 +2801,18 @@ static int proc_safer_folder(const struct ctl_table *table,
 			return CONTROL_ERROR;
 		}
 
+		if (list_folder_start != -1) {
+			printk("FREE: list_folder_temp, %ld, %ld\n",list_folder_start, list_folder_size );
+			for (int n = 0; n < list_folder_start; n++) {
+				if (list_folder_temp[n] != NULL) {
+					kfree(list_folder_temp[n]);
+					list_folder_temp[n] = NULL;
+				}
+			}
+			kfree(list_folder_temp);
+			list_folder_temp = NULL;
+		}
+
 		list_folder_temp = kzalloc(list_folder_size_temp * sizeof(char *), GFP_KERNEL);
 		/* Create not ok */
 		if (list_folder_temp == NULL) {
@@ -2830,7 +2857,7 @@ static int proc_safer_folder(const struct ctl_table *table,
 
 	list_folder_start++;
 
-	/* list vollstaendig */
+	/* list full */
 	if (list_folder_start >= list_folder_size) {
 		list_folder_start = -1;
 		/* clear */
@@ -2849,8 +2876,10 @@ static int proc_safer_folder(const struct ctl_table *table,
 
 		if (global_list_folder_size_temp > 0) {
 			for (int n = 0; n < global_list_folder_size_temp; n++) {
-				kfree(global_list_folder_temp[n]);
-				global_list_folder_temp[n] = NULL;
+				if (global_list_folder_temp[n] != NULL) {
+					kfree(global_list_folder_temp[n]);
+					global_list_folder_temp[n] = NULL;
+				}
 			}
 			kfree(global_list_folder_temp);
 			global_list_folder_temp = NULL;
@@ -2961,7 +2990,7 @@ static const struct ctl_table safer_table[] = {
 
 static int __init safer_sysctl_init(void)
 {
-	// Registriert den Pfad unter /proc/sys/kernel/safer
+	// Registriert PATH /proc/sys/kernel/safer
 	register_sysctl_init("kernel/safer", safer_table);
 	return 0;
 }
