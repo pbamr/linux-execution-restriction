@@ -2658,6 +2658,10 @@ static int proc_safer_prog(const struct ctl_table *table,
 
 	int retval = proc_dostring(table, write, buffer, lenp, ppos);
 
+	if (write && retval != 0) {
+		return CONTROL_ERROR;
+	}
+
 	/* if String number then init */
 	/* string to number */
 	long list_prog_size_temp = 0;
@@ -2730,7 +2734,7 @@ static int proc_safer_prog(const struct ctl_table *table,
 
 	list_prog_start++;
 
-	/* list vollstaendig */
+	/* list full */
 	if (list_prog_start >= list_prog_size) {
 		list_prog_start = -1;
 		/* clear */
@@ -2785,6 +2789,11 @@ static int proc_safer_folder(const struct ctl_table *table,
 	if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
 	int retval = proc_dostring(table, write, buffer, lenp, ppos);
+
+	if (write && retval != 0) {
+		return CONTROL_ERROR;
+	}
+
 
 	/* if String number then init */
 	/* string to number */
