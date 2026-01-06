@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.01.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.01.06, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.01.06, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2026.01.04
+	Date		: 2022.04.22 - 2026.01.06
 
 	Program		: safer.c
 	Path		: fs/
@@ -279,8 +279,6 @@ when in doubt remove it
 
 
 /*your choice */
-#define MAX_DYN 100000
-#define MAX_DYN_BYTES MAX_DYN * 200
 #define ARGV_MAX 16
 
 #define LEARNING_ARGV_MAX 5000
@@ -2693,6 +2691,7 @@ static int proc_safer_prog(const struct ctl_table *table,
 	int retval = proc_dostring(table, write, buffer, lenp, ppos);
 
 	if (write && retval != 0) {
+		mutex_unlock(&control);
 		return CONTROL_ERROR;
 	}
 
@@ -2825,6 +2824,7 @@ static int proc_safer_folder(const struct ctl_table *table,
 	int retval = proc_dostring(table, write, buffer, lenp, ppos);
 
 	if (write && retval != 0) {
+		mutex_unlock(&control);
 		return CONTROL_ERROR;
 	}
 
