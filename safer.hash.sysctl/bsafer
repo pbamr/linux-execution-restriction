@@ -133,7 +133,7 @@ fi
 if [ "$order" = "PLIST" ]; then
 	FNAME=$2;
 	if [ -f "$FNAME" ]; then
-		#Leerzeichen entfernen
+		#Leerzeilen entfernen
 		awk NF $FNAME > p
 
 		#Zeilen mit '#' am Anfang entfernen
@@ -173,7 +173,7 @@ fi
 if [ "$order" = "FLIST" ]; then
 	FNAME=$2;
 	if [ -f "$FNAME" ]; then
-		#Leerzeichen entfernen
+		#Leerzeilen entfernen
 		awk NF $FNAME > f
 
 		#Zeilen mit '#' am Anfang entfernen
