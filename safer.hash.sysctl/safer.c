@@ -287,15 +287,11 @@ when in doubt remove it
 #define LIST_MAX 50000
 #define LIST_MIN 1
 
-#define KERNEL_READ_SIZE 3000000
+#define KERNEL_READ_SIZE 2123457
 
 //#define RET_SHELL -1
-#define ALLOWED 0
-#define NOT_ALLOWED -1
 #define CONTROL_ERROR -1
-#define CONRTOL_OK 0
 #define ERROR -1
-#define NOT_IN_LIST -1
 
 
 
@@ -305,9 +301,6 @@ typedef int ibool;
 /*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
-/*
-static DEFINE_MUTEX(allowed_lock);
-*/
 
 
 
@@ -316,7 +309,7 @@ static ibool	ONLY_SHOW_DENY = false;
 static ibool	printk_allowed = false;
 static ibool	printk_deny = true;
 static ibool	learning_mode = true;
-static ibool	lock_mode = false;	/*false = change_mode allowed */
+static ibool	lock_mode = false;
 static ibool	verbose_param_mode = false;
 static ibool	verbose_file_unknown = true;
 
@@ -507,7 +500,7 @@ static bool besearch_folder(	char *str_search,
 	long int_ret;
 
 
-	if (str_search[strlen(str_search) -1] == '/' ) return NOT_IN_LIST;
+	if (str_search[strlen(str_search) -1] == '/' ) return false;
 
 
 	left = 0;
@@ -745,7 +738,7 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 	if (struct_file_info->retval == false) return;
 
 
-	// init list, vollstaendig max Zeilen
+	// init list, max lines
 	// Only One 
 	if (*list_len == -1) {
 		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_KERNEL);
@@ -788,7 +781,7 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 		return;
 	}
 
-	/* wenn umlauf */
+	/* if overflow. old free */
 	if ( (*list)[*list_len] != NULL) {
 		kfree((*list)[*list_len]);
 	}
@@ -804,72 +797,6 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 	return;
 }
 
-
-/*
-static void learning_old(struct struct_file_info *struct_file_info,
-			char ***list,
-			long *list_len)
-{
-
-	char	*str_learning =  NULL;
-	int	string_length = 0;
-
-
-	if (struct_file_info->retval == false) return;
-	if (struct_file_info->fname[0] != '/') return;
-
-
-	string_length = strlen(struct_file_info->str_user_id);
-	string_length += strlen(struct_file_info->str_file_size);
-	string_length += strlen(struct_file_info->fname);
-	string_length += strlen(struct_file_info->hash_string);
-	string_length += strlen("a:;;;") + 1;
-
-
-	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-	if (!str_learning) {
-		return;
-	}
-
-	strcpy(str_learning, "a:");
-	strcat(str_learning, struct_file_info->str_user_id);
-	strcat(str_learning, ";");
-	strcat(str_learning, struct_file_info->str_file_size);
-	strcat(str_learning, ";");
-	strcat(str_learning, struct_file_info->hash_string);
-	strcat(str_learning, ";");
-	strcat(str_learning, struct_file_info->fname);
-
-
-	if (search(str_learning, *list, *list_len) != true) {
-
-	// init
-	if (*list_len == 0) {
-			*list = kzalloc(sizeof(char *), GFP_KERNEL);
-			if (*list == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			(*list)[0] = str_learning;
-			*list_len = 1;
-		}
-		else {
-			*list = krealloc(*list, (*list_len + 1) * sizeof(char *), GFP_KERNEL);
-			if (*list == NULL) {
-				kfree(str_learning);
-				return;
-			}
-
-			(*list)[*list_len] = str_learning;
-			*list_len += 1;
-		}
-	}
-
-	return;
-}
-
-*/
 
 
 static void learning(	struct struct_file_info *struct_file_info,
@@ -920,7 +847,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 		return;
 	}
 
-	/* wenn umlauf. alten speicher freigeben*/
+	/* if overflow. old free */
 	if ( (*list)[*list_len] != NULL) {
 		kfree((*list)[*list_len]);
 	}
@@ -2695,7 +2622,7 @@ static int proc_safer_prog(const struct ctl_table *table,
 		return CONTROL_ERROR;
 	}
 
-	/* if String number then init */
+	/* if String = number then init */
 	/* string to number */
 	long list_prog_size_temp = 0;
 	retval = kstrtol(safer_prog_string, 10, &list_prog_size_temp);
@@ -2829,7 +2756,7 @@ static int proc_safer_folder(const struct ctl_table *table,
 	}
 
 
-	/* if String number then init */
+	/* if String = number then init */
 	/* string to number */
 	long list_folder_size_temp = 0;
 	retval = kstrtol(safer_folder_string, 10, &list_folder_size_temp);

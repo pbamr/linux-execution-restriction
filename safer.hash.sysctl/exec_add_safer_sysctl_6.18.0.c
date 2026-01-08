@@ -96,6 +96,7 @@ Simply search for "my changes" in the source code.
 #ifdef add_safer
 #include <crypto/internal/hash.h>
 #include <linux/sysctl.h>
+#include "safer.c"
 #endif
 /* my changes #################################################################### */
 
@@ -783,22 +784,6 @@ out:
 EXPORT_SYMBOL(transfer_args_to_stack);
 
 #endif /* CONFIG_MMU */
-
-
-
-
-/* my changes #################################################################### */
-/* makes compiler happy */
-#ifdef add_safer
-static bool exec_second_step(const char *filename);
-static bool allowed_exec(const char *filename,
-			struct user_arg_ptr argv);
-//static bool safer_mode;
-
-#endif
-/* my changes #################################################################### */
-
-
 
 
 
@@ -2163,15 +2148,4 @@ fs_initcall(init_fs_exec_sysctls);
 #ifdef CONFIG_EXEC_KUNIT_TEST
 #include "tests/exec_kunit.c"
 #endif
-
-
-/* my changes #################################################################### */
-/* Kernel 6.18.0 */
-#ifdef add_safer
-#include "safer.c"
-#endif
-/* my changes #################################################################### */
-
-
-
 
