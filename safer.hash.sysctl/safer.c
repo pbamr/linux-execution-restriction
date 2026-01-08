@@ -287,11 +287,11 @@ when in doubt remove it
 #define LIST_MAX 50000
 #define LIST_MIN 1
 
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 4000000
 
 //#define RET_SHELL -1
 #define CONTROL_ERROR -1
-#define ERROR -1
+#define SIZE_ERROR -1
 
 
 
@@ -543,30 +543,30 @@ static ssize_t get_file_size(const char *filename)
 
 	file = filp_open(filename, O_RDONLY, 0);
 	if (IS_ERR(file))
-		return ERROR;
+		return SIZE_ERROR;
 
 	if (!S_ISREG(file_inode(file)->i_mode)) {
 		fput(file);
-		return ERROR;
+		return SIZE_ERROR;
 	}
 
 	if (deny_write_access(file)) {
 		fput(file);
-		return ERROR;
+		return SIZE_ERROR;
 	}
 
 	i_size = i_size_read(file_inode(file));
 	if (i_size < 1) {
 		allow_write_access(file);
 		fput(file);
-		return ERROR;
+		return SIZE_ERROR;
 	}
 
 	/* The file is too big for sane activities. */
 	if (i_size > INT_MAX) {
 		allow_write_access(file);
 		fput(file);
-		return ERROR;
+		return SIZE_ERROR;
 	}
 
 	allow_write_access(file);
@@ -661,13 +661,13 @@ static struct struct_file_info get_file_info(const char *fname, u32 max)
 	sprintf(struct_file_info.str_user_id, "%d", struct_file_info.user_id);
 
 	struct_file_info.file_size = get_file_size(fname);
-	if (struct_file_info.file_size == ERROR) {
+	if (struct_file_info.file_size == SIZE_ERROR) {
 		struct_file_info.retval = false;
 		return struct_file_info;
 	}
 
 
-	/* Datei einlesen */
+	/* file read */
 	retval = kernel_read_file_from_path(	fname,
 						0,
 						&data,
@@ -677,21 +677,21 @@ static struct struct_file_info get_file_info(const char *fname, u32 max)
 
 	if (retval < 1) {
 		vfree(data);
-		struct_file_info.file_size = ERROR;
-		struct_file_info.hash_string[0] = '\0'; /* '\0' gleich 1 Byte' */
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.hash_string[0] = '\0'; /* '\0' = 1 Byte' */
 		struct_file_info.retval = false;
 		return struct_file_info;
 	}
 
 	if (file_size < 1) {
 		vfree(data);
-		struct_file_info.file_size = ERROR;
+		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.hash_string[0] = '\0';
 		struct_file_info.retval = false;
 		return struct_file_info;
 	}
 
-	/* wieviel Bytes von Datei einlesen */
+	/* Bytes read? */
 	if (file_size < max) max = file_size;
 
 	char *buffer = data;
@@ -712,7 +712,7 @@ static struct struct_file_info get_file_info(const char *fname, u32 max)
 
 	vfree(data);
 	struct_file_info.retval = false;
-	struct_file_info.file_size = ERROR;
+	struct_file_info.file_size = SIZE_ERROR;
 	struct_file_info.hash_string[0] = '\0';
 	return struct_file_info;
 }
@@ -781,7 +781,7 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 		return;
 	}
 
-	/* if overflow. old free */
+	/* if ring buffer = 0, old free */
 	if ( (*list)[*list_len] != NULL) {
 		kfree((*list)[*list_len]);
 	}
@@ -847,7 +847,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 		return;
 	}
 
-	/* if overflow. old free */
+	/* ring buffer = 0, old free */
 	if ( (*list)[*list_len] != NULL) {
 		kfree((*list)[*list_len]);
 	}
@@ -2867,7 +2867,6 @@ static int proc_safer_folder(const struct ctl_table *table,
 
 
 
-// Definition der Sysctl-Struktur
 static const struct ctl_table safer_table[] = {
 	{
 		.procname       = "safer_folder",
@@ -2960,7 +2959,7 @@ static const struct ctl_table safer_table[] = {
 
 static int __init safer_sysctl_init(void)
 {
-	// Registriert PATH /proc/sys/kernel/safer
+	// Reg. PATH /proc/sys/kernel/safer
 	register_sysctl_init("kernel/safer", safer_table);
 	return 0;
 }
