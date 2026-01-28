@@ -89,23 +89,7 @@ You can find these under "my changes".
 Simply search for "my changes" in the source code.
 */
 
-#ifndef add_safer
-#define add_safer
-#endif
-
-#ifdef add_safer
-#include <crypto/internal/hash.h>
-#include <linux/sysctl.h>
-#include "safer.c"
-#endif
 /* my changes #################################################################### */
-
-
-
-
-
-
-
 
 
 
@@ -785,6 +769,26 @@ EXPORT_SYMBOL(transfer_args_to_stack);
 
 #endif /* CONFIG_MMU */
 
+
+
+/* my changes #################################################################### */
+/*
+Add all my changes in your fs/exec.c
+You can find these under "my changes".
+Simply search for "my changes" in the source code.
+*/
+
+#ifndef add_safer
+#define add_safer
+#endif
+
+#ifdef add_safer
+#include <crypto/internal/hash.h>
+#include <linux/sysctl.h>
+
+#include "safer.c"
+#endif
+/* my changes #################################################################### */
 
 
 /*
@@ -2148,4 +2152,5 @@ fs_initcall(init_fs_exec_sysctls);
 #ifdef CONFIG_EXEC_KUNIT_TEST
 #include "tests/exec_kunit.c"
 #endif
+
 
