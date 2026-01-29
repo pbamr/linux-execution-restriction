@@ -133,21 +133,21 @@ fi
 if [ "$order" = "PLIST" ]; then
 	FNAME=$2;
 	if [ -f "$FNAME" ]; then
-		#Leerzeilen entfernen
-		awk NF $FNAME > p
+		#Leerzeichen entfernen
+		awk NF $FNAME > p1
 
 		#Zeilen mit '#' am Anfang entfernen
-		sed '/#/d' p > pp
+		sed '/#/d' p1 > pp1
 
 		#Zeilen mit '/' am Ende entfernen
-		sed '/\/$/d' pp > ppp
+		sed '/\/$/d' pp1 > ppp1
 
 		#sortieren
 		#sort -h ppp | uniq  > pppp
-		LC_ALL=C sort -u ppp > pppp
+		LC_ALL=C sort -u ppp1 > pppp1
 
 		#list size
-		lines=$(wc -l pppp | awk '{print $1}');
+		lines=$(wc -l pppp1 | awk '{print $1}');
 		echo $lines;
 		sysctl -w kernel.safer.safer_prog=$lines;
 
@@ -156,12 +156,12 @@ if [ "$order" = "PLIST" ]; then
 		do
 			#echo $line;
 			sysctl -w kernel.safer.safer_prog=$line;
-		done < pppp
+		done < pppp1
 
-		#rm pppp
-		rm ppp
-		rm pp
-		rm p
+		rm pppp1
+		rm ppp1
+		rm pp1
+		rm p1
 
 		exit 0;
 	fi
@@ -173,20 +173,20 @@ fi
 if [ "$order" = "FLIST" ]; then
 	FNAME=$2;
 	if [ -f "$FNAME" ]; then
-		#Leerzeilen entfernen
-		awk NF $FNAME > f
+		#Leerzeichen entfernen
+		awk NF $FNAME > f1
 
 		#Zeilen mit '#' am Anfang entfernen
-		sed '/#/d' f > ff
+		sed '/#/d' f1 > ff1
 
 		#Zeilen mit '/' am Ende isolieren
-		sed -n '/\/$/p' ff > fff
+		sed -n '/\/$/p' ff1 > fff1
 
 		#sortieren
-		LC_ALL=C sort fff | uniq  > ffff
+		LC_ALL=C sort fff1 | uniq  > ffff1
 
 		#list size
-		lines=$(wc -l ffff | awk '{print $1}');
+		lines=$(wc -l ffff1 | awk '{print $1}');
 		echo $lines;
 		sysctl -w kernel.safer.safer_folder=$lines;
 
@@ -195,19 +195,95 @@ if [ "$order" = "FLIST" ]; then
 		do
 			#echo $line;
 			sysctl -w kernel.safer.safer_folder=$line;
-		done < ffff
+		done < ffff1
 
 
-		#cat ffff
-		rm fff
-		rm ff
-		rm f
+		rm ffff1
+		rm fff1
+		rm ff1
+		rm f1
 
 		exit 0;
 
 	fi
 fi
 
+#----------------------------------------------------------
+if [ "$order" = "SORT-PROG" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > p1
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' p1 > pp1
+
+		#Zeilen mit '/' am Ende entfernen
+		sed '/\/$/d' pp1 > ppp1
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u ppp1 > pppp1
+
+		#list size
+		lines=$(wc -l pppp1 | awk '{print $1}');
+		echo $lines;
+		#sysctl -w kernel.safer.safer_prog=$lines;
+
+		#read;
+		while read line 
+		do
+			echo $line;
+			#sysctl -w kernel.safer.safer_prog=$line;
+		done < pppp1
+
+		rm pppp1
+		rm ppp1
+		rm pp1
+		rm p1
+
+		exit 0;
+	fi
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SORT-FOLDER" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > f1
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' f1 > ff1
+
+		#Zeilen mit '/' am Ende isolieren
+		sed -n '/\/$/p' ff1 > fff1
+
+		#sortieren
+		LC_ALL=C sort fff1 | uniq  > ffff1
+
+		#list size
+		lines=$(wc -l ffff1 | awk '{print $1}');
+		echo $lines;
+		#sysctl -w kernel.safer.safer_folder=$lines;
+
+		#read;
+		while read line 
+		do
+			echo $line;
+			#sysctl -w kernel.safer.safer_folder=$line;
+		done < ffff1
+
+
+		rm ffff1
+		rm fff1
+		rm ff1
+		rm f1
+
+		exit 0;
+
+	fi
+fi
 
 
 
@@ -261,7 +337,10 @@ Parameter   :  <PLIST>   Safer SET FILE LIST
 Parameter   :  <FLIST>   Safer SET FOLDER LIST
             :  <safer list>
 
-Parameter   :  <SORT>    Safer LIST SORT
+Parameter   :  <SORT-FOLDER>    Safer FOLDER LIST SORT
+            :  <safer list>
+
+Parameter   :  <SORT-PROG>    Safer PROG LIST SORT
             :  <safer list>
 ";
 
