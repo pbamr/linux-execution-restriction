@@ -1877,8 +1877,16 @@ static int do_execveat_common(int fd, struct filename *filename,
 
 	int retval;
 
+
+/* my changes #################################################################### */
+#ifdef add_safer
+
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
+
+
+#endif
+/* my changes #################################################################### */
 
 
 

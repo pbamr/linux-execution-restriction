@@ -2612,7 +2612,7 @@ static bool allowed_exec(const char *filename,
 
 		/* toctou attacke ? */
 		if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-			//retval = false;
+			retval = false;
 
 
 			deny_list_toctou(&struct_file_info,
