@@ -1,4 +1,4 @@
-^/* Copyright (c) 2022/03/28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
  * Urheber: 2022.03.28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
@@ -306,7 +306,7 @@ when in doubt remove it
 #define LIST_MIN 1
 
 
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 3000000
 
 //#define RET_SHELL -1
 #define CONTROL_ERROR -1
@@ -746,7 +746,6 @@ static struct struct_file_info get_file_info(const char *fname, u32 max)
 	struct struct_hash_sum struct_hash_sum = get_hash_sum(buffer, max);
 
 	if (struct_hash_sum.retval == true) {
-		vfree(data);
 
 		struct_file_info.file_size = get_file_size(fname);
 		scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size),"%ld", struct_file_info.file_size);
@@ -758,7 +757,7 @@ static struct struct_file_info get_file_info(const char *fname, u32 max)
 		if (!error) {
 			inode = d_inode(path.dentry);
 
-			/* toctou attacke ? wenn nicht gesetzt! */
+			/* toctou attacke ? if not set! */
 			if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
 				printk("SAFER: TOCTOU-ATTACKE: a:%s;%s;%s;%s\n",
 						struct_file_info.str_user_id,
@@ -774,12 +773,23 @@ static struct struct_file_info get_file_info(const char *fname, u32 max)
 		}
 
 
+		vfree(data);
 		struct_file_info.retval = true;
 
 		mutex_unlock(&kernel_read_from_path_lock);
 
 		return struct_file_info;
 	}
+
+
+	/* If HASH not OK FLAG clear */
+	error = kern_path(fname, LOOKUP_FOLLOW, &path);
+	if (!error) {
+			inode = d_inode(path.dentry);
+			clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+			path_put(&path);
+		}
+
 
 	vfree(data);
 	struct_file_info.retval = false;
@@ -2490,6 +2500,10 @@ static bool allowed_exec(const char *filename,
 	}
 
 
+	struct struct_file_info struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
+	if (struct_file_info.retval == false)
+		return true;
+
 
 	/* NOTICE long Para. */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
@@ -2541,7 +2555,8 @@ static bool allowed_exec(const char *filename,
 
 
 
-	struct struct_file_info struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
+
+
 
 	if (verbose_param_mode == true) {
 		print_prog_arguments(	&struct_file_info,
@@ -3330,8 +3345,11 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 
 
 
-	if (global_list_folder_size > -1) {
+	if (global_list_folder_size != 0) {
 		for (n = 0; n < global_list_folder_size; n++) {
+			if (global_list_folder[n] == NULL)
+				break;
+
 			seq_printf(proc_show, "%s\n", global_list_folder[n]);
 		}
 	}
@@ -3340,9 +3358,11 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "FILES:\n\n");
 
 
-	if (global_list_prog_size > -1) {
+	if (global_list_prog_size != 0) {
 		for (n = 0; n < LIST_MAX; n++) {
-			if (global_list_prog[n] == NULL) break;
+			if (global_list_prog[n] == NULL)
+				break;
+
 			seq_printf(proc_show, "%s\n", global_list_prog[n]);
 		}
 	}
@@ -3353,16 +3373,13 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 
 
 
-	if (global_list_deny_size > -1) {
+	if (global_list_deny_size >= 0) {
 		for (n = 0; n < DENY_MAX; n++) {
-			if (global_list_deny[n] == NULL) break;
+			if (global_list_deny[n] == NULL)
+				break;
 			seq_printf(proc_show, "%s\n", global_list_deny[n]);
 		}
 	}
-
-
-
-
 
 
 
@@ -3447,3 +3464,53 @@ static int __init safer_init(void)
 	return 0;
 }
 late_initcall(safer_init);
+//fs_initcall(safer_learning_show);
+
+
+
+
+
+
+/* ########################################################################### */
+
+/* Der Notifier-Callback: Wird vom Kernel-Thread aufgerufen */
+/*---------------------------------------------------------------------------*/
+/* Timer-Task */
+/*---------------------------------------------------------------------------*/
+
+static struct workqueue_struct *timer_wq;
+static struct delayed_work periodic_work;
+
+static void timer_work_handler(struct work_struct *work)
+{
+
+	printk("Hallo Safer\n");
+
+	queue_delayed_work(timer_wq, &periodic_work, 60 * HZ);
+
+}
+
+
+
+
+static int __init pbpb_periodic_timer_init(void)
+{
+	// Erstellt eine dedizierte Workqueue
+	timer_wq = alloc_workqueue("t_wq", WQ_MEM_RECLAIM, 0);
+	if (!timer_wq)
+		return -ENOMEM;
+
+	INIT_DELAYED_WORK(&periodic_work, timer_work_handler);
+
+	// Initialer Start in der eigenen Queue
+	/*queue_delayed_work(timer_wq, &periodic_work, 60 * HZ); */
+	queue_delayed_work(timer_wq, &periodic_work, 60 * HZ);
+
+	return 0;
+}
+late_initcall(pbpb_periodic_timer_init);
+
+
+
+//######################################################################################
+
