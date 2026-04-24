@@ -510,6 +510,9 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 	}
 
 	/* --------------------------------------------------------------------- */
+	//if (inode->i_nlink == 0)
+		toctou = true;
+
 	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
 		toctou = true;
 
