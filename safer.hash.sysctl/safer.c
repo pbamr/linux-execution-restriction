@@ -306,7 +306,7 @@ when in doubt remove it
 #define LIST_MIN 1
 
 
-#define KERNEL_READ_SIZE 2000000
+#define KERNEL_READ_SIZE 2123457
 
 //#define RET_SHELL -1
 #define CONTROL_ERROR -1
@@ -747,10 +747,10 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	if (error < 0) {
 		// error: read (z.B. -E2BIG, -EIO)
 
-		if (error == -ENOENT)
-			printk("SAFER ERROR: File not found\n");
+		//if (error == -ENOENT)
+		//	printk("SAFER ERROR: File not found\n");
 		
-		else if (error == -EACCES)
+		if (error == -EACCES)
 			printk("SAFER ERROR: No right\n");
 		
 		else if (error == -EINVAL)
@@ -774,8 +774,8 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	/* TOCTOU ? */
 
 	/* userland delete file */
-	//if (inode->i_nlink == 0)
-	//	struct_file_info.toctou = true;
+	if (inode->i_nlink == 0)
+		struct_file_info.toctou = true;
 
 	/* userland write etc. file! */
 	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
