@@ -449,12 +449,25 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 
 	/* --------------------------------------------------------------------- */
 
-
 	if (get_hash_sum(file, inode, hash_raw, max) == 0)
 		hashraw_to_hashstring(hash_raw, hash_string);
-	else
+	else {
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 		return true;
+	}
 
+
+	/* --------------------------------------------------------------------- */
+	//if (inode->i_nlink == 0)
+	//	toctou = true;
+
+	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
+		toctou = true;
+
+	else
+		toctou = false;
+
+	/* --------------------------------------------------------------------- */
 	if (toctou == true) {
 
 		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
