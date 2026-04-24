@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.04.24, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.04.24, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2026.04.20
+	Date		: 2022.04.22 - 2026.04.24
 
 	Program		: safer.c
 	Path		: fs/
@@ -306,7 +306,7 @@ when in doubt remove it
 #define LIST_MIN 1
 
 
-#define KERNEL_READ_SIZE 3000000
+#define KERNEL_READ_SIZE 2000000
 
 //#define RET_SHELL -1
 #define CONTROL_ERROR -1
@@ -383,6 +383,7 @@ for the variable initramfs_start_delay
 /* proto. */
 struct struct_file_info {
 	bool		retval;
+	bool		toctou;
 	char		hash_string[HASH_STRING_LENGTH];
 	ssize_t		file_size;
 	char		str_file_size[19];
@@ -552,7 +553,7 @@ static ssize_t get_file_size(const char *filename)
 
 
 /*--------------------------------------------------------------------------------*/
-static struct struct_hash_sum get_hash_sum(char buffer[], u32 max)
+static struct struct_hash_sum get_hash_sum(char buffer[], ssize_t max)
 {
 
 	char			hash_out[DIGIT];
@@ -621,180 +622,239 @@ static struct struct_hash_sum get_hash_sum(char buffer[], u32 max)
 
 
 
-static struct struct_file_info get_file_info(const char *fname, u32 max)
+static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 {
 
 	/*
 	 * Folgendes Angriffs Szenario
 	 * Angreifer laedt Mal-Software
-	 * Sofort danach wird die Mal-software geloescht
+	 * Sofort danach wird die Mal-software geloescht oder veraendert
 	 * orginal Software tritt an die Stelle
 	 *
-	 * 1. Code markiert Inode
-	 * 2. Kernel_read_from_path, HASH Bildung
-	 * 3. Code prueft Inode. Wenn Pruefung nicht bestanden
+	 * 1. struct file holen. keine link attacken mehr moeglich 
+	 * 2  Code markiert Inode
+	 * 3. Kernel_read_file. 
+	 * 4. Code prueft Inode. Wenn Pruefung nicht bestanden
 	 *    TOCOU Attacke.
 	 *
-	 * 4. Gleiches Szenario. Nur andersherum. Erst gute Datei
+	 * 5. Gleiches Szenario. Nur andersherum. Erst gute Datei
 	 *    dann Schadsoftware. In beiden Faellen ist das Check flag nicht gesetzt
 	 *    Annahme Toctou Attacke
 	 */
 
+	/*
+	 * 1. inode is set		check
+	 * 2. error: read		back to kernel
+	 * 3. error: HASH fehlerhaft	back to kernel
+	 * 4. read and HASH OK		check
+
+	 * 5. toctou			back to kernel, not allowed
+	 */
 
 
-	ssize_t				retval;
-	ssize_t				file_size;
 	void				*data = NULL;
 	struct struct_file_info		struct_file_info;
-	/* u32				max = KERNEL_READ_SIZE; */
-	int				error;
+	ssize_t				error;
 
 	/* in inode schreiben */
 	struct inode *inode;
 	struct path path;
 
+	struct file *file;
+
+
 	mutex_lock(&kernel_read_from_path_lock);
 
-
-	error = kern_path(fname, LOOKUP_FOLLOW, &path);
-	if (!error) {
-		inode = d_inode(path.dentry);
-
-		if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-			memcpy(struct_file_info.hash_string, inode->i_boettcher_hash, DIGIT * 2);
-			struct_file_info.hash_string[DIGIT * 2] = '\0';
-
-			struct_file_info.user_id = get_current_user()->uid.val;
-			scnprintf(struct_file_info.str_user_id, sizeof(struct_file_info.str_user_id), "%d", struct_file_info.user_id);
-
-			struct_file_info.file_size = i_size_read(inode);
-			scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size), "%ld", struct_file_info.file_size);
-
-			struct_file_info.fname = fname;
-
-			if (printk_allowed == true)
-				printk("SAFER: Has alredy been checked: a:%s;%s;%s;%s\n",
-						struct_file_info.str_user_id,
-						struct_file_info.str_file_size,
-						struct_file_info.hash_string,
-						struct_file_info.fname);
-
-			path_put(&path);
-
-			struct_file_info.retval = true;
-
-			mutex_unlock(&kernel_read_from_path_lock);
-
-			return struct_file_info;
-		}
-
-		set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-		path_put(&path);
-
+	/* ------------------------------------------------------------------------------------- */
+	struct_file_info.file_size = get_file_size(fname);
+	if (struct_file_info.file_size == SIZE_ERROR) {
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.toctou = false;
+		struct_file_info.retval = false;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
 	}
 
 
+	/* ------------------------------------------------------------------------------------- */
+	error = kern_path(fname, LOOKUP_FOLLOW, &path);
+	if (error) {
+		struct_file_info.toctou = false;
+		struct_file_info.retval = false;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
+	}
+
+	file = dentry_open(&path, O_RDONLY, current_cred());
+	path_put(&path); /* dentry_open add own reference */
+
+	if (IS_ERR(file)) {
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.toctou = false;
+		struct_file_info.retval = false;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
+	}
+
+	inode = file_inode(file);
+	if (!S_ISREG(inode->i_mode)) {
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.toctou = false;
+		struct_file_info.retval = false;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
+	}
+
+
+	if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
+		memcpy(struct_file_info.hash_string, inode->i_boettcher_hash, DIGIT * 2);
+		struct_file_info.hash_string[DIGIT * 2] = '\0';
+
+		struct_file_info.user_id = get_current_user()->uid.val;
+		scnprintf(struct_file_info.str_user_id, sizeof(struct_file_info.str_user_id), "%d", struct_file_info.user_id);
+
+		struct_file_info.file_size = i_size_read(inode);
+		scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size), "%ld", struct_file_info.file_size);
+
+		struct_file_info.fname = fname;
+
+		if (printk_allowed == true)
+			printk("SAFER: Has alredy been checked: a:%s;%s;%s;%s\n",
+					struct_file_info.str_user_id,
+					struct_file_info.str_file_size,
+					struct_file_info.hash_string,
+					struct_file_info.fname);
+
+		fput(file);
+
+		struct_file_info.toctou = false;
+		struct_file_info.retval = true;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
+	}
+
+	set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+
+
+	/* ------------------------------------------------------------------------------------- */
+	if (struct_file_info.file_size < max)
+		max = struct_file_info.file_size;
+
+	/* read. no link attack */
+	error = kernel_read_file(file, 0, &data, INT_MAX, NULL, READING_POLICY);
+
+	if (error < 0) {
+		// error: read (z.B. -E2BIG, -EIO)
+
+		if (error == -ENOENT)
+			printk("SAFER ERROR: File not found\n");
+		
+		else if (error == -EACCES)
+			printk("SAFER ERROR: No right\n");
+		
+		else if (error == -EINVAL)
+			printk("SAFER ERROR: wrong arg.\n");
+		
+		else
+			printk("SAFER ERROR: unknown\n");
+
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+		fput(file);
+
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.toctou = false;
+		struct_file_info.retval = false;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
+	}
+
+
+	/* ------------------------------------------------------------------------------------- */
+	/* TOCTOU ? */
+
+	/* userland delete file */
+	//if (inode->i_nlink == 0)
+	//	struct_file_info.toctou = true;
+
+	/* userland write etc. file! */
+	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
+		struct_file_info.toctou = true;
+
+	else
+		struct_file_info.toctou = false;
+
+
+	if (struct_file_info.toctou == true) {
+
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+		vfree(data);
+		fput(file);
+
+		/* toctou attacke if not set! */
+		printk("SAFER: TOCTOU-ATTACKE: a:%s;%s;%s;%s\n",
+			struct_file_info.str_user_id,
+			struct_file_info.str_file_size,
+			struct_file_info.hash_string,
+			struct_file_info.fname);
+
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.toctou = true;
+		struct_file_info.retval = false;
+		mutex_unlock(&kernel_read_from_path_lock);
+		return struct_file_info;
+	}
+
+	/* ------------------------------------------------------------------------------------- */
 	struct_file_info.fname = fname;
 	struct_file_info.user_id = get_current_user()->uid.val;
 	scnprintf(struct_file_info.str_user_id, sizeof(struct_file_info.str_user_id), "%d", struct_file_info.user_id);
 
-	struct_file_info.file_size = get_file_size(fname);
-	if (struct_file_info.file_size == SIZE_ERROR) {
-		struct_file_info.retval = false;
-
-		mutex_unlock(&kernel_read_from_path_lock);
-
-		return struct_file_info;
-	}
+	/* look: begin */
+	scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size), "%ld", struct_file_info.file_size);
 
 
-	/* file read */
-	retval = kernel_read_file_from_path(	fname,
-						0,
-						&data,
-						KERNEL_READ_SIZE,
-						&file_size,
-						READING_POLICY);
-
-	if (retval < 1) {
-		vfree(data);
-		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.hash_string[0] = '\0'; /* '\0' = 1 Byte' */
-		struct_file_info.retval = false;
-
-		mutex_unlock(&kernel_read_from_path_lock);
-
-		return struct_file_info;
-	}
-
-	if (file_size < 1) {
-		vfree(data);
-		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.hash_string[0] = '\0';
-		struct_file_info.retval = false;
-
-		mutex_unlock(&kernel_read_from_path_lock);
-
-		return struct_file_info;
-	}
-
-	/* Bytes read? */
-	if (file_size < max) max = file_size;
-
+	/* ------------------------------------------------------------------------------------- */
+	/* HASH */
 	char *buffer = data;
-
 	struct struct_hash_sum struct_hash_sum = get_hash_sum(buffer, max);
-
-	if (struct_hash_sum.retval == true) {
-
-		struct_file_info.file_size = get_file_size(fname);
-		scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size),"%ld", struct_file_info.file_size);
-
-		strscpy(struct_file_info.hash_string, struct_hash_sum.hash_string, HASH_STRING_LENGTH);
+	vfree(data);
 
 
-		error = kern_path(fname, LOOKUP_FOLLOW, &path);
-		if (!error) {
-			inode = d_inode(path.dentry);
+	/* ------------------------------------------------------------------------------------- */
+	if (struct_hash_sum.retval == false) {
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+		fput(file);
 
-			/* toctou attacke ? if not set! */
-			if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-				printk("SAFER: TOCTOU-ATTACKE: a:%s;%s;%s;%s\n",
-						struct_file_info.str_user_id,
-						struct_file_info.str_file_size,
-						struct_file_info.hash_string,
-						struct_file_info.fname);
-			}
-			else
-				memcpy(inode->i_boettcher_hash, struct_file_info.hash_string, DIGIT * 2);
-
-			path_put(&path);
-			
-		}
-
-
-		vfree(data);
-		struct_file_info.retval = true;
-
+		struct_file_info.file_size = SIZE_ERROR;
+		struct_file_info.toctou = false;
+		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_from_path_lock);
-
 		return struct_file_info;
 	}
 
+	/* ------------------------------------------------------------------------------------- */
+	strscpy(struct_file_info.hash_string, struct_hash_sum.hash_string, HASH_STRING_LENGTH);
 
-	/* If HASH not OK FLAG clear */
-	error = kern_path(fname, LOOKUP_FOLLOW, &path);
-	if (!error) {
-			inode = d_inode(path.dentry);
-			clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-			path_put(&path);
-		}
+	memcpy(inode->i_boettcher_hash, struct_file_info.hash_string, DIGIT * 2);
+
+	/* ------------------------------------------------------------------------------------- */
+
+	fput(file);
 
 
-	vfree(data);
-	struct_file_info.retval = false;
-	struct_file_info.file_size = SIZE_ERROR;
-	struct_file_info.hash_string[0] = '\0';
+	if (printk_allowed == true)
+		printk("SAFER: STAT STEP FIRST Check a:%s;%s;%s;%s\n",
+				struct_file_info.str_user_id,
+				struct_file_info.str_file_size,
+				struct_file_info.hash_string,
+				struct_file_info.fname);
+
+
+	/* ------------------------------------------------------------------------------------- */
+	struct_file_info.toctou = false;
+	struct_file_info.retval = true;
 
 	mutex_unlock(&kernel_read_from_path_lock);
 
@@ -1915,8 +1975,18 @@ param_file(struct struct_file_info *struct_file_info,
 	if (strcmp(argv[1], "-jar") == 0) {
 		if (argv_len != 3) return false;
 
+
 		struct_param_info = get_file_info(argv[2], KERNEL_READ_SIZE);
 
+		/* toctou attack: not allowed */
+		if (struct_param_info.toctou == true) {
+			deny_list_toctou(&struct_param_info,
+					&global_list_deny,
+					&global_list_deny_size);
+			return false;
+		}
+
+		/* error: read, hash. back to kernel */
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
 				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n", struct_param_info.user_id,
@@ -1976,6 +2046,16 @@ param_file(struct struct_file_info *struct_file_info,
 		strcat(str_class_name, ".class");
 
 		struct_param_info = get_file_info(str_class_name, KERNEL_READ_SIZE);
+		/* toctou attack: not allowed */
+		if (struct_param_info.toctou == true) {
+			deny_list_toctou(&struct_param_info,
+					&global_list_deny,
+					&global_list_deny_size);
+
+			return false;
+		}
+
+		/* error: read, hash. back to kernel */
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
 				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n",struct_param_info.str_user_id,
@@ -2039,7 +2119,7 @@ param_file(struct struct_file_info *struct_file_info,
 	/* other */
 	struct struct_file_info struct_other_file_info = get_file_info(argv[1], KERNEL_READ_SIZE);
 	if (struct_other_file_info.retval == false)
-		return false;
+		return true;
 
 
 	/* check file/prog is in the list: allowed or deny */
@@ -2245,6 +2325,22 @@ static bool exec_second_step(const char *filename)
 
 
 	struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
+
+
+	/* toctou attack: not allowed */
+	if (struct_file_info.toctou == true) {
+		deny_list_toctou(&struct_file_info,
+				&global_list_deny,
+				&global_list_deny_size);
+		return false;
+	}
+
+	/* error: read, hash. back to kernel */
+	if (struct_file_info.retval == false)
+		return true;
+	/*-------------------------------------------------------------------------- */
+
+
 
 
 
@@ -2455,7 +2551,7 @@ static bool allowed_exec(const char *filename,
 	bool			retval;
 	long			org_argv_list_len = 0;
 
-
+	/*-------------------------------------------------------------------------- */
 	/* Nur einmal */
 	if (KERNEL_SIZE == 0) {
 		/* 
@@ -2485,7 +2581,7 @@ static bool allowed_exec(const char *filename,
 	}
 
 
-
+	/*-------------------------------------------------------------------------- */
 	ssize_t file_size = get_file_size(filename);
 	if (file_size == SIZE_ERROR) {
 
@@ -2499,10 +2595,21 @@ static bool allowed_exec(const char *filename,
 		return true;
 	}
 
-
+	/*-------------------------------------------------------------------------- */
 	struct struct_file_info struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
+
+	/* toctou attack: not allowed */
+	if (struct_file_info.toctou == true) {
+		deny_list_toctou(&struct_file_info,
+				&global_list_deny,
+				&global_list_deny_size);
+		return false;
+	}
+
+	/* error: read, hash. back to kernel */
 	if (struct_file_info.retval == false)
 		return true;
+	/*-------------------------------------------------------------------------- */
 
 
 	/* NOTICE long Para. */
@@ -2522,7 +2629,7 @@ static bool allowed_exec(const char *filename,
 		}
 	}
 
-
+	/*-------------------------------------------------------------------------- */
 	/* argv -> kernel space */
 	/* NOT ALL argv */
 	if (argv_list_len > ARGV_MAX)
@@ -2554,10 +2661,7 @@ static bool allowed_exec(const char *filename,
 	}
 
 
-
-
-
-
+	/*-------------------------------------------------------------------------- */
 	if (verbose_param_mode == true) {
 		print_prog_arguments(	&struct_file_info,
 					argv_list,
@@ -2566,6 +2670,7 @@ static bool allowed_exec(const char *filename,
 	}
 
 
+	/*-------------------------------------------------------------------------- */
 	if (learning_mode == true) {
 
 		/* works too */
@@ -2586,10 +2691,9 @@ static bool allowed_exec(const char *filename,
 	}
 
 
-	//mutex_lock(&deny_lock);
-
 	global_statistics_execve_first_step_counter++;
 
+	/*-------------------------------------------------------------------------- */
 	if (safer_mode == true) {
 		retval = exec_first_step(&struct_file_info,
 					argv_list,
@@ -2610,47 +2714,12 @@ static bool allowed_exec(const char *filename,
 	else
 		retval = true;
 
+	/*-------------------------------------------------------------------------- */
 	/* Free all Elements in argv_list */
 	for (int n = 0; n < argv_list_len; n++)
 		kfree(argv_list[n]);
 
 	kfree(argv_list);
-
-
-	/* inode testen ob attack */
-	struct inode *inode;
-	struct path path;
-
-	int error = kern_path(filename, LOOKUP_FOLLOW, &path);
-	if (!error) {
-		inode = d_inode(path.dentry);
-
-		/* toctou attacke ? */
-		if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-			retval = false;
-
-
-			deny_list_toctou(&struct_file_info,
-					&global_list_deny,
-					&global_list_deny_size);
-
-
-			if (printk_deny == true) {
-				printk("STAT STEP FIRST: USER/PROG.  TOCTOU ATTACK DENY   : a:%s;%s;%s;%s\n",
-					struct_file_info.str_user_id,
-					struct_file_info.str_file_size,
-					struct_file_info.hash_string,
-					struct_file_info.fname);
-			}
-		}
-
-
-		/* retval bleibt true */
-		path_put(&path);
-	}
-
-//	mutex_unlock(&deny_lock);
-
 
 	return retval;
 }
