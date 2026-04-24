@@ -3581,6 +3581,25 @@ static int load_module(struct load_info *info, const char __user *uargs,
 SYSCALL_DEFINE3(init_module, void __user *, umod,
 		unsigned long, len, const char __user *, uargs)
 {
+
+
+
+/* my changes #################################################################### */
+/*
+Add all my changes
+You can find these under "my changes".
+Simply search for "my changes" in the source code.
+*/
+
+
+	/* Nur noch finit_module gestattet */
+	return -EPERM;
+
+
+
+/* my changes #################################################################### */
+
+
 	int err;
 	struct load_info info = { };
 
