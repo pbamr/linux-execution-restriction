@@ -2,7 +2,7 @@
 
 
 
-/* Copyright (c) 2026.03.28, 2026.04.20, Peter Boettcher, Germany/NRW,
+/* Copyright (c) 2026.03.28,2026.04.24, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
  * Urheber: 2026.03.28, 2026-04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
@@ -373,6 +373,9 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 	 * Deswegen keine Pruefung auf Kernel Module notwendig
 	 */
 
+
+	bool toctou;
+
 	if (safer_mode == FALSE)
 		if (learning_mode == FALSE)
 			return true;
@@ -439,10 +442,40 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 	char hash_raw[DIGIT];
 	char hash_string[HASH_STRING_LENGTH];
 
+
+
+	/* --------------------------------------------------------------------- */
+	set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+	/* --------------------------------------------------------------------- */
+
+
 	if (get_hash_sum(file, inode, hash_raw, max) == 0)
 		hashraw_to_hashstring(hash_raw, hash_string);
 	else
 		return true;
+
+	if (toctou == true) {
+
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+		if (printk_deny == TRUE)
+			pr_info("STAT STEP THIRD: MODULE TOCTOU   : %s\n", string_test);
+
+		deny_list(string_test,
+			&global_list_module_deny,
+			&global_list_module_count_deny);
+
+		return false;
+
+	}
+
+	clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+
+	/* --------------------------------------------------------------------- */
+
+
 
 
 	scnprintf(string_test, sizeof(string_test), "ko;%lld;%s;%s",
