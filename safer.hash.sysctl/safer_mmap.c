@@ -2,7 +2,7 @@
 
 
 
-/* Copyright (c) 2026.03.28, 2026.04.20, Peter Boettcher, Germany/NRW,
+/* Copyright (c) 2026.04.28, 2026.04.24, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
  * Urheber: 2026.03.28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
@@ -48,15 +48,15 @@
 
 /*
  * 
- * LEARNING	= 0
- * CHECK	= 1
+ * LEARNING_lib	= 10
+ * CHECK_lib	= 11
  *
  */
 
 
 
-#define LEARNING	0		//(1 << 0)
-#define CHECK		1		//(1 << 1)
+#define LEARNING	10		//(1 << 0)
+#define CHECK		11		//(1 << 1)
 
 
 
@@ -419,6 +419,9 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			int learning_mode, int ONLY_SHOW_DENY)
 {
 
+	bool toctou;
+
+
 	if (safer_mode == FALSE)
 		if (learning_mode == FALSE)
 			return true;
@@ -453,7 +456,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags)) {
 
 				if (printk_allowed == TRUE)
-					pr_info("STAT STEP THIRD: LIBRARY LEARNING CHECK OK: so;%lld;%s\n", string_length, fp);
+					pr_info("STAT STEP THIRD: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
 
 				return true;
 			}
@@ -462,7 +465,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 		else {
 			if (printk_allowed == TRUE) {
 				if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags))
-					pr_info("STAT STEP THIRD: LIBRARY LEARNING CHECK OK: so;%lld;%s\n", string_length, fp);
+					pr_info("STAT STEP THIRD: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
 			}
 		}
 	}
@@ -494,10 +497,47 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 	char hash_raw[DIGIT];
 	char hash_string[HASH_STRING_LENGTH];
 
+
+	/* --------------------------------------------------------------------- */
+	set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+	/* --------------------------------------------------------------------- */
 	if (get_hash_sum(file, inode, hash_raw, max) == 0)
 		hashraw_to_hashstring(hash_raw, hash_string);
-	else
+	else {
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 		return true;
+	}
+
+	/* --------------------------------------------------------------------- */
+	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
+		toctou = true;
+
+	else
+		toctou = false;
+
+
+	/* --------------------------------------------------------------------- */
+	if (toctou == true) {
+
+		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+		if (printk_deny == TRUE)
+			pr_info("STAT STEP THIRD: LIBRARY TOCTOU   : %s\n", string_test);
+
+		deny_list(string_test,
+			&global_list_lib_deny,
+			&global_list_lib_count_deny);
+
+		return false;
+
+	}
+
+	clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+
+
+
+	/* --------------------------------------------------------------------- */
 
 	/* kostet zwar mehr, als strscpy und umwandeln.
 	 * ist aber egal. da nicht allzu oft aufgerufe
@@ -522,7 +562,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			set_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags);
 
 			if (printk_allowed == TRUE)
-				pr_info("STAT STEP THIRD: LIBRARY LEARNING FIRST CHECK: %s\n", string_test);
+					pr_info("STAT STEP THIRD: LIBRARY LEARNING FIRST CHECK  : %s\n", string_test);
 
 			//pr_info("SAFER LIB Nur TEST: %lld\n", inode->i_boettcher_flags);
 		}
