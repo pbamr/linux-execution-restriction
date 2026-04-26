@@ -306,7 +306,7 @@ when in doubt remove it
 #define LIST_MIN 1
 
 
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 3000000
 
 //#define RET_SHELL -1
 #define CONTROL_ERROR -1
@@ -747,10 +747,10 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	if (error < 0) {
 		// error: read (z.B. -E2BIG, -EIO)
 
-		//if (error == -ENOENT)
-		//	printk("SAFER ERROR: File not found\n");
+		if (error == -ENOENT)
+			printk("SAFER ERROR: File not found\n");
 		
-		if (error == -EACCES)
+		else if (error == -EACCES)
 			printk("SAFER ERROR: No right\n");
 		
 		else if (error == -EINVAL)
@@ -773,10 +773,6 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	/* ------------------------------------------------------------------------------------- */
 	/* TOCTOU ? */
 
-	/* userland delete file */
-	if (inode->i_nlink == 0)
-		struct_file_info.toctou = true;
-
 	/* userland write etc. file! */
 	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
 		struct_file_info.toctou = true;
@@ -792,12 +788,6 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		vfree(data);
 		fput(file);
 
-		/* toctou attacke if not set! */
-		printk("SAFER: TOCTOU-ATTACKE: a:%s;%s;%s;%s\n",
-			struct_file_info.str_user_id,
-			struct_file_info.str_file_size,
-			struct_file_info.hash_string,
-			struct_file_info.fname);
 
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = true;
@@ -845,7 +835,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 
 
 	if (printk_allowed == true)
-		printk("SAFER: STAT STEP FIRST Check a:%s;%s;%s;%s\n",
+		printk("SAFER: FIRST Check a:%s;%s;%s;%s\n",
 				struct_file_info.str_user_id,
 				struct_file_info.str_file_size,
 				struct_file_info.hash_string,
@@ -2023,6 +2013,11 @@ param_file(struct struct_file_info *struct_file_info,
 									struct_param_info.hash_string,
 									struct_param_info.fname);
 
+		deny_list(&struct_param_info,
+			&global_list_deny,
+			&global_list_deny_size);
+
+
 		return false;
 
 	}
@@ -2060,6 +2055,11 @@ param_file(struct struct_file_info *struct_file_info,
 			if (printk_deny == true)
 				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n",struct_param_info.str_user_id,
 											    struct_param_info.fname);
+
+		deny_list(&struct_param_info,
+			&global_list_deny,
+			&global_list_deny_size);
+
 
 			kfree(str_class_name);
 			return false;
@@ -2110,6 +2110,10 @@ param_file(struct struct_file_info *struct_file_info,
 									struct_param_info.hash_string,
 									struct_param_info.fname);
 
+		deny_list(&struct_param_info,
+			&global_list_deny,
+			&global_list_deny_size);
+
 		kfree(str_class_name);
 
 		return false;
@@ -2151,6 +2155,10 @@ param_file(struct struct_file_info *struct_file_info,
 								struct_other_file_info.hash_string,
 								struct_other_file_info.fname);
 
+	deny_list(&struct_other_file_info,
+		&global_list_deny,
+		&global_list_deny_size);
+
 	/* not found */
 	return false;
 }
@@ -2163,6 +2171,12 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 			    char **argv,
 			    long argv_len)
 {
+
+
+	if (safer_mode == false)
+		if (learning_mode == false)
+			return true;
+
 
 	/* deny wildcard folder */
 	if (user_wildcard_folder_deny(	struct_file_info,
@@ -2277,6 +2291,11 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 										struct_file_info->hash_string,
 										struct_file_info->fname);
 
+	//deny_list(&struct_file_info,
+	//	&global_list_deny,
+	//	&global_list_deny_size);
+
+
 	return false;
 
 }
@@ -2305,6 +2324,10 @@ static bool exec_second_step(const char *filename)
 		return true;
 
 
+
+
+
+
 	ssize_t file_size = get_file_size(filename);
 	if (file_size == SIZE_ERROR) {
 
@@ -2318,6 +2341,10 @@ static bool exec_second_step(const char *filename)
 		return true;
 	}
 
+
+	if (safer_mode == false)
+		if (learning_mode == false)
+			return true;
 
 
 	bool retval;
@@ -2371,7 +2398,7 @@ static bool exec_second_step(const char *filename)
 	retval = user_wildcard_folder_deny(&struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
-					"STAT STEP FIRST:");
+					"STAT STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 
@@ -2514,11 +2541,17 @@ static bool exec_second_step(const char *filename)
 	}
 
 	if (printk_deny == true) {
-		printk("STAT STEP FIRST: USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
+		printk("STAT STEP SEC  : USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
 										struct_file_info.str_file_size,
 										struct_file_info.hash_string,
 										struct_file_info.fname);
 	}
+
+	deny_list(&struct_file_info,
+		&global_list_deny,
+		&global_list_deny_size);
+
+
 
 	/* filter end */
 not_allowed:
@@ -2540,6 +2573,10 @@ not_allowed:
 static bool allowed_exec(const char *filename,
 			struct user_arg_ptr argv)
 {
+
+
+	if (system_state < SYSTEM_RUNNING)
+		return true;
 
 	global_statistics_execve_counter++;
 
@@ -2595,6 +2632,14 @@ static bool allowed_exec(const char *filename,
 		return true;
 	}
 
+
+
+	if (safer_mode == false)
+		if (learning_mode == false)
+			return true;
+
+
+
 	/*-------------------------------------------------------------------------- */
 	struct struct_file_info struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
 
@@ -2603,6 +2648,15 @@ static bool allowed_exec(const char *filename,
 		deny_list_toctou(&struct_file_info,
 				&global_list_deny,
 				&global_list_deny_size);
+
+		/* toctou attacke if not set! */
+		printk("SAFER: TOCTOU-ATTACKE: a:%s;%s;%s;%s\n",
+			struct_file_info.str_user_id,
+			struct_file_info.str_file_size,
+			struct_file_info.hash_string,
+			struct_file_info.fname);
+
+
 		return false;
 	}
 
@@ -2701,12 +2755,8 @@ static bool allowed_exec(const char *filename,
 
 		if (retval == false) {
 
-			deny_list(&struct_file_info,
-				&global_list_deny,
-				&global_list_deny_size);
-
 			if (ONLY_SHOW_DENY == true)
-			retval = true;
+				retval = true;
 		}
 		else
 			global_statistics_execve_allow_counter++;
