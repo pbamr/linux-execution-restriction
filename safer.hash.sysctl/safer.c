@@ -312,6 +312,7 @@ when in doubt remove it
 #define CONTROL_ERROR -1
 #define SIZE_ERROR -1
 
+#define SHELL_PARAMETER_MAX 10
 
 
 typedef int ibool;
@@ -320,7 +321,7 @@ typedef int ibool;
 /*--------------------------------------------------------------------------------*/
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
-static DEFINE_MUTEX(kernel_read_from_path_lock);
+static DEFINE_MUTEX(kernel_read_lock);
 static DEFINE_MUTEX(deny_lock);
 
 
@@ -663,7 +664,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	struct file *file;
 
 
-	mutex_lock(&kernel_read_from_path_lock);
+	mutex_lock(&kernel_read_lock);
 
 	/* ------------------------------------------------------------------------------------- */
 	struct_file_info.file_size = get_file_size(fname);
@@ -671,7 +672,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -681,7 +682,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	if (error) {
 		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -692,7 +693,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -701,7 +702,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -729,7 +730,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 
 		struct_file_info.toctou = false;
 		struct_file_info.retval = true;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -765,7 +766,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -783,7 +784,6 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 
 	if (struct_file_info.toctou == true) {
 
-		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 
 		vfree(data);
 		fput(file);
@@ -792,7 +792,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = true;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -820,7 +820,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_from_path_lock);
+		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
@@ -846,7 +846,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	struct_file_info.toctou = false;
 	struct_file_info.retval = true;
 
-	mutex_unlock(&kernel_read_from_path_lock);
+	mutex_unlock(&kernel_read_lock);
 
 	return struct_file_info;
 }
@@ -1942,9 +1942,6 @@ param_file(struct struct_file_info *struct_file_info,
 {
 
 
-	if (argv_len == 1) return false;
-
-
 	/* check interpreter and files */
 	/* user allowed interpreter */
 	/* check "ai:  gai:"  */
@@ -1959,10 +1956,146 @@ param_file(struct struct_file_info *struct_file_info,
 			return false;
 
 
+
+	/*--------------------------------------------------------------------------------*/
+	if (printk_deny == true)
+		printk("%s USER/SCRIPT PRUEF : a:%s;%s;%s;%s\n", step,
+			struct_file_info->str_user_id,
+			struct_file_info->str_file_size,
+			struct_file_info->hash_string,
+			struct_file_info->fname);
+
+	/*--------------------------------------------------------------------------------*/
+	if (	(strncmp(struct_file_info->fname, "/bin/bash", sizeof("/bin/bash")) == 0) ||
+		(strncmp(struct_file_info->fname, "/usr/bin/bash", sizeof("/usr/bin/bash")) == 0) ||
+		(strncmp(struct_file_info->fname, "/bin/sh", sizeof("/bin/sh")) == 0) ||
+		(strncmp(struct_file_info->fname, "/usr/bin/sh", sizeof("/usr/bin/sh")) == 0)) {
+
+
+		if (strncmp(argv[0], "-bash", sizeof("-bash")) == 0)
+			return true;
+
+		if (strncmp(argv[0], "-sh", sizeof("-sh")) == 0)
+			return true;
+
+		if (argv_len <= 3) return false;
+
+		if (!strncmp(argv[1], "-c", sizeof("-c")) == 0)
+			return false;
+
+
+
+	/*--------------------------------------------------------------------------------*/
+
+
+		/* Parameter ? */
+		int max = argv_len - 1;
+		if (max > SHELL_PARAMETER_MAX)
+			max = 10;
+
+		struct struct_file_info struct_shell_info;
+
+
+
+		char *first_word;
+
+
+	/*--------------------------------------------------------------------------------*/
+		/* not allowed. if one file not in list */
+		for (int n = 2; n <= max; n++) {
+
+			char *p = argv[n];
+
+			first_word = strsep(&p, " "); 
+
+
+			struct_shell_info = get_file_info(first_word, KERNEL_READ_SIZE);
+
+			/* toctou attack: not allowed */
+			if (struct_shell_info.toctou == true) {
+				deny_list_toctou(&struct_shell_info,
+				&global_list_deny,
+				&global_list_deny_size);
+				return false;
+			}
+
+
+			/* no real file. like -- */
+			if (struct_shell_info.retval == false)
+				continue;
+
+			/* check file/prog is in the list: allowed or deny */
+			/* deny user not required. not in the list is the same */
+			if (user_deny(&struct_shell_info,
+					list,
+					list_len,
+					step) == false) goto not_allowed;
+
+			if (group_deny(&struct_shell_info,
+				list,
+				list_len,
+				step) == false) goto not_allowed;
+
+
+			if (user_allowed(&struct_shell_info,
+				list,
+				list_len,
+				step) == true) continue;
+
+
+			if (group_allowed(&struct_shell_info,
+				list,
+				list_len,
+				step) == true) continue;
+
+			goto not_allowed;
+		}
+
+
+
+		/* allowed */
+		if (printk_allowed == true)
+			printk("%s USER/SCRIPT SHELL ALLOWED  : a:%s\n",
+				step,
+				struct_shell_info.str_user_id);
+
+		return true;
+
+
+		not_allowed:
+
+
+		if (printk_deny == true)
+			printk("%s USER/SCRIPT SHELL DENY                  : a:%s;%s;%s;%s\n", step,
+				struct_shell_info.str_user_id,
+				struct_shell_info.str_file_size,
+				struct_shell_info.hash_string,
+				struct_shell_info.fname);
+
+		deny_list(&struct_shell_info,
+			&global_list_deny,
+			&global_list_deny_size);
+
+
+		if (ONLY_SHOW_DENY == true)
+			return true;
+
+		return false;
+
+	}
+
+
+
+
+	/*--------------------------------------------------------------------------------*/
+	if (argv_len == 1)
+		return false;
+
+
 	struct struct_file_info struct_param_info;
 
 	/* java */
-	if (strcmp(argv[1], "-jar") == 0) {
+	if (strncmp(argv[1], "-jar", sizeof("-jar")) == 0) {
 		if (argv_len != 3) return false;
 
 
@@ -2024,7 +2157,7 @@ param_file(struct struct_file_info *struct_file_info,
 
 
 	/* java */
-	if (strcmp(argv[1], "-classpath") == 0) {
+	if (strncmp(argv[1], "-classpath", sizeof("-classpath")) == 0) {
 		if (argv_len != 4) return false;
 
 		long str_length;
@@ -2547,10 +2680,13 @@ static bool exec_second_step(const char *filename)
 										struct_file_info.fname);
 	}
 
-	deny_list(&struct_file_info,
-		&global_list_deny,
-		&global_list_deny_size);
+	if (mutex_trylock(&learning_lock)) {
+		deny_list(&struct_file_info,
+			&global_list_deny,
+			&global_list_deny_size);
 
+		mutex_unlock(&learning_lock);
+	}
 
 
 	/* filter end */
@@ -2754,6 +2890,10 @@ static bool allowed_exec(const char *filename,
 					argv_list_len);
 
 		if (retval == false) {
+
+			deny_list(&struct_file_info,
+				&global_list_deny,
+				&global_list_deny_size);
 
 			if (ONLY_SHOW_DENY == true)
 				retval = true;
