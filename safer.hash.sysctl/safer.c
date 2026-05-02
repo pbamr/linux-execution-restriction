@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.04.24, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.04.24, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.05.02, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.05.02, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2026.04.24
+	Date		: 2022.04.22 - 2026.05.02
 
 	Program		: safer.c
 	Path		: fs/
@@ -1391,7 +1391,8 @@ user_deny(struct struct_file_info *struct_file_info,
 
 {
 
-	if (list_len == 0) return true;
+	if (list_len == 0)
+		return true;
 
 
 
@@ -1971,21 +1972,11 @@ param_file(struct struct_file_info *struct_file_info,
 		(strncmp(struct_file_info->fname, "/bin/sh", sizeof("/bin/sh")) == 0) ||
 		(strncmp(struct_file_info->fname, "/usr/bin/sh", sizeof("/usr/bin/sh")) == 0)) {
 
-
-		if (strncmp(argv[0], "-bash", sizeof("-bash")) == 0)
-			return true;
-
-		if (strncmp(argv[0], "-sh", sizeof("-sh")) == 0)
-			return true;
-
-		if (argv_len <= 3) return false;
-
-		if (!strncmp(argv[1], "-c", sizeof("-c")) == 0)
-			return false;
-
-
-
 	/*--------------------------------------------------------------------------------*/
+
+
+		if (argv_len == 1)
+			return true;
 
 
 		/* Parameter ? */
@@ -1995,14 +1986,12 @@ param_file(struct struct_file_info *struct_file_info,
 
 		struct struct_file_info struct_shell_info;
 
-
-
 		char *first_word;
 
 
 	/*--------------------------------------------------------------------------------*/
 		/* not allowed. if one file not in list */
-		for (int n = 2; n <= max; n++) {
+		for (int n = 1; n <= max; n++) {
 
 			char *p = argv[n];
 
@@ -2256,7 +2245,7 @@ param_file(struct struct_file_info *struct_file_info,
 	/* other */
 	struct struct_file_info struct_other_file_info = get_file_info(argv[1], KERNEL_READ_SIZE);
 	if (struct_other_file_info.retval == false)
-		return true;
+		return false;
 
 
 	/* check file/prog is in the list: allowed or deny */
