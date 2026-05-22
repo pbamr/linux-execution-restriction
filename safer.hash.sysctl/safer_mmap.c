@@ -2,7 +2,7 @@
 
 
 
-/* Copyright (c) 2026.04.28, 2026.04.24, Peter Boettcher, Germany/NRW,
+/* Copyright (c) 2026.04.28, 2026.05.22, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
  * Urheber: 2026.03.28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
@@ -90,7 +90,7 @@
 
 
 #define LIST_MIN 1
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 5000000
 #define CONTROL_ERROR -1
 
 #define TRUE 1
@@ -110,6 +110,7 @@ static DEFINE_MUTEX(control);
 
 
 static int	safer_mode = FALSE;
+static int	safer_mode_full_check = TRUE;
 static int	learning_mode = TRUE;
 static int	printk_deny = TRUE;
 static int	printk_allowed = FALSE;
@@ -456,7 +457,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags)) {
 
 				if (printk_allowed == TRUE)
-					pr_info("STAT STEP THIRD: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
+					pr_info("STAT STEP LIBTARY: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
 
 				return true;
 			}
@@ -465,7 +466,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 		else {
 			if (printk_allowed == TRUE) {
 				if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags))
-					pr_info("STAT STEP THIRD: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
+					pr_info("STAT STEP LIBTARY: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
 			}
 		}
 	}
@@ -474,15 +475,18 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 
 	/* Pruefe, Flag im RAM-Inode */
 	/* Wenn erlaubt RETURN */
-	if (safer_mode == TRUE) {
-		if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-			if (printk_allowed == TRUE)
-				pr_info("STAT STEP THIRD: LIBRARY ALLOWED SAFER CHECK OK: so;%lld;%s\n", string_length, fp);
+	/* pruefe ob full check */
 
-			return true;
+	if (safer_mode == TRUE) {
+		if (safer_mode_full_check == FALSE) {
+			if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
+				if (printk_allowed == TRUE)
+					pr_info("STAT STEP LIBTARY: LIBRARY ALLOWED SAFER CHECK OK: so;%lld;%s\n", string_length, fp);
+
+				return true;
+			}
 		}
 	}
-
 
 	/* max. file read? */
 	loff_t size = i_size_read(inode);
@@ -493,7 +497,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 		max = KERNEL_READ_SIZE;
 
 
-	/* kommt HASH Verfahren ab */
+	/* kommt vom HASH Verfahren ab */
 	char hash_raw[DIGIT];
 	char hash_string[HASH_STRING_LENGTH];
 
@@ -511,7 +515,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 
 	/* --------------------------------------------------------------------- */
 	//if (inode->i_nlink == 0)
-		toctou = true;
+	//	toctou = true;
 
 	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
 		toctou = true;
@@ -526,7 +530,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 
 		if (printk_deny == TRUE)
-			pr_info("STAT STEP THIRD: LIBRARY TOCTOU   : %s\n", string_test);
+			pr_info("STAT STEP LIBTARY: LIBRARY TOCTOU   : %s\n", string_test);
 
 		deny_list(string_test,
 			&global_list_lib_deny,
@@ -565,7 +569,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			set_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags);
 
 			if (printk_allowed == TRUE)
-					pr_info("STAT STEP THIRD: LIBRARY LEARNING FIRST CHECK  : %s\n", string_test);
+					pr_info("STAT STEP LIBTARY: LIBRARY LEARNING FIRST CHECK  : %s\n", string_test);
 
 			//pr_info("SAFER LIB Nur TEST: %lld\n", inode->i_boettcher_flags);
 		}
@@ -581,7 +585,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 
 			if (printk_deny == TRUE)
-				pr_info("STAT STEP THIRD: LIBRARY DENY   : %s\n", string_test);
+				pr_info("STAT STEP LIBTARY: LIBRARY DENY   : %s\n", string_test);
 
 
 			deny_list(string_test,
@@ -601,7 +605,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 
 
 		if (printk_allowed == TRUE)
-			pr_info("STAT STEP THIRD: LIBRARY ALLOWED: %s\n", string_test);
+			pr_info("STAT STEP LIBTARY: LIBRARY ALLOWED: %s\n", string_test);
 
 		return true;
 	}
@@ -794,6 +798,33 @@ static int proc_safer_active(const struct ctl_table *table,
 	return retval;
 }
 
+static int proc_safer_full_check(const struct ctl_table *table,
+				int write,
+				void *buffer,
+				size_t *lenp,
+				loff_t *ppos)
+{
+
+	if (lock_mode == TRUE)
+		return CONTROL_ERROR;
+
+	if (!mutex_trylock(&control))
+		return CONTROL_ERROR;
+
+	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (write && retval == 0) {
+		if (safer_mode_full_check == TRUE)
+			pr_warn("MODE: SAFER LIBRARIES FULL CHECK ON\n");
+		else
+			pr_warn("MODE: SAFER LIBRARIES FULL CHECK OFF\n");
+	}
+
+	mutex_unlock(&control);
+
+	return retval;
+}
+
 
 
 
@@ -957,6 +988,15 @@ static const struct ctl_table safer_table[] = {
 		.extra2		= SYSCTL_ONE,
 	},
 	{
+		.procname       = "safer_full_check",
+		.data           = &safer_mode_full_check,
+		.maxlen         = sizeof(int),
+		.mode           = 0600,
+		.proc_handler   = proc_safer_full_check,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
 		.procname	= "safer_printk_deny",
 		.data		= &printk_deny,
 		.maxlen		= sizeof(int),
@@ -1021,30 +1061,35 @@ static int safer_info_lib_display(struct seq_file *proc_show, void *v)
 	else
 		seq_puts(proc_show, "MODE SAFER                  : OFF\n");
 
-	if (ONLY_SHOW_DENY == TRUE)
-		seq_puts(proc_show, "ONLY_SHOW_DENY              : ON\n");
+	if (safer_mode_full_check == TRUE)
+		seq_puts(proc_show, "MODE SAFER LIB FULL CHECK   : ON\n");
 	else
-		seq_puts(proc_show, "ONLY_SHOW_DENY              : OFF\n");
+		seq_puts(proc_show, "MODE SAFER LIB FULL CHECK   : OFF\n");
+
+	if (ONLY_SHOW_DENY == TRUE)
+		seq_puts(proc_show, "ONLY LIB SHOW DENY          : ON\n");
+	else
+		seq_puts(proc_show, "ONLY LIB SHOW DENY          : OFF\n");
 
 	if (printk_allowed == TRUE)
-		seq_puts(proc_show, "MODE PRINTK ALLOWED         : ON\n");
+		seq_puts(proc_show, "MODE LIB PRINTK ALLOWED     : ON\n");
 	else
-		seq_puts(proc_show, "MODE PRINTK ALLOWED         : OFF\n");
+		seq_puts(proc_show, "MODE LIB PRINTK ALLOWED     : OFF\n");
 
 	if (printk_deny == TRUE)
-		seq_puts(proc_show, "MODE PRINTK DENY            : ON\n");
+		seq_puts(proc_show, "MODE LIB PRINTK DENY        : ON\n");
 	else
-		seq_puts(proc_show, "MODE PRINTK DENY            : OFF\n");
+		seq_puts(proc_show, "MODE LIB PRINTK DENY        : OFF\n");
 
 	if (learning_mode == TRUE)
-		seq_puts(proc_show, "MODE LEARNING               : ON\n");
+		seq_puts(proc_show, "MODE LIB LEARNING           : ON\n");
 	else
-		seq_puts(proc_show, "MODE LEARNING               : OFF\n");
+		seq_puts(proc_show, "MODE LIB LEARNING           : OFF\n");
 
 	if (lock_mode == FALSE)
-		seq_puts(proc_show, "MODE SAFER LOCK             : OFF\n");
+		seq_puts(proc_show, "MODE SAFER LIB LOCK         : OFF\n");
 	else
-		seq_puts(proc_show, "MODE SAFER LOCK             : ON\n");
+		seq_puts(proc_show, "MODE SAFERLIB  LOCK         : ON\n");
 
 
 	seq_printf(proc_show,       "LIBRARIES LIST SIZE         : %ld\n", global_list_lib_count);
@@ -1053,7 +1098,7 @@ static int safer_info_lib_display(struct seq_file *proc_show, void *v)
 
 	seq_puts(proc_show,         "MODE SEARCH LIBRARIES       : BSEARCH\n");
 
-	seq_printf(proc_show,       "HASH SIZE MAX               : %d\n", KERNEL_READ_SIZE);
+	seq_printf(proc_show,       "HASH LIB SIZE MAX           : %d\n", KERNEL_READ_SIZE);
 
 
 	seq_puts(proc_show, "\n\n");

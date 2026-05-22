@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.05.02, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.05.02, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.05.22, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.05.22, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2026.05.02
+	Date		: 2022.03.28 - 2026.05.22
 
 	Program		: safer.c
 	Path		: fs/
@@ -297,6 +297,8 @@ when in doubt remove it
 
 /*your choice */
 #define ARGV_MAX 16
+#define SHELL_PARAMETER_MAX 16
+
 
 #define LEARNING_ARGV_MAX 5000
 #define LEARNING_MAX 50000
@@ -306,15 +308,14 @@ when in doubt remove it
 #define LIST_MIN 1
 
 
-#define KERNEL_READ_SIZE 3000000
+#define KERNEL_READ_SIZE 5000000
 
 //#define RET_SHELL -1
 #define CONTROL_ERROR -1
 #define SIZE_ERROR -1
 
-#define SHELL_PARAMETER_MAX 10
 
-
+/* sysctl MAX MIN */
 typedef int ibool;
 
 
@@ -329,6 +330,7 @@ static ibool	learning_mode = true;
 static ibool	printk_deny = true;
 static ibool	printk_allowed = false;
 static ibool	safer_mode = false;
+static ibool	safer_mode_full_check = true;
 static ibool	ONLY_SHOW_DENY = false;
 
 
@@ -430,6 +432,40 @@ struct  safer_info_struct {
 	ssize_t	KERNEL_SIZE;
 	char	KERNEL_HASH[HASH_STRING_LENGTH];
 };
+
+
+
+/*--------------------------------------------------------------------------------*/
+static bool bnsearch_file(char *str_search,
+			char **list,
+			long elements)
+{
+	long left, right;
+	long middle;
+	long int_ret;
+
+
+
+	int max = strlen(str_search);
+	if (max > 20)
+		max -= 2;
+
+
+	left = 0;
+	right = elements - 1;
+
+	while(left <= right) {
+		middle = (left + right) / 2;
+
+		int_ret = strncmp(list[middle], str_search, max);
+
+		if (int_ret == 0) return true;
+		else if (int_ret < 0) left = middle + 1;
+		else if (int_ret > 0) right = middle - 1;
+	}
+
+	return false;
+}
 
 
 
@@ -706,32 +742,33 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 		return struct_file_info;
 	}
 
+	if (safer_mode_full_check == false) {
+		if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
+			memcpy(struct_file_info.hash_string, inode->i_boettcher_hash, DIGIT * 2);
+			struct_file_info.hash_string[DIGIT * 2] = '\0';
 
-	if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-		memcpy(struct_file_info.hash_string, inode->i_boettcher_hash, DIGIT * 2);
-		struct_file_info.hash_string[DIGIT * 2] = '\0';
+			struct_file_info.user_id = get_current_user()->uid.val;
+			scnprintf(struct_file_info.str_user_id, sizeof(struct_file_info.str_user_id), "%d", struct_file_info.user_id);
 
-		struct_file_info.user_id = get_current_user()->uid.val;
-		scnprintf(struct_file_info.str_user_id, sizeof(struct_file_info.str_user_id), "%d", struct_file_info.user_id);
+			struct_file_info.file_size = i_size_read(inode);
+			scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size), "%ld", struct_file_info.file_size);
 
-		struct_file_info.file_size = i_size_read(inode);
-		scnprintf(struct_file_info.str_file_size, sizeof(struct_file_info.str_file_size), "%ld", struct_file_info.file_size);
+			struct_file_info.fname = fname;
 
-		struct_file_info.fname = fname;
-
-		if (printk_allowed == true)
-			printk("SAFER: Has alredy been checked: a:%s;%s;%s;%s\n",
+			if (printk_allowed == true)
+				printk("SAFER: Has alredy been checked: a:%s;%s;%s;%s\n",
 					struct_file_info.str_user_id,
 					struct_file_info.str_file_size,
 					struct_file_info.hash_string,
 					struct_file_info.fname);
 
-		fput(file);
+			fput(file);
 
-		struct_file_info.toctou = false;
-		struct_file_info.retval = true;
-		mutex_unlock(&kernel_read_lock);
-		return struct_file_info;
+			struct_file_info.toctou = false;
+			struct_file_info.retval = true;
+			mutex_unlock(&kernel_read_lock);
+			return struct_file_info;
+		}
 	}
 
 	set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
@@ -1001,6 +1038,49 @@ static void learning(	struct struct_file_info *struct_file_info,
 
 
 
+static void deny_argv_list(char *str_argv,
+		char ***list,
+		long *list_len)
+{
+
+
+	/* init pointer list*/
+	if (*list_len == -1) {
+		*list = kzalloc(sizeof(char *) * DENY_MAX, GFP_KERNEL);
+		if (*list == NULL) {
+			return;
+		}
+		else *list_len = 0;
+	}
+
+
+	char *str_deny = kstrdup(str_argv, GFP_KERNEL);
+	if (str_deny == NULL)
+		return;
+
+	if (search(str_deny, *list, *list_len) == true) {
+		kfree(str_deny);
+		return;
+	}
+
+
+	/* ring buffer = 0, old free */
+	if ( (*list)[*list_len] != NULL) {
+		kfree((*list)[*list_len]);
+	}
+
+	(*list)[*list_len] = str_deny;
+
+	*list_len += 1;
+	// check _len > lerning_max
+	if (*list_len > DENY_MAX - 1) {
+		*list_len = 0;
+	}
+
+	return;
+}
+
+
 static void deny_list(struct struct_file_info *struct_file_info,
 		char ***list,
 		long *list_len)
@@ -1070,6 +1150,15 @@ static void deny_list(struct struct_file_info *struct_file_info,
 
 	return;
 }
+
+
+
+
+
+
+
+
+
 
 
 static void deny_list_toctou(struct struct_file_info *struct_file_info,
@@ -1160,7 +1249,7 @@ static void print_prog_arguments(struct struct_file_info *struct_file_info,
 					(*struct_file_info).hash_string,
 					(*struct_file_info).fname);
 
-	printk("ORG LEN:%ld \n", org_argv_len);
+	printk("ORG LEN:%ld\n", org_argv_len);
 
 
 	for (int n = 0; n < argv_len; n++) {
@@ -1928,6 +2017,201 @@ group_interpreter_allowed(struct struct_file_info *struct_file_info,
 }
 
 
+
+
+
+
+
+/*
+ * kernel_process_line - Ersetzt .tmp-Dateinamen durch 'x' und schneidet
+ * die Zeile hinter dem letzten /tmp/ oder /temp/ ab.
+ * @zeile: Beschreibbarer Buffer im Kernel-Speicher.
+ * return = false -> bash injection code im normalisierungs feld gefunden
+ */
+
+
+static bool kernel_normalisiere(char *zeile)
+{
+
+/*--------------------------------------------- */
+	char *ext_pos;
+	char *current_pos;
+	char *last_prefix_pos = NULL;
+
+	bool treffer = false;
+
+	char *start;
+
+	if (!zeile)
+		return true;
+
+	start = zeile;
+
+	/*--------------------------------------------------------------------------------*/
+	/* Alle .tmp-Dateinamen durch 'x' ersetzen */
+	current_pos = zeile;
+	while ((ext_pos = strstr(current_pos, ".tmp")) != NULL) {
+
+		char *replace_start = ext_pos;
+		char *replace_end = ext_pos; /* + 4;  Ende von ".tmp" */
+
+		/* Rueckaerts bis zum '/' oder Leerzeichen suchen */
+		while (replace_start > zeile && 
+		       *(replace_start - 1) != '/' && 
+		       *(replace_start - 1) != ' ') {
+			replace_start--;
+		}
+
+		/* ------------------------------------------------ */
+		/* feststellen ob shell code */
+		char *replace_start_temp = replace_start;
+		while (replace_start < replace_end) {
+
+			//printk("%c", *replace_start);
+
+			if (	*replace_start == ';' || *replace_start == '>' ||
+				*replace_start == '$' || *replace_start == '|' ||
+				*replace_start == '<' || *replace_start == '(' ||
+				*replace_start == '\\' ||
+				*replace_start == ')' || *replace_start == '}') {
+				return false;
+			}
+			replace_start++;
+		}
+
+
+		/* ------------------------------------------------ */
+		replace_start = replace_start_temp;
+		/* Zeichen durch 'x' ersetzen */
+		while (replace_start < replace_end) {
+			*replace_start = 'x';
+			replace_start++;
+		}
+
+		treffer = true;
+		/* Suche hinter der aktuellen ".tmp"-Stelle fortsetzen */
+		current_pos = replace_end + 4;
+	}
+
+	if (treffer == true)
+		return true;
+
+
+
+	/*--------------------------------------------------------------------------------*/
+	/* Dass LETZTE Vorkommen von "/tmp/" suchen */
+	zeile = start;
+	current_pos = zeile;
+
+	while ((current_pos = strstr(current_pos, "/tmp/")) != NULL) {
+		treffer = true;
+		last_prefix_pos = current_pos;
+		current_pos += sizeof("/tmp/");
+	}
+
+	/* Alles vor dem letzten gefundenen '/' abschneiden */
+	if (last_prefix_pos) {
+		*(last_prefix_pos + sizeof("/tmp/") - 1) = '\0';
+		treffer = true;
+	}
+
+	if (treffer == true) {
+		last_prefix_pos += sizeof("/tmp/");
+		for (int n = 0; n < strlen(zeile); n++) {
+			//printk("%c", *(last_prefix_pos + n));
+
+			if (	*(last_prefix_pos + n) == ';'  || *(last_prefix_pos + n) == '>' ||
+				*(last_prefix_pos + n) == '$'  || *(last_prefix_pos + n) == '|' ||
+				*(last_prefix_pos + n) == '<'  || *(last_prefix_pos + n) == '(' ||
+				*(last_prefix_pos + n) == '\\' || *(last_prefix_pos + n) == ' ' ||
+				*(last_prefix_pos + n) == ')'  || *(last_prefix_pos + n) == '}') {
+				return false;
+			}
+		}
+	}
+
+	if (treffer == true)
+		return true;
+
+
+	/*--------------------------------------------------------------------------------*/
+	/* Dass LETZTE Vorkommen von "/tmp/" suchen */
+	zeile = start;
+	current_pos = zeile;
+
+	while ((current_pos = strstr(current_pos, "/temp/")) != NULL) {
+		treffer = true;
+		last_prefix_pos = current_pos;
+		current_pos += sizeof("/temp/");
+	}
+
+	/* Alles vor dem letzten gefundenen '/' abschneiden */
+	if (last_prefix_pos) {
+		*(last_prefix_pos + sizeof("/temp/") - 1) = '\0';
+		treffer = true;
+	}
+
+	if (treffer == true) {
+		last_prefix_pos += sizeof("/temp/");
+		for (int n = 0; n < strlen(zeile); n++) {
+			//printk("%c", *(last_prefix_pos + n));
+
+			if (	*(last_prefix_pos + n) == ';'  || *(last_prefix_pos + n) == '>' ||
+				*(last_prefix_pos + n) == '$'  || *(last_prefix_pos + n) == '|' ||
+				*(last_prefix_pos + n) == '<'  || *(last_prefix_pos + n) == '(' ||
+				*(last_prefix_pos + n) == '\\' || *(last_prefix_pos + n) == ' ' ||
+				*(last_prefix_pos + n) == ')'  || *(last_prefix_pos + n) == '}') {
+				return false;
+			}
+		}
+	}
+
+	if (treffer == true)
+		return true;
+
+	/*--------------------------------------------------------------------------------*/
+	/* this is for midthnight commander */
+
+	zeile = start;
+
+	if (strstr(zeile, ";file") != NULL) {
+
+		treffer = true;
+
+		// Den ersten Slash suchen
+		char *ptr = strchr(zeile, '/');
+		if (ptr != NULL) {
+			// Wir springen ein Zeichen weiter, um den Slash selbst zu behalten
+			ptr++;
+			*ptr = '\0';
+			ptr++;
+
+			// Feststellen, ob restliche char shell code haben */
+			while (*ptr != '\0' && *ptr && *ptr != '\t') {
+
+				//printk("%c", *ptr);
+
+
+				if (	*ptr == ';' || *ptr == '>' ||
+					*ptr == '$' || *ptr == '|' ||
+					*ptr == '<' || *ptr == '(' ||
+					*ptr == '\\' || *ptr == ' ' ||
+					*ptr == ')' || *ptr == '}') {
+					return false;
+				}
+				ptr++;
+			}
+		}
+	}
+
+	return true;
+
+}
+
+
+
+
+
 /*--------------------------------------------------------------------------------*/
 /* allowed/deny user/group script file*/
 /* 0 allowed */
@@ -1960,7 +2244,7 @@ param_file(struct struct_file_info *struct_file_info,
 
 	/*--------------------------------------------------------------------------------*/
 	if (printk_deny == true)
-		printk("%s USER/SCRIPT PRUEF : a:%s;%s;%s;%s\n", step,
+		printk("%s SHELL: USER/SCRIPT: CHECK a:%s;%s;%s;%s\n", step,
 			struct_file_info->str_user_id,
 			struct_file_info->str_file_size,
 			struct_file_info->hash_string,
@@ -1974,28 +2258,72 @@ param_file(struct struct_file_info *struct_file_info,
 
 	/*--------------------------------------------------------------------------------*/
 
-
+		/* wichtig wenn nur interaktiv */
 		if (argv_len == 1)
 			return true;
 
 
-		/* Parameter ? */
-		int max = argv_len - 1;
-		if (max > SHELL_PARAMETER_MAX)
-			max = 10;
+	/*--------------------------------------------------------------------------------*/
+		if (argv_len >= SHELL_PARAMETER_MAX)
+			return false;
 
+
+	/*--------------------------------------------------------------------------------*/
+		/* ist ein Argument noch nicht in Liste gewesen */
+		for (int n = 0; n <= argv_len - 1; n++) {
+
+
+			char *argument = kasprintf(GFP_KERNEL, "ARGV:%s;%s",
+						struct_file_info->str_user_id,
+						argv[n]);
+
+
+
+			/* true, system is not OK? */
+			if (!argument)
+				return true;
+
+			/*--------------------------------------------------------------------------------*/
+
+			if (kernel_normalisiere(argument) == false)
+				goto not_allowed;
+
+			/*--------------------------------------------------------------------------------*/
+			if (bnsearch_file(argument, list, list_len) == true) {
+				kfree(argument);
+				continue;
+			}
+
+			if (printk_deny == true)
+				printk("STAT STEP FIRST SHELL: ARGUMENT: SHELL -c DENY: %s\n", argument);
+
+
+			deny_argv_list(	argument,
+					&global_list_deny,
+					&global_list_deny_size);
+
+			kfree(argument);
+
+			if (ONLY_SHOW_DENY == true)
+				continue;
+
+			goto not_allowed;
+		}
+
+
+
+	/*--------------------------------------------------------------------------------*/
 		struct struct_file_info struct_shell_info;
 
 		char *first_word;
 
-
 	/*--------------------------------------------------------------------------------*/
 		/* not allowed. if one file not in list */
-		for (int n = 1; n <= max; n++) {
+		for (int n = 1; n <= argv_len - 1; n++) {
 
 			char *p = argv[n];
 
-			first_word = strsep(&p, " "); 
+			first_word = strsep(&p, " ");
 
 
 			struct_shell_info = get_file_info(first_word, KERNEL_READ_SIZE);
@@ -2010,9 +2338,11 @@ param_file(struct struct_file_info *struct_file_info,
 
 
 			/* no real file. like -- */
-			if (struct_shell_info.retval == false)
+			if (struct_shell_info.retval == false) {
 				continue;
+			}
 
+			//real_file = true;
 			/* check file/prog is in the list: allowed or deny */
 			/* deny user not required. not in the list is the same */
 			if (user_deny(&struct_shell_info,
@@ -2041,42 +2371,50 @@ param_file(struct struct_file_info *struct_file_info,
 		}
 
 
+	/*--------------------------------------------------------------------------------*/
 
 		/* allowed */
 		if (printk_allowed == true)
-			printk("%s USER/SCRIPT SHELL ALLOWED  : a:%s\n",
+			printk("%s SHELL: USER/SCRIPT: SHELL -c ALLOWED  : a:%s\n",
 				step,
-				struct_shell_info.str_user_id);
+				struct_file_info->str_user_id);
 
 		return true;
 
 
-		not_allowed:
-
+	/*--------------------------------------------------------------------------------*/
+	not_allowed:
 
 		if (printk_deny == true)
-			printk("%s USER/SCRIPT SHELL DENY                  : a:%s;%s;%s;%s\n", step,
-				struct_shell_info.str_user_id,
-				struct_shell_info.str_file_size,
-				struct_shell_info.hash_string,
-				struct_shell_info.fname);
+			printk("%s SHELL: USER/SCRIPT SHELL DENY                  : a:%s\n",
+				step,
+				struct_file_info->str_user_id);
 
-		deny_list(&struct_shell_info,
-			&global_list_deny,
-			&global_list_deny_size);
+
+//			printk("%s USER/SCRIPT SHELL DENY                  : a:%s;%s;%s;%s\n", step,
+//				struct_shell_info.str_user_id,
+//				struct_shell_info.str_file_size,
+//				struct_shell_info.hash_string,
+//				struct_shell_info.fname);
+
+		//deny_list(&struct_shell_info,
+		//	&global_list_deny,
+		//	&global_list_deny_size);
 
 
 		if (ONLY_SHOW_DENY == true)
 			return true;
 
 		return false;
-
 	}
+
+	/*--------------------------------------------------------------------------------*/
 
 
 
 
 	/*--------------------------------------------------------------------------------*/
+	/* if not bash */
 	if (argv_len == 1)
 		return false;
 
@@ -2837,6 +3175,7 @@ static bool allowed_exec(const char *filename,
 		}
 
 		retval = copy_from_user(argv_list[n], str, str_len);
+
 	}
 
 
@@ -2913,6 +3252,36 @@ static bool allowed_exec(const char *filename,
 
 
 /*-------------------------------------------------------------------------------*/
+static int proc_safer_full_check(	const struct ctl_table *table,
+				int write,
+				void *buffer,
+				size_t *lenp,
+				loff_t *ppos)
+{
+
+	if (lock_mode == true) return CONTROL_ERROR;
+
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
+	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (write && retval == 0) {
+		if (safer_mode_full_check == true) {
+			printk("MODE: SAFER ON\n");
+		}
+		else {
+			printk("MODE: SAFER OFF\n");
+		}
+	}
+
+	mutex_unlock(&control);
+
+	return retval;
+}
+
+
+
+
 static int proc_safer_active(	const struct ctl_table *table,
 				int write,
 				void *buffer,
@@ -2939,6 +3308,7 @@ static int proc_safer_active(	const struct ctl_table *table,
 
 	return retval;
 }
+
 
 
 
@@ -3445,6 +3815,15 @@ static const struct ctl_table safer_table[] = {
 		.extra2		= SYSCTL_ONE,
 	},
 	{
+		.procname       = "safer_full_check",
+		.data           = &safer_mode_full_check,
+		.maxlen         = sizeof(int),
+		.mode           = 0600,
+		.proc_handler   = proc_safer_full_check,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
 		.procname	= "safer_printk_deny",
 		.data		= &printk_deny,
 		.maxlen		= sizeof(int),
@@ -3552,6 +3931,11 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	if (safer_mode == true)
 		seq_printf(proc_show, "MODE SAFER                  : ON\n");
 	else	seq_printf(proc_show, "MODE SAFER                  : OFF\n");
+
+	if (safer_mode_full_check == true)
+		seq_printf(proc_show, "MODE SAFER FULL CHECK       : ON\n");
+	else	seq_printf(proc_show, "MODE SAFER FULL CHECK       : OFF\n");
+
 
 	if (ONLY_SHOW_DENY == true)
 		seq_printf(proc_show, "ONLY_SHOW_DENY              : ON\n");

@@ -4,7 +4,7 @@
 
 /* Copyright (c) 2026.03.28,2026.04.24, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2026.03.28, 2026-04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
+ * Urheber: 2026.03.28, 2026-05.22, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
@@ -77,7 +77,7 @@
 #define DENY_MAX 10000
 
 #define LIST_MIN 1
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 5000000
 #define CONTROL_ERROR -1
 
 #define TRUE 1
@@ -403,7 +403,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 		if (safer_mode == FALSE) {
 			if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags)) {
 				if (printk_allowed == TRUE)
-					pr_info("STAT STEP THIRD: MOD LEARNING CHECK OK: ko;%lld;%s\n", string_length, mp);
+					pr_info("STAT STEP MODUL: MOD LEARNING CHECK OK: ko;%lld;%s\n", string_length, mp);
 
 				return true;
 			}
@@ -412,7 +412,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 		else {
 			if (printk_allowed == TRUE) {
 				if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags))
-					pr_info("STAT STEP THIRD: MOD LEARNING CHECK OK: ko;%lld;%s\n", string_length, mp);
+					pr_info("STAT STEP MODUL: MOD LEARNING CHECK OK: ko;%lld;%s\n", string_length, mp);
 			}
 		}
 	}
@@ -424,7 +424,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 	if (safer_mode == TRUE) {
 		if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
 			if (printk_allowed == TRUE)
-				pr_info("STAT STEP THIRD: MOD ALLOWED SAFER CHECK OK: ko;%lld;%s\n", string_length, mp);
+				pr_info("STAT STEP MODULE: MOD ALLOWED SAFER CHECK OK: ko;%lld;%s\n", string_length, mp);
 
 			return true;
 		}
@@ -473,7 +473,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 
 		if (printk_deny == TRUE)
-			pr_info("STAT STEP THIRD: MODULE TOCTOU   : %s\n", string_test);
+			pr_info("STAT STEP MODUL: MODULE TOCTOU   : %s\n", string_test);
 
 		deny_list(string_test,
 			&global_list_module_deny,
@@ -510,7 +510,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 			set_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags);
 
 			if (printk_allowed == TRUE)
-				pr_info("STAT STEP THIRD: MOD LEARNING FIRST CHECK: %s\n", string_test);
+				pr_info("STAT STEP MODUL: MOD LEARNING FIRST CHECK: %s\n", string_test);
 
 		}
 	}
@@ -528,7 +528,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 			clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 
 			if (printk_deny == TRUE)
-				pr_info("STAT STEP THIRD: MOD DENY   : %s\n", string_test);
+				pr_info("STAT STEP MODUL: MOD DENY   : %s\n", string_test);
 
 			deny_list(string_test,
 				&global_list_module_deny,
@@ -545,7 +545,7 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 		set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
 
 		if (printk_allowed == TRUE)
-			pr_info("STAT STEP THIRD: MOD ALLOWED: %s\n", string_test);
+			pr_info("STAT STEP MODUL: MOD ALLOWED: %s\n", string_test);
 
 		return true;
 	}
