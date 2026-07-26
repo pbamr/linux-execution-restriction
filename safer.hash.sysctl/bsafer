@@ -96,6 +96,18 @@ fi
 
 
 
+#----------------------------------------------------------
+if [ "$order" = "PAONP" ]; then
+	sysctl kernel.safer.safer_printk_allowed=1;
+	exit 0;
+fi
+
+if [ "$order" = "PAOFFP" ]; then
+	sysctl kernel.safer.safer_printk_allowed=0;
+	exit 0;
+fi
+
+
 
 #----------------------------------------------------------
 if [ "$order" = "PAON" ]; then
@@ -444,6 +456,9 @@ Parameter   :  <SOFFCL>   Safer FULL CHECK OFF
 
 Parameter   :  <PAON>    Safer Printk ALLOWED ON
 Parameter   :  <PAOFF>   Safer Printk ALLOWED OFF
+
+Parameter   :  <PAONP>    Safer Printk ALLOWED ON PROG.
+Parameter   :  <PAOFFP>   Safer Printk ALLOWED OFF PROG.
 
 Parameter   :  <PDON>    Safer Printk DENY ON
 Parameter   :  <PDOFF>   Safer Printk DENY OFF

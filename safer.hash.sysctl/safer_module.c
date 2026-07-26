@@ -4,7 +4,7 @@
 
 /* Copyright (c) 2026.03.28,2026.04.24, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2026.03.28, 2026-05.22, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
+ * Urheber: 2026.03.28, 2026-04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
@@ -77,7 +77,7 @@
 #define DENY_MAX 10000
 
 #define LIST_MIN 1
-#define KERNEL_READ_SIZE 5000000
+#define KERNEL_READ_SIZE 2123457
 #define CONTROL_ERROR -1
 
 #define TRUE 1
@@ -373,14 +373,17 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 	 * Deswegen keine Pruefung auf Kernel Module notwendig
 	 */
 
+	/* Wird immer geprueft. Test ob schon geprueft macht bei
+	 * Modulen keinen Sinn.. Weerden odt nur einmal gestartet
+	*/
 
-	bool toctou;
-
+	/* --------------------------------------------------------------------- */
 	if (safer_mode == FALSE)
 		if (learning_mode == FALSE)
 			return true;
 
 
+	/* --------------------------------------------------------------------- */
 	char *mp = file_path(file, module_path_buffer, PATH_MAX);
 
 	/* Irgendwas nicht OK */
@@ -398,137 +401,48 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 		return true;
 
 
-	/* Wenn Learning TRUE und safer_mode ist FALSE */
-	if (learning_mode == TRUE) {
-		if (safer_mode == FALSE) {
-			if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags)) {
-				if (printk_allowed == TRUE)
-					pr_info("STAT STEP MODUL: MOD LEARNING CHECK OK: ko;%lld;%s\n", string_length, mp);
-
-				return true;
-			}
-		}
-
-		else {
-			if (printk_allowed == TRUE) {
-				if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags))
-					pr_info("STAT STEP MODUL: MOD LEARNING CHECK OK: ko;%lld;%s\n", string_length, mp);
-			}
-		}
-	}
-
-
-
-	/* Pruefe, Flag im RAM-Inode */
-	/* Wenn erlaubt RETURN  TRUE*/
-	if (safer_mode == TRUE) {
-		if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-			if (printk_allowed == TRUE)
-				pr_info("STAT STEP MODULE: MOD ALLOWED SAFER CHECK OK: ko;%lld;%s\n", string_length, mp);
-
-			return true;
-		}
-	}
-
-
 	loff_t max = size;
 
 	if (size > KERNEL_READ_SIZE)
 		max = KERNEL_READ_SIZE;
 
 
-
-	/* kommt HASH Verfahren ab */
+	/* --------------------------------------------------------------------- */
+	/* HASH Verfahren */
 	char hash_raw[DIGIT];
 	char hash_string[HASH_STRING_LENGTH];
 
 
-
-	/* --------------------------------------------------------------------- */
-	set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
-	/* --------------------------------------------------------------------- */
-
 	if (get_hash_sum(file, inode, hash_raw, max) == 0)
 		hashraw_to_hashstring(hash_raw, hash_string);
 	else {
-		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-		return true;
-	}
-
-
-	/* --------------------------------------------------------------------- */
-	//if (inode->i_nlink == 0)
-	//	toctou = true;
-
-	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
-		toctou = true;
-
-	else
-		toctou = false;
-
-	/* --------------------------------------------------------------------- */
-	if (toctou == true) {
-
-		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
-		if (printk_deny == TRUE)
-			pr_info("STAT STEP MODUL: MODULE TOCTOU   : %s\n", string_test);
-
-		deny_list(string_test,
-			&global_list_module_deny,
-			&global_list_module_count_deny);
-
 		return false;
-
 	}
 
-	clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
-
-	/* --------------------------------------------------------------------- */
-
-
-
+	if (printk_allowed == TRUE)
+printk("SAFER MODULE : KERNEL MODULE READ          : so;%lld;%s;%s\n", size, hash_string, mp);
 
 	scnprintf(string_test, sizeof(string_test), "ko;%lld;%s;%s",
 		size, hash_string, mp);
 
-	if (learning_mode == TRUE) {
-		bool retval = learning(string_test,
+
+	/* --------------------------------------------------------------------- */
+	if (learning_mode == TRUE)
+		learning(string_test,
 			&global_list_learning_module,
 			&global_list_learning_module_count);
 
-		if (retval == true) {
-			/*
-			 * wenn noch nicht in list gewesen. ->set
-			 * wenn inode aus mem und inode neu. ->set
-			 * wurde lib geaendert. ->set
-			 * dann zweimal in list. mit unterschiedlichem HASH
-			 */
-
-			set_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags);
-
-			if (printk_allowed == TRUE)
-				pr_info("STAT STEP MODUL: MOD LEARNING FIRST CHECK: %s\n", string_test);
-
-		}
-	}
 
 
+	/* --------------------------------------------------------------------- */
 	if (safer_mode == TRUE) {
 		bool retval = module_allowed(string_test,
 						&global_list_module,
 						&global_list_module_count);
 
-
 		if (retval == false) {
-
-
-			clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
 			if (printk_deny == TRUE)
-				pr_info("STAT STEP MODUL: MOD DENY   : %s\n", string_test);
+printk("SAFER MODUL  : KERNEL MODUL DENY           : %s\n", string_test);
 
 			deny_list(string_test,
 				&global_list_module_deny,
@@ -542,16 +456,22 @@ static bool check_module(struct file *file, int safer_mode, int learning_mode)
 		}
 
 		/* allowed */
-		set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
 		if (printk_allowed == TRUE)
-			pr_info("STAT STEP MODUL: MOD ALLOWED: %s\n", string_test);
+printk("SAFER MODUL  :  KERNEL MODULE ALLOWED      : %s\n", string_test);
 
 		return true;
 	}
 
 	return true;
 }
+
+
+
+
+
+
+
+
 
 
 /* ##################################################################### */

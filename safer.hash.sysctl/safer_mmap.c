@@ -2,9 +2,9 @@
 
 
 
-/* Copyright (c) 2026.04.28, 2026.05.22, Peter Boettcher, Germany/NRW,
+/* Copyright (c) 2026.04.28, 2026.07.26, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2026.03.28, 2026.04.20, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
+ * Urheber: 2026.03.28, 2026.07.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
@@ -56,7 +56,7 @@
 
 
 #define LEARNING	10		//(1 << 0)
-#define CHECK		11		//(1 << 1)
+#define BREAD		11		//(1 << 1)
 
 
 
@@ -90,7 +90,7 @@
 
 
 #define LIST_MIN 1
-#define KERNEL_READ_SIZE 5000000
+#define KERNEL_READ_SIZE 2123457
 #define CONTROL_ERROR -1
 
 #define TRUE 1
@@ -136,6 +136,7 @@ static long	global_list_learning_lib_count = -1;
 
 static char lib_path_buffer[PATH_MAX + 1];
 static char string_test[PATH_MAX + HASH_STRING_LENGTH + 22 + 2];
+
 
 
 /* Reserviert 4KB pro CPU-Kern statisch im RAM */
@@ -302,6 +303,7 @@ bool get_hash_sum(struct file *file, struct inode *inode,
 
 	kfree(desc);
 	crypto_free_shash(tfm);
+
 	return false;
 }
 
@@ -414,28 +416,34 @@ bool file_allowed(char *string_test, char ***list, long *list_count)
 
 
 
+
+
+
+
 /* --------------------------------------------------------------------- */
 static bool checkfile(struct file *file, unsigned long vm_flags,
 			unsigned long prot, int safer_mode,
 			int learning_mode, int ONLY_SHOW_DENY)
 {
 
-	bool toctou;
+	/* haengt vom HASH Verfahren ab */
+	char hash_raw[DIGIT];
+	char hash_string[HASH_STRING_LENGTH];
+	bool retval;
 
 
 	if (safer_mode == FALSE)
 		if (learning_mode == FALSE)
 			return true;
 
-
-
-
+	/* --------------------------------------------------------------------- */
 	if (is_executable_binary(file, vm_flags, prot) != 1)
 		return true;
 
 	if (current->mm && current->mm->exe_file == file)
 		return true;
 
+	/* --------------------------------------------------------------------- */
 	/*
 	 * file_path schreibt  von hinten nach vorne
 	 * fp ist ein Zeiger auf Anfang String. 0.............Anfang
@@ -450,45 +458,6 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 	struct inode *inode = file_inode(file);
 
 
-	/* Wenn Learning TRUE und safer_mode ist FALSE */
-	if (learning_mode == TRUE) {
-		if (safer_mode == FALSE) {
-
-			if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags)) {
-
-				if (printk_allowed == TRUE)
-					pr_info("STAT STEP LIBTARY: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
-
-				return true;
-			}
-		}
-
-		else {
-			if (printk_allowed == TRUE) {
-				if (test_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags))
-					pr_info("STAT STEP LIBTARY: LIBRARY LEARNING CHECK OK     : so;%lld;%s\n", string_length, fp);
-			}
-		}
-	}
-
-
-
-	/* Pruefe, Flag im RAM-Inode */
-	/* Wenn erlaubt RETURN */
-	/* pruefe ob full check */
-
-	if (safer_mode == TRUE) {
-		if (safer_mode_full_check == FALSE) {
-			if (test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags)) {
-				if (printk_allowed == TRUE)
-					pr_info("STAT STEP LIBTARY: LIBRARY ALLOWED SAFER CHECK OK: so;%lld;%s\n", string_length, fp);
-
-				return true;
-			}
-		}
-	}
-
-	/* max. file read? */
 	loff_t size = i_size_read(inode);
 
 	loff_t max = size;
@@ -497,101 +466,80 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 		max = KERNEL_READ_SIZE;
 
 
-	/* kommt vom HASH Verfahren ab */
-	char hash_raw[DIGIT];
-	char hash_string[HASH_STRING_LENGTH];
-
-
 	/* --------------------------------------------------------------------- */
-	set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
+	/* simple */
+	if (safer_mode_full_check == FALSE) {
 
-	/* --------------------------------------------------------------------- */
-	if (get_hash_sum(file, inode, hash_raw, max) == 0)
-		hashraw_to_hashstring(hash_raw, hash_string);
-	else {
-		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-		return true;
+		if (!test_bit(BREAD, (unsigned long *)&inode->i_boettcher_flags)) {
+
+			/* --------------------------------------------------------------------- */
+			if (get_hash_sum(file, inode, hash_raw, max) == 0)
+				hashraw_to_hashstring(hash_raw, hash_string);
+			else
+				return false;
+
+			memcpy(inode->i_boettcher_hash, hash_string, DIGIT * 2);
+
+			set_bit(BREAD, (unsigned long *)&inode->i_boettcher_flags);
+
+			if (printk_allowed == TRUE)
+				printk("SAFER LIBRARY: FIRST READ                  : so;%lld;%s;%s\n", size, hash_string, fp);
+
+		}
+		else {
+			memcpy(hash_string, inode->i_boettcher_hash, DIGIT * 2);
+
+			if (printk_allowed == TRUE)
+				printk("SAFER LIBRARY: Has already been read       : so;%lld;%s;%s\n", size, hash_string, fp);
+		}
 	}
 
 	/* --------------------------------------------------------------------- */
-	//if (inode->i_nlink == 0)
-	//	toctou = true;
+	if (safer_mode_full_check == TRUE) {
 
-	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
-		toctou = true;
+		if (get_hash_sum(file, inode, hash_raw, max) == 0)
+			hashraw_to_hashstring(hash_raw, hash_string);
+		else
+			return false;
 
-	else
-		toctou = false;
+		memcpy(inode->i_boettcher_hash, hash_string, DIGIT * 2);
 
+		set_bit(BREAD, (unsigned long *)&inode->i_boettcher_flags);
 
-	/* --------------------------------------------------------------------- */
-	if (toctou == true) {
-
-		clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
-		if (printk_deny == TRUE)
-			pr_info("STAT STEP LIBTARY: LIBRARY TOCTOU   : %s\n", string_test);
-
-		deny_list(string_test,
-			&global_list_lib_deny,
-			&global_list_lib_count_deny);
-
-		return false;
+		if (printk_allowed == TRUE)
+printk("SAFER LIBRARY: FIRST READ                  : so;%lld;%s;%s\n", size, hash_string, fp);
 
 	}
 
-	clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
-
 
 	/* --------------------------------------------------------------------- */
-
 	/* kostet zwar mehr, als strscpy und umwandeln.
-	 * ist aber egal. da nicht allzu oft aufgerufe
-	 */
+	 * ist aber egal.
+	*/
 	scnprintf(string_test, sizeof(string_test), "so;%lld;%s;%s",
 		size, hash_string, fp);
 
-	if (learning_mode == TRUE) {
-		bool retval = learning(string_test,
+
+	/* --------------------------------------------------------------------- */
+	if (learning_mode == TRUE)
+		learning(string_test,
 			&global_list_learning_lib,
 			&global_list_learning_lib_count);
 
 
-		if (retval == true) {
-			/*
-			 * wenn noch nicht in list gewesen. ->set
-			 * wenn inode aus mem und inode neu. ->set
-			 * wurde lib geaendert. ->set
-			 * dann zweimal in list. mit unterschiedlichem HASH
-			 */
-
-			set_bit(LEARNING, (unsigned long *)&inode->i_boettcher_flags);
-
-			if (printk_allowed == TRUE)
-					pr_info("STAT STEP LIBTARY: LIBRARY LEARNING FIRST CHECK  : %s\n", string_test);
-
-			//pr_info("SAFER LIB Nur TEST: %lld\n", inode->i_boettcher_flags);
-		}
-	}
-
+	/* --------------------------------------------------------------------- */
 	if (safer_mode == TRUE) {
-		bool retval = file_allowed(string_test,
+		retval = file_allowed(string_test,
 					&global_list_lib,
 					&global_list_lib_count);
 
 		if (retval == false) {
-
-			clear_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
 			if (printk_deny == TRUE)
-				pr_info("STAT STEP LIBTARY: LIBRARY DENY   : %s\n", string_test);
-
+				printk("SAFER LIBRARY: LIBRARY DENY                : %s\n", string_test);
 
 			deny_list(string_test,
 				&global_list_lib_deny,
 				&global_list_lib_count_deny);
-
 
 			/* Nur wenn safer_mode TRUE */
 			if (ONLY_SHOW_DENY == TRUE)
@@ -600,14 +548,12 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 			return false;
 		}
 
-		/* allowed */
-		set_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags);
-
-
+		/* retval = true */
 		if (printk_allowed == TRUE)
-			pr_info("STAT STEP LIBTARY: LIBRARY ALLOWED: %s\n", string_test);
+printk("SAFER LIBRARY: LIBRARY ALLOWED             : %s\n", string_test);
 
-		return true;
+		return TRUE;
+
 	}
 
 	return true;

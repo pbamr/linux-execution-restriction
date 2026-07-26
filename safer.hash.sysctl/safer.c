@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.05.22, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.05.22, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.07.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.07.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,14 +21,14 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.03.28 - 2026.05.22
+	Date		: 2022.04.22 - 2026.07.26
 
 	Program		: safer.c
 	Path		: fs/
 
 	TEST		: Kernel 6.0 - 7.0.0
 
-			  Lenovo X230, T460, T470, Fujitsu Futro S xxx, AMD Ryzen
+			  Lenovo X230, T460, T470, T490, Fujitsu Futro S xxx, AMD Ryzen
 			  Proxmox, Docker
 
 	Functionality	: Programm execution restriction
@@ -323,7 +323,7 @@ typedef int ibool;
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
 static DEFINE_MUTEX(kernel_read_lock);
-static DEFINE_MUTEX(deny_lock);
+//static DEFINE_MUTEX(deny_lock);
 
 
 static ibool	learning_mode = true;
@@ -756,7 +756,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 			struct_file_info.fname = fname;
 
 			if (printk_allowed == true)
-				printk("SAFER: Has alredy been checked: a:%s;%s;%s;%s\n",
+printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
 					struct_file_info.str_user_id,
 					struct_file_info.str_file_size,
 					struct_file_info.hash_string,
@@ -872,7 +872,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 
 
 	if (printk_allowed == true)
-		printk("SAFER: FIRST Check a:%s;%s;%s;%s\n",
+printk("SAFER: FIRST READ                 : a:%s;%s;%s;%s\n",
 				struct_file_info.str_user_id,
 				struct_file_info.str_file_size,
 				struct_file_info.hash_string,
@@ -1290,7 +1290,7 @@ user_wildcard_deny(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step, 
+printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step, 
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1329,7 +1329,8 @@ user_wildcard_filename_allowed(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
+
+printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1377,7 +1378,8 @@ user_wildcard_allowed(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, 
+
+printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step, 
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1417,7 +1419,8 @@ user_wildcard_folder_allowed(struct struct_file_info *struct_file_info,
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
+
+printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size,
 									struct_file_info->hash_string, 
@@ -1456,7 +1459,7 @@ user_wildcard_folder_deny(struct struct_file_info *struct_file_info,
 
 	if (besearch_folder(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
+printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1505,7 +1508,7 @@ user_deny(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
+printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string,
@@ -1557,7 +1560,7 @@ group_deny(struct struct_file_info *struct_file_info,
 
 		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_deny == true)
-				printk("%s GROUP/PROG. DENY   : gd:%s;%s;%s;%s\n", step, 
+printk("%s GROUP/PROG DENY: gd:%s;%s;%s;%s\n", step, 
 										    str_group_id, 
 										    struct_file_info->str_file_size, 
 										    struct_file_info->hash_string, 
@@ -1606,7 +1609,8 @@ user_folder_deny(struct struct_file_info *struct_file_info,
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_deny == true)
-			printk("%s USER/PROG.  DENY   : a:%s;%s;%s;%s\n", step,
+
+printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id,
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1662,7 +1666,8 @@ group_folder_deny(struct struct_file_info *struct_file_info,
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == true) {
 			if (printk_deny == true)
-				printk("%s USER/PROG.  DENY   : gd:%s;%s;%s;%s\n", step,
+
+printk("%s GROUP/PROG DENY: gd:%s;%s;%s;%s\n", step,
 										str_group_id, 
 										struct_file_info->str_file_size, 
 										struct_file_info->hash_string, 
@@ -1716,7 +1721,8 @@ user_allowed(	struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step,
+
+printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1776,7 +1782,8 @@ group_allowed(struct struct_file_info *struct_file_info,
 
 		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_allowed == true)
-				printk("%s GROUP/PROG. ALLOWED: ga:%s;%s;%s;%s\n", step, 
+
+printk("%s GROUP/PRG ALLOW: ga:%s;%s;%s;%s\n", step, 
 										str_group_id, 
 										struct_file_info->str_file_size, 
 										struct_file_info->hash_string, 
@@ -1824,7 +1831,8 @@ user_folder_allowed(struct struct_file_info *struct_file_info,
 	/* Importend! Need qsorted list */
 	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: a:%s;%s;%s;%s\n", step, 
+
+printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step, 
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1884,7 +1892,8 @@ group_folder_allowed(struct struct_file_info *struct_file_info,
 		/* Importend! Need qsorted list */
 		if (besearch_folder(str_group_folder, list, list_len) == true) {
 			if (printk_allowed == true)
-				printk("%s USER/PROG.  ALLOWED: ga:%s;%s;%s;%s\n", step,
+
+printk("%s GROUP/PRG ALLOW: ga:%s;%s;%s;%s\n", step,
 										str_group_id,
 										struct_file_info->str_file_size,
 										struct_file_info->hash_string,
@@ -1939,7 +1948,8 @@ user_interpreter_allowed(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
-			printk("%s USER/PROG.  ALLOWED: ai:%s;%s;%s;%s\n", step,
+
+printk("%s USER/PROG ALLOW: ai:%s;%s;%s;%s\n", step,
 									struct_file_info->str_user_id, 
 									struct_file_info->str_file_size, 
 									struct_file_info->hash_string, 
@@ -1998,7 +2008,8 @@ group_interpreter_allowed(struct struct_file_info *struct_file_info,
 
 		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_allowed == true)
-				printk("%s GROUP/PROG. ALLOWED: gai:%s;%s;%s;%s\n", step, 
+
+printk("%s GROUP/PRG ALLOW: gai:%s;%s;%s;%s\n", step, 
 										    str_group_id, 
 										    struct_file_info->str_file_size, 
 										    struct_file_info->hash_string, 
@@ -2244,7 +2255,7 @@ param_file(struct struct_file_info *struct_file_info,
 
 	/*--------------------------------------------------------------------------------*/
 	if (printk_deny == true)
-		printk("%s SHELL: USER/SCRIPT: CHECK a:%s;%s;%s;%s\n", step,
+		printk("%s SHELL: USER/SCRIPT: check a:%s;%s;%s;%s\n", step,
 			struct_file_info->str_user_id,
 			struct_file_info->str_file_size,
 			struct_file_info->hash_string,
@@ -2295,7 +2306,7 @@ param_file(struct struct_file_info *struct_file_info,
 			}
 
 			if (printk_deny == true)
-				printk("STAT STEP FIRST SHELL: ARGUMENT: SHELL -c DENY: %s\n", argument);
+printk("STAT STEP FIRST SHELL: ARGUMENT: SHELL -c DENY: %s\n", argument);
 
 
 			deny_argv_list(	argument,
@@ -2439,7 +2450,7 @@ param_file(struct struct_file_info *struct_file_info,
 		/* error: read, hash. back to kernel */
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
-				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n", struct_param_info.user_id,
+printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n", struct_param_info.user_id,
 											     argv[2]);
 			return false;
 		}
@@ -2513,7 +2524,8 @@ param_file(struct struct_file_info *struct_file_info,
 		/* error: read, hash. back to kernel */
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
-				printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%s;;;%s\n",struct_param_info.str_user_id,
+
+printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%s;;;%s\n",struct_param_info.str_user_id,
 											    struct_param_info.fname);
 
 		deny_list(&struct_param_info,
@@ -2642,7 +2654,7 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 	if (user_wildcard_folder_deny(	struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
-					"STAT STEP FIRST:") == false)
+					"SAFER: STEP FIRST:") == false)
 		return false;
 
 
@@ -2650,14 +2662,14 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 	if (user_wildcard_deny(	struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
-				"STAT STEP FIRST:") == false)
+				"SAFER: STEP FIRST:") == false)
 		return false;
 
 	/* group deny folder */
 	if (group_folder_deny(	struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP FIRST:") == false)
+				"SAFER: STEP FIRST:") == false)
 		return false;
 
 	/* deny group */
@@ -2665,21 +2677,21 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 	if (group_deny(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP FIRST:") == false)
+			"SAFER: STEP FIRST:") == false)
 		return false;
 
 	/* deny folder */
 	if (user_folder_deny(struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP FIRST:") == false)
+				"SAFER: STEP FIRST:") == false)
 		return false;
 
 	/* deny user */
 	if (user_deny(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP FIRST:") == false)
+			"SAFER: STEP FIRST:") == false)
 		return false;
 
 /*--------------------------------------------------------------------------------*/
@@ -2688,14 +2700,14 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 	if (user_wildcard_folder_allowed(struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
-					"STAT STEP FIRST:") == true)
+					"SAFER: STEP FIRST:") == true)
 		return true;
 
 	/* user wildcard allowed filename */
 	if (user_wildcard_filename_allowed(struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
-					"STAT STEP FIRST:") == true)
+					"SAFER: STEP FIRST:") == true)
 		return true;
 
 
@@ -2703,35 +2715,35 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 	if (user_wildcard_allowed(struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
-				"STAT STEP FIRST:") == true)
+				"SAFER: STEP FIRST:") == true)
 		return true;
 
 	/* group allowed folder */
 	if (group_folder_allowed(struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP FIRST:") == true)
+				"SAFER: STEP FIRST:") == true)
 		return true;
 
 	/* allowed group */
 	if (group_allowed(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP FIRST:") == true)
+			"SAFER: STEP FIRST:") == true)
 		return true;
 
 	/* user allowed folder */
 	if (user_folder_allowed(struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP FIRST:") == true)
+				"SAFER: STEP FIRST:") == true)
 		return true;
 
 	/* allowed user */
 	if (user_allowed(struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP FIRST:") == true)
+			"SAFER: STEP FIRST:") == true)
 		return true;
 
 	/* user allowed interpreter and allowed group script file*/
@@ -2742,11 +2754,11 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 			argv_len,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP FIRST:") == true)
+			"SAFER: STEP FIRST:") == true)
 		return true;
 
 	if (printk_deny == true)
-		printk("STAT STEP FIRST: USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info->str_user_id,
+printk("SAFER: STEP FIRST: USER/PROG. DENY: a:%s;%s;%s;%s\n", struct_file_info->str_user_id,
 										struct_file_info->str_file_size,
 										struct_file_info->hash_string,
 										struct_file_info->fname);
@@ -2793,7 +2805,8 @@ static bool exec_second_step(const char *filename)
 
 		/* file not exist. */
 		if (verbose_file_unknown)
-			printk("STAT STEP SEC  : USER/PROG.  UNKNOWN : a:%d;;;%s\n",
+
+printk("SAFER: STEP SEC  : PROG. UNKNOWN  : a:%d;;;%s\n",
 				get_current_user()->uid.val,
 				filename);
 
@@ -2858,7 +2871,7 @@ static bool exec_second_step(const char *filename)
 	retval = user_wildcard_folder_deny(&struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
-					"STAT STEP SEC  :");
+					"SAFER: STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 
@@ -2870,7 +2883,7 @@ static bool exec_second_step(const char *filename)
 	retval = user_wildcard_deny(&struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
-				"STAT STEP SEC  :");
+				"SAFER: STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 
@@ -2880,7 +2893,7 @@ static bool exec_second_step(const char *filename)
 	retval = group_folder_deny(&struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP SEC  :");
+				"SAFER: STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
@@ -2890,7 +2903,7 @@ static bool exec_second_step(const char *filename)
 	retval = group_deny(&struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP SEC  :");
+			"SAFER STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
@@ -2899,7 +2912,7 @@ static bool exec_second_step(const char *filename)
 	retval = user_folder_deny(&struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP SEC  :");
+				"SAFER: STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
@@ -2908,7 +2921,7 @@ static bool exec_second_step(const char *filename)
 	retval = user_deny(&struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP SEC  :");
+			"SAFER: STEP SEC  :");
 	if (retval == false) goto not_allowed;
 
 /*-------------------------------------------------------------------------------------------*/
@@ -2917,7 +2930,7 @@ static bool exec_second_step(const char *filename)
 	if (user_wildcard_folder_allowed(&struct_file_info,
 					global_list_folder,
 					global_list_folder_size,
-					"STAT STEP SEC  :") == true) {
+					"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2928,7 +2941,7 @@ static bool exec_second_step(const char *filename)
 	if (user_wildcard_filename_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
-					"STAT STEP SEC  :") == true) {
+					"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2941,7 +2954,7 @@ static bool exec_second_step(const char *filename)
 	if (user_wildcard_allowed(&struct_file_info,
 				global_list_prog,
 				global_list_prog_size,
-				"STAT STEP SEC  :") == true) {
+				"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2950,7 +2963,7 @@ static bool exec_second_step(const char *filename)
 	if (group_folder_allowed(&struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP SEC  :") == true) {
+				"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2959,7 +2972,7 @@ static bool exec_second_step(const char *filename)
 	if (group_allowed(&struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP SEC  :") == true) {
+			"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2968,7 +2981,7 @@ static bool exec_second_step(const char *filename)
 	if (user_folder_allowed(&struct_file_info,
 				global_list_folder,
 				global_list_folder_size,
-				"STAT STEP SEC  :") == true) {
+				"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2977,7 +2990,7 @@ static bool exec_second_step(const char *filename)
 	if (user_allowed(&struct_file_info,
 			global_list_prog,
 			global_list_prog_size,
-			"STAT STEP SEC  :") == true) {
+			"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2986,7 +2999,7 @@ static bool exec_second_step(const char *filename)
 	if (group_interpreter_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
-					"STAT STEP SEC  :") == true) {
+					"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
@@ -2995,13 +3008,14 @@ static bool exec_second_step(const char *filename)
 	if (user_interpreter_allowed(&struct_file_info,
 					global_list_prog,
 					global_list_prog_size,
-					"STAT STEP SEC  :") == true) {
+					"SAFER: STEP SEC  :") == true) {
 		global_statistics_execve_allow_counter++;
 		return true;
 	}
 
 	if (printk_deny == true) {
-		printk("STAT STEP SEC  : USER/PROG.  DENY   : a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
+
+printk("SAFER: STEP SEC  : USER/PROG. DENY: a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
 										struct_file_info.str_file_size,
 										struct_file_info.hash_string,
 										struct_file_info.fname);
@@ -3068,7 +3082,7 @@ static bool allowed_exec(const char *filename,
 				KERNEL_SIZE = struct_kernel_file_info.file_size;
 				strcpy(KERNEL_HASH, struct_kernel_file_info.hash_string);
 
-				printk("KERNEL-INFO  : %s\n", KERNEL_PATH);
+				printk("KERNEL INFO  : %s\n", KERNEL_PATH);
 				printk("KERNEL SIZE  : %ld\n", KERNEL_SIZE);
 				printk("KERNEL HASH  : %s\n", KERNEL_HASH);
 
@@ -3087,7 +3101,8 @@ static bool allowed_exec(const char *filename,
 
 		/* file not exist. */
 		if (verbose_file_unknown)
-			printk("STAT STEP FIRST: USER/PROG.  UNKNOWN : a:%d;;;%s\n",
+
+printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n",
 				get_current_user()->uid.val,
 				filename);
 
@@ -3138,7 +3153,8 @@ static bool allowed_exec(const char *filename,
 			str = get_user_arg_ptr(argv, n);
 			str_len = strnlen_user(str, MAX_ARG_STRLEN);
 			if (str_len > 10000) {
-				printk("STAT STEP FIRST: NOTICE: PROG.: %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
+
+printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
 													filename,
 													n,
 													str_len);
@@ -3977,7 +3993,7 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 
 
 
-	if (global_list_folder_size != 0) {
+	if (global_list_folder_size > 0) {
 		for (n = 0; n < global_list_folder_size; n++) {
 			if (global_list_folder[n] == NULL)
 				break;
@@ -3990,7 +4006,7 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "FILES:\n\n");
 
 
-	if (global_list_prog_size != 0) {
+	if (global_list_prog_size > 0) {
 		for (n = 0; n < LIST_MAX; n++) {
 			if (global_list_prog[n] == NULL)
 				break;
@@ -4005,7 +4021,7 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 
 
 
-	if (global_list_deny_size >= 0) {
+	if (global_list_deny_size > 0) {
 		for (n = 0; n < DENY_MAX; n++) {
 			if (global_list_deny[n] == NULL)
 				break;
