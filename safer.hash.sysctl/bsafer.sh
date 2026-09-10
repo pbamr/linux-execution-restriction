@@ -1,0 +1,634 @@
+#!/usr/bin/bash
+#* Copyright (c) 2022/03/28, 2025.07.08, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+# * Urheber: 2022.03.28, 2025.12.13, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+#
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 2, or (at your option)
+# * any later version.
+#
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+#
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>
+# */
+
+
+#simple
+
+echo "bsafer 2026/1, Peter Boettcher";
+echo ""
+
+
+#Abfrage ob 1ter Parameter OK, bzw. vorhanden ist. Wenn nicht Abbruch
+#case "$1" in
+#'')
+#	echo "ERROR: There is no Parameter 1";
+#	exit 1;
+#	;;
+#*)
+#esac
+
+
+
+
+
+
+order=$1;
+#----------------------------------------------------------
+if [ "$order" = "SON" ]; then
+	sysctl kernel.safer.safer_active=1;
+	sysctl kernel.safer_lib.safer_active=1;
+	sysctl kernel.safer_module.safer_active=1;
+
+	exit 0;
+fi
+
+if [ "$order" = "SOFF" ]; then
+	sysctl kernel.safer.safer_active=0;
+	sysctl kernel.safer_lib.safer_active=0;
+	sysctl kernel.safer_module.safer_active=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SONC" ]; then
+	sysctl kernel.safer.safer_full_check=1;
+	sysctl kernel.safer_lib.safer_full_check=1;
+	#sysctl kernel.safer_module.safer_active=1;
+
+	exit 0;
+fi
+
+if [ "$order" = "SOFFC" ]; then
+	sysctl kernel.safer.safer_full_check=0;
+	sysctl kernel.safer_lib.safer_full_check=0;
+	#sysctl kernel.safer_module.safer_active=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SONCP" ]; then
+	sysctl kernel.safer.safer_full_check=1;
+
+	exit 0;
+fi
+
+if [ "$order" = "SOFFCP" ]; then
+	sysctl kernel.safer.safer_full_check=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SONCL" ]; then
+	sysctl kernel.safer_lib.safer_full_check=1;
+
+	exit 0;
+fi
+
+if [ "$order" = "SOFFCL" ]; then
+	sysctl kernel.safer_lib.safer_full_check=0;
+	exit 0;
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "PAONP" ]; then
+	sysctl kernel.safer.safer_printk_allowed=1;
+	exit 0;
+fi
+
+if [ "$order" = "PAOFFP" ]; then
+	sysctl kernel.safer.safer_printk_allowed=0;
+	exit 0;
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "PAON" ]; then
+	sysctl kernel.safer.safer_printk_allowed=1;
+	sysctl kernel.safer_lib.safer_printk_allowed=1;
+	sysctl kernel.safer_module.safer_printk_allowed=1;
+	exit 0;
+fi
+
+if [ "$order" = "PAOFF" ]; then
+	sysctl kernel.safer.safer_printk_allowed=0;
+	sysctl kernel.safer_lib.safer_printk_allowed=0;
+	sysctl kernel.safer_module.safer_printk_allowed=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "PDON" ]; then
+	sysctl kernel.safer.safer_printk_deny=1;
+	sysctl kernel.safer_lib.safer_printk_deny=1;
+	sysctl kernel.safer_module.safer_printk_deny=1;
+	exit 0;
+fi
+
+if [ "$order" = "PDOFF" ]; then
+	sysctl kernel.safer.safer_printk_deny=0;
+	sysctl kernel.safer_lib.safer_printk_deny=0;
+	sysctl kernel.safer_module.safer_printk_deny=0;
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "PKON" ]; then
+	sysctl kernel.safer.safer_printk_config=1;
+	exit 0;
+fi
+
+if [ "$order" = "PKOFF" ]; then
+	sysctl kernel.safer.safer_printk_config=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "SLON" ]; then
+	sysctl kernel.safer.safer_learning=1;
+	sysctl kernel.safer_lib.safer_learning=1;
+	sysctl kernel.safer_module.safer_learning=1;
+	exit 0;
+fi
+
+if [ "$order" = "SLOFF" ]; then
+	sysctl kernel.safer.safer_learning=0;
+	sysctl kernel.safer_lib.safer_learning=0;
+	sysctl kernel.safer_module.safer_learning=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "SVON" ]; then
+	sysctl kernel.safer.safer_param_verbose=1;
+	exit 0;
+fi
+
+if [ "$order" = "SVOFF" ]; then
+	sysctl kernel.safer.safer_param_verbose=0;
+	exit 0;
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "SVUKON" ]; then
+	sysctl kernel.safer.safer_show_unknown_file=1;
+	exit 0;
+fi
+
+if [ "$order" = "SVUKOFF" ]; then
+	sysctl kernel.safer.safer_show_unknown_file=0;
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "SODON" ]; then
+	sysctl kernel.safer.safer_show_deny=1;
+	sysctl kernel.safer_lib.safer_show_deny=1;
+	sysctl kernel.safer_module.safer_show_deny=1;
+	exit 0;
+fi
+
+if [ "$order" = "SODOFF" ]; then
+	sysctl kernel.safer.safer_show_deny=0;
+	sysctl kernel.safer_lib.safer_show_deny=0;
+	sysctl kernel.safer_module.safer_show_deny=0;
+
+	exit 0;
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SLOCK" ]; then
+	sysctl kernel.safer.safer_lock=1;
+	sysctl kernel.safer_lib.safer_lock=1;
+	sysctl kernel.safer_module.safer_lock=1;
+
+	exit 0;
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "PLIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+
+		#Leerzeichen entfernen
+		awk NF $FNAME > p1
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' p1 > pp1
+
+		#Zeilen mit '/' am Ende entfernen
+		sed '/\/$/d' pp1 > p
+
+
+		grep ":" p > ppp1
+
+
+		grep -v '^KONFIG:' ppp1 > appp1
+		grep -v '^KONFIG_SFILE:' appp1 > ppp1
+
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u ppp1 > pppp1
+
+		#list size
+		lines=$(wc -l pppp1 | awk '{print $1}');
+		echo $lines;
+		sysctl -w kernel.safer.safer_prog="$lines";
+
+		#read;
+		while read line 
+		do
+			#echo $line;
+			sysctl -w kernel.safer.safer_prog="$line";
+			#read -u 3 -n 1 -s -p "taste" 3< /dev/tty
+		done < pppp1
+
+#		rm pppp1
+#		rm ppp1
+
+		exit 0;
+	fi
+fi
+
+
+#----------------------------------------------------------
+
+if [ "$order" = "FLIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > f1
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' f1 > ff1
+
+		#Zeilen mit '/' am Ende isolieren
+		sed -n '/\/$/p' ff1 > fff1
+
+		#sortieren
+		LC_ALL=C sort fff1 | uniq  > ffff1
+
+		#list size
+		lines=$(wc -l ffff1 | awk '{print $1}');
+		echo "$lines";
+		sysctl -w kernel.safer.safer_folder="$lines";
+
+		#read;
+		while read line 
+		do
+			#echo $line;
+			sysctl -w kernel.safer.safer_folder="$line";
+		done < ffff1
+
+
+		rm ffff1
+		rm fff1
+		rm ff1
+		rm f1
+
+		exit 0;
+
+	fi
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SORT-PROG" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > p1
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' p1 > pp1
+
+		#Zeilen mit '/' am Ende entfernen
+		sed '/\/$/d' pp1 > ppp1
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u ppp1 > pppp1
+
+		#list size
+		lines=$(wc -l pppp1 | awk '{print $1}');
+		echo $lines;
+		#sysctl -w kernel.safer.safer_prog=$lines;
+
+		#read;
+		while read line 
+		do
+			echo "$line";
+			#sysctl -w kernel.safer.safer_prog=$line;
+		done < pppp1
+
+		rm pppp1
+		rm ppp1
+		rm pp1
+		rm p1
+
+		exit 0;
+	fi
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SORT-FOLDER" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		#Leerzeichen entfernen
+		awk NF $FNAME > f1
+
+		#Zeilen mit '#' am Anfang entfernen
+		sed '/#/d' f1 > ff1
+
+		#Zeilen mit '/' am Ende isolieren
+		sed -n '/\/$/p' ff1 > fff1
+
+		#sortieren
+		LC_ALL=C sort fff1 | uniq  > ffff1
+
+		#list size
+		lines=$(wc -l ffff1 | awk '{print $1}');
+		echo "$lines";
+		#sysctl -w kernel.safer.safer_folder=$lines;
+
+		#read;
+		while read line 
+		do
+			echo "$line";
+			#sysctl -w kernel.safer.safer_folder=$line;
+		done < ffff1
+
+
+		rm ffff1
+		rm fff1
+		rm ff1
+		rm f1
+
+		exit 0;
+
+	fi
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "LLIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		grep "^so;" $FNAME > L1
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u L1 > LL1
+
+		#list size
+		lines=$(wc -l LL1 | awk '{print $1}');
+		echo $lines;
+		sysctl -w kernel.safer_lib.safer_lib=$lines;
+
+
+		#read;
+		while read line 
+		do
+			#echo $line;
+			sysctl -w kernel.safer_lib.safer_lib="$line";
+		done < LL1
+
+		exit 0;
+	fi
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "KLIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		grep "^ko;" $FNAME > L1
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u L1 > LL1
+
+		#list size
+		lines=$(wc -l LL1 | awk '{print $1}');
+		echo $lines;
+		sysctl -w kernel.safer_module.safer_module="$lines";
+
+
+		#read;
+		while read line 
+		do
+			#echo $line;
+			sysctl -w kernel.safer_module.safer_module="$line";
+		done < LL1
+
+		exit 0;
+	fi
+fi
+
+#----------------------------------------------------------
+if [ "$order" = "SKONFIG-LIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		grep "^KONFIG_SFILE:" $FNAME > L1
+
+		grep -oP ':\K.*' L1 > L2
+
+
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u L2 > LL1
+
+		#list size
+		lines=$(wc -l LL1 | awk '{print $1}');
+		echo $lines;
+		sysctl -w kernel.safer.safer_host_sconfig_file="$lines";
+
+
+		#read;
+		while read line 
+		do
+			#echo $line;
+			sysctl -w kernel.safer.safer_host_sconfig_file="$line";
+		done < LL1
+
+		exit 0;
+	fi
+fi
+
+
+
+#----------------------------------------------------------
+if [ "$order" = "KONFIG-LIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+		grep "^KONFIG:" $FNAME > L1
+
+
+		#grep -oP ':\K.*' L1 > L2
+
+
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u L1 > LL1
+
+		#list size
+		lines=$(wc -l LL1 | awk '{print $1}');
+		echo $lines;
+		sysctl -w kernel.safer.safer_host_config_file_check="$lines";
+
+
+		#read;
+		while read line 
+		do
+			#echo $line;
+			sysctl -w kernel.safer.safer_host_config_file_check="$line";
+		done < LL1
+
+		exit 0;
+	fi
+fi
+
+
+#----------------------------------------------------------
+if [ "$order" = "KONFIG-PATTERN-LIST" ]; then
+	FNAME=$2;
+	if [ -f "$FNAME" ]; then
+
+		grep "^SHELL-INLINE:" $FNAME > L1
+
+		grep -oP ':\K.*' L1 > L2
+
+		#sortieren
+		#sort -h ppp | uniq  > pppp
+		LC_ALL=C sort -u L2 > LL1
+
+		#list size
+		lines=$(wc -l LL1 | awk '{print $1}');
+
+		sysctl -w kernel.safer.safer_konfig_pattern="$lines";
+
+
+		#read: Leerzeichen am ende gehen nicht verloren
+		while IFS= read  -r line;
+		do
+			#printf "%s\n" "$line";
+			#wichtig!!! Haenge ":" an. damit sysctl das Leerzeichen nicht abschneidet
+			sysctl -w kernel.safer.safer_konfig_pattern="$line:";
+		done < LL1
+
+		exit 0;
+	fi
+fi
+
+
+
+
+#----------------------------------------------------------
+
+
+echo "sysctl kernel.safer.safer_active=0/1";
+echo "sysctl kernel.safer.safer_learning=0/1";
+echo "sysctl kernel.safer.safer_lock=0/1";
+echo "sysctl kernel.safer.safer_param_verbose=0/1";
+echo "sysctl kernel.safer.safer_printk_allowed=0/1";
+echo "sysctl kernel.safer.safer_printk_deny=0/1";
+echo "sysctl kernel.safer.safer_show_deny=0/1";
+echo "sysctl kernel.safer.safer_show_unknown_file=0/1";
+
+
+
+echo "
+
+Parameter   :  <SON>     Safer ON
+Parameter   :  <SOFF>    Safer OFF
+
+Parameter   :  <SONC>    Safer FULL CHECK ON
+Parameter   :  <SOFFC>   Safer FULL CHECK OFF
+
+Parameter   :  <SONCP>    Safer FULL CHECK ON
+Parameter   :  <SOFFCP>   Safer FULL CHECK OFF
+
+Parameter   :  <SONCL>    Safer FULL CHECK ON
+Parameter   :  <SOFFCL>   Safer FULL CHECK OFF
+
+Parameter   :  <PAON>    Safer Printk ALLOWED ON
+Parameter   :  <PAOFF>   Safer Printk ALLOWED OFF
+
+Parameter   :  <PAONP>    Safer Printk ALLOWED ON PROG.
+Parameter   :  <PAOFFP>   Safer Printk ALLOWED OFF PROG.
+
+Parameter   :  <PDON>    Safer Printk DENY ON
+Parameter   :  <PDOFF>   Safer Printk DENY OFF
+
+Parameter   :  <PKON>    Safer Printk KONFIG ON
+Parameter   :  <PKOFF>   Safer Printk KONFIG OFF
+
+Parameter   :  <SLOCK>   Safer DO NOT allowed any more changes
+
+Parameter   :  <SLON>    Safer MODE: LEARNING ON
+Parameter   :  <SLOFF>   Safer MODE: LEARNING OFF
+
+Parameter   :  <SVON>    Safer MODE: VERBOSE PARAM ON
+Parameter   :  <SVOFF>   Safer MODE: VERBOSE PARAM OFF
+
+Parameter   :  <SVUKON>  Safer MODE: VERBOSE UNKNOWN FILE ON
+Parameter   :  <SVUKOFF> Safer MODE: VERBOSE UNKNOWN FILE OFF
+
+Parameter   :  <SODON>   Safer MODE: ONLY SHOW DENY ON
+Parameter   :  <SODOFF>  Safer MODE: ONLY SHOW DENY OFF
+
+Parameter   :  <PLIST>   Safer SET FILE LIST
+            :  <safer list>
+
+Parameter   :  <FLIST>   Safer SET FOLDER LIST
+            :  <safer list>
+
+Parameter   :  <LLIST>   Safer SET LIBS LIST
+            :  <safer list>
+
+Parameter   :  <KLIST>   Safer SET KERNEL MODULE LIST
+            :  <safer list>
+
+Parameter   :  <SKONFIG-LIST>   Safer SET SOURCE KONFIG FILES LIST
+            :  <safer_skonfig_files>
+
+Parameter   :  <KONFIG-LIST>   Safer SET KONFIG FILES LIST
+            :  <safer_konfig_files>
+
+
+Parameter   :  <KONFIG-PATTERN-LIST>   Safer SET KONFIG PATTERN LIST
+            :  <safer_konfig_pattern>
+
+
+";
+
+
+
+#Parameter   :  <SORT-FOLDER>    Safer FOLDER LIST SORT
+#            :  <safer list>
+
+#Parameter   :  <SORT-PROG>    Safer PROG LIST SORT
+#            :  <safer list>
+
+
+
+
+echo "ERROR";
+
