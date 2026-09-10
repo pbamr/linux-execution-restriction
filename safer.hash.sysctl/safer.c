@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.07.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.07.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.09.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.09.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,12 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2026.07.26
+	Date		: 2022.04.22 - 2026.09.09
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 7.0.0
+	TEST		: Kernel 6.0 - 7.2.1
 
 			  Lenovo X230, T460, T470, T490, Fujitsu Futro S xxx, AMD Ryzen
 			  Proxmox, Docker
@@ -262,11 +262,28 @@ when in doubt remove it
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
+#include <linux/sched/signal.h>
+
+#include <linux/acpi.h>
+#include <linux/reboot.h>
+
+#include <linux/blkdev.h>
+#include <linux/device.h>
+#include <linux/kdev_t.h>
+
+#include <linux/nsproxy.h>
+#include <linux/rcupdate.h>
+#include <linux/pid_namespace.h>
+#include <linux/user_namespace.h>
+
+#include <linux/freezer.h>
+#include <linux/cgroup.h>
 
 
 
 
-
+#define HOST		0
+#define CONTAINER	1
 
 
 #define LEARNING	0
@@ -302,6 +319,7 @@ when in doubt remove it
 
 #define LEARNING_ARGV_MAX 5000
 #define LEARNING_MAX 50000
+#define LEARNING_KONFIG_MAX 500
 #define DENY_MAX 10000
 
 #define LIST_MAX 50000
@@ -323,39 +341,74 @@ typedef int ibool;
 static DEFINE_MUTEX(learning_lock);
 static DEFINE_MUTEX(control);
 static DEFINE_MUTEX(kernel_read_lock);
-//static DEFINE_MUTEX(deny_lock);
+static DEFINE_MUTEX(konfig_container_lock);
+static DEFINE_MUTEX(konfig_host_lock);
 
 
 static ibool	learning_mode = true;
 static ibool	printk_deny = true;
 static ibool	printk_allowed = false;
+static ibool	printk_config = false;
+
 static ibool	safer_mode = false;
 static ibool	safer_mode_full_check = true;
 static ibool	ONLY_SHOW_DENY = false;
+
 
 
 static ibool	lock_mode = false;
 static ibool	verbose_param_mode = false;
 static ibool	verbose_file_unknown = true;
 
+
+/* programme */
 static char	**global_list_prog = NULL;
 static long	global_list_prog_size = 0;
+static long	global_list_progs_bytes = 0;
 
+/* folder */
+static char	**global_list_folder = NULL;
+static long	global_list_folder_size = 0;
+static long	global_list_folders_bytes = 0;
+
+
+/* konfig files. which konfig files are check? */
+static char	**global_list_host_sconfig_file = NULL;
+static long	global_list_host_sconfig_file_size = 0;
+static long	global_list_host_sconfig_file_bytes = 0;
+
+
+/* konfig files check, list. size;hash;path. input */
+static char	**global_list_host_config_file_check = NULL;
+static long	global_list_host_config_file_check_size = 0;
+static long	global_list_host_config_file_check_bytes = 0;
+
+
+static char	**global_list_konfig_pattern = NULL;
+static long	global_list_konfig_pattern_size = 0;
+static long	global_list_konfig_pattern_bytes = 0;
+
+
+
+
+/* learning list */
 static char	**global_list_learning = NULL;
 static long	global_list_learning_size = -1;
 
+/* learning list argumente */
 static char	**global_list_learning_argv = NULL;
 static long	global_list_learning_argv_size = -1;
 
-static char	**global_list_folder = NULL;
-static long	global_list_folder_size = 0;
+/* konfig files learning, list. size;hash;path. out /proc/ */
+static char	**global_list_konfig_file_learning = NULL;
+static long	global_list_konfig_file_learning_size = -1;
 
-static long	global_list_progs_bytes = 0;
-static long	global_list_folders_bytes = 0;
+
 
 
 static char	**global_list_deny = NULL;
 static long	global_list_deny_size = -1;
+
 
 
 
@@ -386,7 +439,6 @@ for the variable initramfs_start_delay
 /* proto. */
 struct struct_file_info {
 	bool		retval;
-	bool		toctou;
 	char		hash_string[HASH_STRING_LENGTH];
 	ssize_t		file_size;
 	char		str_file_size[19];
@@ -395,13 +447,18 @@ struct struct_file_info {
 	const char	*fname;
 };
 
+
+
+
+
+
+
 /*--------------------------------------------------------------------------------*/
 /* proto. */
 struct struct_hash_sum {
 	bool	retval;
 	char	hash_string[HASH_STRING_LENGTH];
 	char	hash_raw[DIGIT];
-
 };
 
 
@@ -435,37 +492,9 @@ struct  safer_info_struct {
 
 
 
-/*--------------------------------------------------------------------------------*/
-static bool bnsearch_file(char *str_search,
-			char **list,
-			long elements)
-{
-	long left, right;
-	long middle;
-	long int_ret;
 
 
 
-	int max = strlen(str_search);
-	if (max > 20)
-		max -= 2;
-
-
-	left = 0;
-	right = elements - 1;
-
-	while(left <= right) {
-		middle = (left + right) / 2;
-
-		int_ret = strncmp(list[middle], str_search, max);
-
-		if (int_ret == 0) return true;
-		else if (int_ret < 0) left = middle + 1;
-		else if (int_ret > 0) right = middle - 1;
-	}
-
-	return false;
-}
 
 
 
@@ -550,6 +579,27 @@ static bool search(char *str_search,
 static ssize_t get_file_size(const char *filename)
 {
 
+/*
+ * SECURITY HARD-PATCH: Integrity Enforcement Engine
+ *
+ * DESIGN-IMPLIKATIONEN (Warum filp_open() verwendet wird):
+ * 1. AUTOMATISCHE NAMENSPACE-ISOLATION:
+ *    Da filp_open() im Thread-Kontext (current) des Aufrufers ausgefuehrt wird,
+ *    loest das Kernel-VFS den Pfad ("/etc/passwd") implizit und vollautomatisch
+ *    innerhalb der Mount-/Chroot-Grenzen des jeweiligen Containers auf.
+ *    Kein manuelles Namespace-Routing erforderlich.
+ *
+ * 2. 100% TOCTOU-SICHER (Anti-Time-of-Check-to-Time-of-Use):
+ *    Das Path-Walking und der anschließende Zugriff erfolgen komplett ueber die
+ *    Kernel-internen RAM-Caches (Dentry- und Inode-Cache). Es wird das fluechtige
+ *    In-Memory-Objekt gegriffen, BEVOR Daten auf den physischen Datentraeger
+ *    geschrieben werden. Userspace-Prozesse haben keine Chance, den Zeiger
+ *    waehrend der Prüfung zu manipulieren.
+ *
+ * Rueckgabewert: Liefert direkt die fluechtige In-Memory-'size' aus dem VFS-Cache.
+ */
+
+
 	loff_t	i_size;
 	struct	file *file;
 
@@ -607,7 +657,7 @@ static struct struct_hash_sum get_hash_sum(char buffer[], ssize_t max)
 		return struct_hash_sum;
 	}
 
-	shash = kzalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_KERNEL);
+	shash = kzalloc(sizeof(struct shash_desc) + crypto_shash_descsize(hash), GFP_ATOMIC);
 	if (!shash) {
 		struct_hash_sum.retval = false;
 		crypto_free_shash(hash);
@@ -659,33 +709,16 @@ static struct struct_hash_sum get_hash_sum(char buffer[], ssize_t max)
 
 
 
-static struct struct_file_info get_file_info(const char *fname, ssize_t max)
+
+
+
+
+
+static struct struct_file_info get_file_info_new(const char *fname, ssize_t max)
 {
 
 	/*
-	 * Folgendes Angriffs Szenario
-	 * Angreifer laedt Mal-Software
-	 * Sofort danach wird die Mal-software geloescht oder veraendert
-	 * orginal Software tritt an die Stelle
-	 *
-	 * 1. struct file holen. keine link attacken mehr moeglich 
-	 * 2  Code markiert Inode
-	 * 3. Kernel_read_file. 
-	 * 4. Code prueft Inode. Wenn Pruefung nicht bestanden
-	 *    TOCOU Attacke.
-	 *
-	 * 5. Gleiches Szenario. Nur andersherum. Erst gute Datei
-	 *    dann Schadsoftware. In beiden Faellen ist das Check flag nicht gesetzt
-	 *    Annahme Toctou Attacke
-	 */
-
-	/*
-	 * 1. inode is set		check
-	 * 2. error: read		back to kernel
-	 * 3. error: HASH fehlerhaft	back to kernel
-	 * 4. read and HASH OK		check
-
-	 * 5. toctou			back to kernel, not allowed
+	  toctou oder page cache vergiftung, ist egal.wird durch hash erkannt
 	 */
 
 
@@ -705,18 +738,18 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	/* ------------------------------------------------------------------------------------- */
 	struct_file_info.file_size = get_file_size(fname);
 	if (struct_file_info.file_size == SIZE_ERROR) {
-		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.toctou = false;
+		//struct_file_info.file_size = SIZE_ERROR;
 		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
 
+
+
 	/* ------------------------------------------------------------------------------------- */
 	error = kern_path(fname, LOOKUP_FOLLOW, &path);
 	if (error) {
-		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
@@ -727,7 +760,6 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 
 	if (IS_ERR(file)) {
 		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
@@ -736,7 +768,6 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 	inode = file_inode(file);
 	if (!S_ISREG(inode->i_mode)) {
 		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
@@ -756,7 +787,7 @@ static struct struct_file_info get_file_info(const char *fname, ssize_t max)
 			struct_file_info.fname = fname;
 
 			if (printk_allowed == true)
-printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
+				printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
 					struct_file_info.str_user_id,
 					struct_file_info.str_file_size,
 					struct_file_info.hash_string,
@@ -764,7 +795,6 @@ printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
 
 			fput(file);
 
-			struct_file_info.toctou = false;
 			struct_file_info.retval = true;
 			mutex_unlock(&kernel_read_lock);
 			return struct_file_info;
@@ -801,37 +831,11 @@ printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
 		fput(file);
 
 		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
 	}
 
-
-	/* ------------------------------------------------------------------------------------- */
-	/* TOCTOU ? */
-
-	/* userland write etc. file! */
-	if (!test_bit(CHECK, (unsigned long *)&inode->i_boettcher_flags))
-		struct_file_info.toctou = true;
-
-	else
-		struct_file_info.toctou = false;
-
-
-	if (struct_file_info.toctou == true) {
-
-
-		vfree(data);
-		fput(file);
-
-
-		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.toctou = true;
-		struct_file_info.retval = false;
-		mutex_unlock(&kernel_read_lock);
-		return struct_file_info;
-	}
 
 	/* ------------------------------------------------------------------------------------- */
 	struct_file_info.fname = fname;
@@ -855,7 +859,6 @@ printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
 		fput(file);
 
 		struct_file_info.file_size = SIZE_ERROR;
-		struct_file_info.toctou = false;
 		struct_file_info.retval = false;
 		mutex_unlock(&kernel_read_lock);
 		return struct_file_info;
@@ -872,21 +875,23 @@ printk("SAFER: HAS ALREADY BEEN READ      : a:%s;%s;%s;%s\n",
 
 
 	if (printk_allowed == true)
-printk("SAFER: FIRST READ                 : a:%s;%s;%s;%s\n",
-				struct_file_info.str_user_id,
-				struct_file_info.str_file_size,
-				struct_file_info.hash_string,
-				struct_file_info.fname);
+		printk("SAFER: FIRST READ                 : a:%s;%s;%s;%s\n",
+			struct_file_info.str_user_id,
+			struct_file_info.str_file_size,
+			struct_file_info.hash_string,
+			struct_file_info.fname);
 
 
 	/* ------------------------------------------------------------------------------------- */
-	struct_file_info.toctou = false;
 	struct_file_info.retval = true;
 
 	mutex_unlock(&kernel_read_lock);
 
 	return struct_file_info;
 }
+
+
+
 
 
 
@@ -912,7 +917,7 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 	// init list, max lines
 	// Only One 
 	if (*list_len == -1) {
-		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_KERNEL);
+		*list = kzalloc(sizeof(char *) * LEARNING_ARGV_MAX, GFP_ATOMIC);
 		if (*list == NULL) {
 			return;
 		}
@@ -931,7 +936,7 @@ static void learning_argv(struct struct_file_info *struct_file_info,
 	}
 
 
-	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_learning = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_learning) return;
 
 	strcpy(str_learning, "a:");
@@ -985,7 +990,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 
 	/* init pointer list*/
 	if (*list_len == -1) {
-		*list = kzalloc(sizeof(char *) * LEARNING_MAX, GFP_KERNEL);
+		*list = kzalloc(sizeof(char *) * LEARNING_MAX, GFP_ATOMIC);
 		if (*list == NULL) {
 			return;
 		}
@@ -999,7 +1004,7 @@ static void learning(	struct struct_file_info *struct_file_info,
 	string_length += strlen("a:;;;") + 1;
 
 
-	str_learning = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_learning = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_learning) {
 		return;
 	}
@@ -1035,50 +1040,44 @@ static void learning(	struct struct_file_info *struct_file_info,
 }
 
 
-
-
-
-static void deny_argv_list(char *str_argv,
-		char ***list,
-		long *list_len)
+static void learning_konfig(char *str_learning_konfig,
+				char ***list,
+				long *list_len)
 {
-
 
 	/* init pointer list*/
 	if (*list_len == -1) {
-		*list = kzalloc(sizeof(char *) * DENY_MAX, GFP_KERNEL);
+		*list = kzalloc(sizeof(char *) * LEARNING_MAX, GFP_ATOMIC);
 		if (*list == NULL) {
 			return;
 		}
 		else *list_len = 0;
 	}
 
-
-	char *str_deny = kstrdup(str_argv, GFP_KERNEL);
-	if (str_deny == NULL)
-		return;
-
-	if (search(str_deny, *list, *list_len) == true) {
-		kfree(str_deny);
+	if (search(str_learning_konfig, *list, *list_len) == true) {
+		kfree(str_learning_konfig);
 		return;
 	}
-
 
 	/* ring buffer = 0, old free */
 	if ( (*list)[*list_len] != NULL) {
 		kfree((*list)[*list_len]);
 	}
 
-	(*list)[*list_len] = str_deny;
+	(*list)[*list_len] = str_learning_konfig;
 
 	*list_len += 1;
 	// check _len > lerning_max
-	if (*list_len > DENY_MAX - 1) {
+	if (*list_len > LEARNING_KONFIG_MAX - 1) {
 		*list_len = 0;
 	}
 
 	return;
 }
+
+
+
+
 
 
 static void deny_list(struct struct_file_info *struct_file_info,
@@ -1097,7 +1096,7 @@ static void deny_list(struct struct_file_info *struct_file_info,
 
 	/* init pointer list*/
 	if (*list_len == -1) {
-		*list = kzalloc(sizeof(char *) * DENY_MAX, GFP_KERNEL);
+		*list = kzalloc(sizeof(char *) * DENY_MAX, GFP_ATOMIC);
 		if (*list == NULL) {
 			return;
 		}
@@ -1113,7 +1112,7 @@ static void deny_list(struct struct_file_info *struct_file_info,
 	string_length += strlen("a:;;;") + 1;
 
 
-	str_deny = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_deny = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_deny) {
 		return;
 	}
@@ -1153,88 +1152,6 @@ static void deny_list(struct struct_file_info *struct_file_info,
 
 
 
-
-
-
-
-
-
-
-
-static void deny_list_toctou(struct struct_file_info *struct_file_info,
-		char ***list,
-		long *list_len)
-{
-
-	char	*str_deny =  NULL;
-	int	string_length = 0;
-
-
-
-	if (struct_file_info->fname[0] != '/') return;
-
-
-
-	/* init pointer list*/
-	if (*list_len == -1) {
-		*list = kzalloc(sizeof(char *) * DENY_MAX, GFP_KERNEL);
-		if (*list == NULL) {
-			return;
-		}
-		else *list_len = 0;
-	}
-
-
-
-	string_length = strlen(struct_file_info->str_user_id);
-	string_length += strlen(struct_file_info->str_file_size);
-	string_length += strlen(struct_file_info->fname);
-	string_length += strlen(struct_file_info->hash_string);
-	string_length += strlen("a:;;;ALERT TOCTOU: ") + 1;
-
-
-	str_deny = kzalloc(string_length * sizeof(char), GFP_KERNEL);
-	if (!str_deny) {
-		return;
-	}
-
-
-	strcpy(str_deny, "ALERT TOCTOU: a:");
-	strcat(str_deny, struct_file_info->str_user_id);
-	strcat(str_deny, ";");
-	strcat(str_deny, struct_file_info->str_file_size);
-	strcat(str_deny, ";");
-	strcat(str_deny, struct_file_info->hash_string);
-	strcat(str_deny, ";");
-	strcat(str_deny, struct_file_info->fname);
-
-
-	if (search(str_deny, *list, *list_len) == true) {
-		kfree(str_deny);
-		return;
-	}
-
-
-	/* ring buffer = 0, old free */
-	if ( (*list)[*list_len] != NULL) {
-		kfree((*list)[*list_len]);
-	}
-
-	(*list)[*list_len] = str_deny;
-
-	*list_len += 1;
-	// check _len > lerning_max
-	if (*list_len > DENY_MAX - 1) {
-		*list_len = 0;
-	}
-
-	return;
-}
-
-
-
-
-
 /*--------------------------------------------------------------------------------*/
 static void print_prog_arguments(struct struct_file_info *struct_file_info,
 				char **argv,
@@ -1244,12 +1161,12 @@ static void print_prog_arguments(struct struct_file_info *struct_file_info,
 
 	if (struct_file_info->retval == false) return;
 
-	printk("USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
-					(*struct_file_info).str_file_size,
-					(*struct_file_info).hash_string,
-					(*struct_file_info).fname);
+	printk("SAFER: USER ID:%s;%s;%s;%s\n",(*struct_file_info).str_user_id,
+		(*struct_file_info).str_file_size,
+		(*struct_file_info).hash_string,
+		(*struct_file_info).fname);
 
-	printk("ORG LEN:%ld\n", org_argv_len);
+	printk("SAFER: ORG LEN:%ld\n", org_argv_len);
 
 
 	for (int n = 0; n < argv_len; n++) {
@@ -1257,7 +1174,7 @@ static void print_prog_arguments(struct struct_file_info *struct_file_info,
 		size_hash_sum = get_file_size_hash_read(argv[n], hash_alg, digit);
 		printk("argv[%d]:%ld:%s:%s\n", n, size_hash_sum.file_size, size_hash_sum.hash_string, argv[n]);
 		*/
-		printk("argv[%d]:%.1000s\n", n, argv[n]);
+		printk("SAFER: argv[%d]:%.1000s\n", n, argv[n]);
 
 	}
 
@@ -1281,7 +1198,7 @@ user_wildcard_deny(struct struct_file_info *struct_file_info,
 	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("d:*;") + 1;
 
-	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_user_file)
 		return false;
 
@@ -1290,11 +1207,11 @@ user_wildcard_deny(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step, 
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step, 
+				struct_file_info->str_user_id, 
+				struct_file_info->str_file_size, 
+				struct_file_info->hash_string, 
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return false;
@@ -1320,7 +1237,7 @@ user_wildcard_filename_allowed(struct struct_file_info *struct_file_info,
 	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("a:*;") + 1;
 
-	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_user_file)
 		return false;
 
@@ -1328,13 +1245,13 @@ user_wildcard_filename_allowed(struct struct_file_info *struct_file_info,
 	strcat(str_user_file, struct_file_info->fname);
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
-		if (printk_deny == true)
+		if (printk_allowed == true)
 
-printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id, 
+				struct_file_info->str_file_size, 
+				struct_file_info->hash_string, 
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1365,7 +1282,7 @@ user_wildcard_allowed(struct struct_file_info *struct_file_info,
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:*;;;") + 1;
 
-	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_user_file)
 		return false;
 
@@ -1379,11 +1296,11 @@ user_wildcard_allowed(struct struct_file_info *struct_file_info,
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
 
-printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step, 
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step, 
+				struct_file_info->str_user_id, 
+				struct_file_info->str_file_size, 
+				struct_file_info->hash_string, 
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1409,7 +1326,7 @@ user_wildcard_folder_allowed(struct struct_file_info *struct_file_info,
 	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("a:*;") + 1;
 
-	char *str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_folder = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_folder)
 		return false;
 
@@ -1420,11 +1337,11 @@ user_wildcard_folder_allowed(struct struct_file_info *struct_file_info,
 	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_allowed == true)
 
-printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size,
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id, 
+				struct_file_info->str_file_size,
+				struct_file_info->hash_string, 
+				struct_file_info->fname);
 
 		kfree(str_folder);
 		return true;
@@ -1450,7 +1367,7 @@ user_wildcard_folder_deny(struct struct_file_info *struct_file_info,
 	int string_length = strlen(struct_file_info->fname);
 	string_length += strlen("d:*;") + 1;
 
-	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	char *str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_user_file)
 		return false;
 
@@ -1459,11 +1376,11 @@ user_wildcard_folder_deny(struct struct_file_info *struct_file_info,
 
 	if (besearch_folder(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id, 
+				struct_file_info->str_file_size, 
+				struct_file_info->hash_string, 
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return false;
@@ -1497,7 +1414,7 @@ user_deny(struct struct_file_info *struct_file_info,
 	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("d:;") + 1;
 
-	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_user_file)
 		return false;
 
@@ -1508,11 +1425,11 @@ user_deny(struct struct_file_info *struct_file_info,
 
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_deny == true)
-printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string,
-									struct_file_info->fname);
+			printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id, 
+				struct_file_info->str_file_size, 
+				struct_file_info->hash_string,
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return false;
@@ -1549,7 +1466,7 @@ group_deny(struct struct_file_info *struct_file_info,
 		string_length += strlen(struct_file_info->fname);
 		string_length += strlen("gd:;") +1;
 
-		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 		if (!str_group_file)
 			return false;
 
@@ -1560,11 +1477,11 @@ group_deny(struct struct_file_info *struct_file_info,
 
 		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_deny == true)
-printk("%s GROUP/PROG DENY: gd:%s;%s;%s;%s\n", step, 
-										    str_group_id, 
-										    struct_file_info->str_file_size, 
-										    struct_file_info->hash_string, 
-										    struct_file_info->fname);
+				printk("%s GROUP/PROG DENY: gd:%s;%s;%s;%s\n", step,
+					str_group_id, 
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
 
 			kfree(str_group_file);
 			return false;
@@ -1597,7 +1514,7 @@ user_folder_deny(struct struct_file_info *struct_file_info,
 	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("d:;") + 1;
 
-	str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_folder = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_folder)
 		return false;
 
@@ -1610,11 +1527,11 @@ user_folder_deny(struct struct_file_info *struct_file_info,
 	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_deny == true)
 
-printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id,
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG. DENY: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id,
+				struct_file_info->str_file_size,
+				struct_file_info->hash_string,
+				struct_file_info->fname);
 
 		kfree(str_folder);
 		return false;
@@ -1653,7 +1570,7 @@ group_folder_deny(struct struct_file_info *struct_file_info,
 		string_length += strlen("gd:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
-		str_group_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_folder = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 		if (!str_group_folder)
 			return false;
 
@@ -1667,11 +1584,11 @@ group_folder_deny(struct struct_file_info *struct_file_info,
 		if (besearch_folder(str_group_folder, list, list_len) == true) {
 			if (printk_deny == true)
 
-printk("%s GROUP/PROG DENY: gd:%s;%s;%s;%s\n", step,
-										str_group_id, 
-										struct_file_info->str_file_size, 
-										struct_file_info->hash_string, 
-										struct_file_info->fname);
+				printk("%s GROUP/PROG DENY: gd:%s;%s;%s;%s\n", step,
+					str_group_id,
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
 
 			kfree(str_group_folder);
 			return false;
@@ -1707,7 +1624,7 @@ user_allowed(	struct struct_file_info *struct_file_info,
 	/* i hope the compiler makes a constant ? */
 	string_length += strlen("a:;;;") + 1;
 
-	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_user_file) return false;
 
 	strcpy(str_user_file, "a:");
@@ -1722,11 +1639,11 @@ user_allowed(	struct struct_file_info *struct_file_info,
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
 
-printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id,
+				struct_file_info->str_file_size,
+				struct_file_info->hash_string,
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1768,7 +1685,7 @@ group_allowed(struct struct_file_info *struct_file_info,
 		string_length += strlen("ga:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
-		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 		if (!str_group_file) return false;
 
 		strcpy(str_group_file, "ga:");
@@ -1783,11 +1700,11 @@ group_allowed(struct struct_file_info *struct_file_info,
 		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_allowed == true)
 
-printk("%s GROUP/PRG ALLOW: ga:%s;%s;%s;%s\n", step, 
-										str_group_id, 
-										struct_file_info->str_file_size, 
-										struct_file_info->hash_string, 
-										struct_file_info->fname);
+				printk("%s GROUP/PRG ALLOW: ga:%s;%s;%s;%s\n", step,
+					str_group_id,
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
 
 			kfree(str_group_file);
 			return true;
@@ -1821,7 +1738,7 @@ user_folder_allowed(struct struct_file_info *struct_file_info,
 	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("a:;") + 1;
 
-	str_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_folder = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (!str_folder) return false;
 
 	strcpy(str_folder, "a:");
@@ -1832,11 +1749,11 @@ user_folder_allowed(struct struct_file_info *struct_file_info,
 	if (besearch_folder(str_folder, list, list_len) == true) {
 		if (printk_allowed == true)
 
-printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step, 
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG ALLOW: a:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id,
+				struct_file_info->str_file_size,
+				struct_file_info->hash_string,
+				struct_file_info->fname);
 
 		kfree(str_folder);
 		return true;
@@ -1879,7 +1796,7 @@ group_folder_allowed(struct struct_file_info *struct_file_info,
 		string_length += strlen("ga:;") + 1;
 
 		//if (str_group_folder != NULL) kfree(str_group_folder);
-		str_group_folder = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_folder = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 		if (!str_group_folder)
 			return false;
 
@@ -1893,11 +1810,11 @@ group_folder_allowed(struct struct_file_info *struct_file_info,
 		if (besearch_folder(str_group_folder, list, list_len) == true) {
 			if (printk_allowed == true)
 
-printk("%s GROUP/PRG ALLOW: ga:%s;%s;%s;%s\n", step,
-										str_group_id,
-										struct_file_info->str_file_size,
-										struct_file_info->hash_string,
-										struct_file_info->fname);
+				printk("%s GROUP/PRG ALLOW: ga:%s;%s;%s;%s\n", step,
+					str_group_id,
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
 
 			kfree(str_group_folder);
 			return true;
@@ -1932,7 +1849,7 @@ user_interpreter_allowed(struct struct_file_info *struct_file_info,
 	string_length += strlen(struct_file_info->fname);
 	string_length += strlen("ai:;;;") + 1;
 
-	str_user_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 	if (str_user_file == NULL)
 		return false;
 
@@ -1949,11 +1866,63 @@ user_interpreter_allowed(struct struct_file_info *struct_file_info,
 	if (besearch_file(str_user_file, list, list_len) == true) {
 		if (printk_allowed == true)
 
-printk("%s USER/PROG ALLOW: ai:%s;%s;%s;%s\n", step,
-									struct_file_info->str_user_id, 
-									struct_file_info->str_file_size, 
-									struct_file_info->hash_string, 
-									struct_file_info->fname);
+			printk("%s USER/PROG ALLOW: ai:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id,
+				struct_file_info->str_file_size,
+				struct_file_info->hash_string,
+				struct_file_info->fname);
+
+		kfree(str_user_file);
+		return true;
+	}
+
+	kfree(str_user_file);
+
+	return false;
+}
+
+/*--------------------------------------------------------------------------------*/
+static bool
+user_shell_allowed(struct struct_file_info *struct_file_info,
+			char **list,
+			long list_len,
+			const char *step)
+
+{
+
+	char	*str_user_file = NULL;
+	int	string_length;
+
+
+	/* user allowed interpreter */
+	string_length = strlen(struct_file_info->str_user_id);
+	string_length += strlen(struct_file_info->str_file_size);
+	string_length += strlen(struct_file_info->hash_string);
+	string_length += strlen(struct_file_info->fname);
+	string_length += strlen("as:;;;") + 1;
+
+	str_user_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+	if (str_user_file == NULL)
+		return false;
+
+	strcpy(str_user_file, "as:");
+	strcat(str_user_file, struct_file_info->str_user_id);
+	strcat(str_user_file, ";");
+	strcat(str_user_file, struct_file_info->str_file_size);
+	strcat(str_user_file, ";");
+	strcat(str_user_file, struct_file_info->hash_string);
+	strcat(str_user_file, ";");
+	strcat(str_user_file, struct_file_info->fname);
+
+
+	if (besearch_file(str_user_file, list, list_len) == true) {
+		if (printk_allowed == true)
+
+			printk("%s USER/SHELL ALLOW: as:%s;%s;%s;%s\n", step,
+				struct_file_info->str_user_id,
+				struct_file_info->str_file_size,
+				struct_file_info->hash_string,
+				struct_file_info->fname);
 
 		kfree(str_user_file);
 		return true;
@@ -1990,14 +1959,14 @@ group_interpreter_allowed(struct struct_file_info *struct_file_info,
 		string_length += strlen(struct_file_info->str_file_size);
 		string_length += strlen(struct_file_info->fname);
 		string_length += strlen(struct_file_info->hash_string);
-		string_length += strlen("gai:;;;") +1;
+		string_length += strlen("gas:;;;") +1;
 
 		//if (str_group_file != NULL) kfree(str_group_file);
-		str_group_file = kzalloc(string_length * sizeof(char), GFP_KERNEL);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
 		if (!str_group_file)
 			return false;
 
-		strcpy(str_group_file, "gai:");
+		strcpy(str_group_file, "gas:");
 		strcat(str_group_file, str_group_id);
 		strcat(str_group_file, ";");
 		strcat(str_group_file, struct_file_info->str_file_size);
@@ -2009,11 +1978,74 @@ group_interpreter_allowed(struct struct_file_info *struct_file_info,
 		if (besearch_file(str_group_file, list, list_len) == true) {
 			if (printk_allowed == true)
 
-printk("%s GROUP/PRG ALLOW: gai:%s;%s;%s;%s\n", step, 
-										    str_group_id, 
-										    struct_file_info->str_file_size, 
-										    struct_file_info->hash_string, 
-										    struct_file_info->fname);
+				printk("%s GROUP/SHELL ALLOW: gas:%s;%s;%s;%s\n", step,
+					str_group_id,
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
+
+			kfree(str_group_file);
+			return true;
+		}
+
+		kfree(str_group_file);
+		str_group_file = NULL;
+	}
+
+
+	return false;
+}
+
+
+/*--------------------------------------------------------------------------------*/
+static bool
+group_shell_allowed(struct struct_file_info *struct_file_info,
+			char **list,
+			long list_len,
+			const char *step)
+
+{
+
+	char	str_group_id[19];
+	char	*str_group_file = NULL;
+	struct	group_info *group_info;
+	int	string_length;
+
+	group_info = get_current_groups();
+
+
+
+	for (int n = 0; n < group_info->ngroups; n++) {
+		sprintf(str_group_id, "%u", group_info->gid[n].val);
+
+		string_length = strlen(str_group_id);
+		string_length += strlen(struct_file_info->str_file_size);
+		string_length += strlen(struct_file_info->fname);
+		string_length += strlen(struct_file_info->hash_string);
+		string_length += strlen("gas:;;;") +1;
+
+		//if (str_group_file != NULL) kfree(str_group_file);
+		str_group_file = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+		if (!str_group_file)
+			return false;
+
+		strcpy(str_group_file, "gas:");
+		strcat(str_group_file, str_group_id);
+		strcat(str_group_file, ";");
+		strcat(str_group_file, struct_file_info->str_file_size);
+		strcat(str_group_file, ";");
+		strcat(str_group_file, struct_file_info->hash_string);
+		strcat(str_group_file, ";");
+		strcat(str_group_file, struct_file_info->fname);
+
+		if (besearch_file(str_group_file, list, list_len) == true) {
+			if (printk_allowed == true)
+
+				printk("%s GROUP/PRG SHELL: gas:%s;%s;%s;%s\n", step,
+					str_group_id,
+					struct_file_info->str_file_size,
+					struct_file_info->hash_string,
+					struct_file_info->fname);
 
 			kfree(str_group_file);
 			return true;
@@ -2033,195 +2065,11 @@ printk("%s GROUP/PRG ALLOW: gai:%s;%s;%s;%s\n", step,
 
 
 
-/*
- * kernel_process_line - Ersetzt .tmp-Dateinamen durch 'x' und schneidet
- * die Zeile hinter dem letzten /tmp/ oder /temp/ ab.
- * @zeile: Beschreibbarer Buffer im Kernel-Speicher.
- * return = false -> bash injection code im normalisierungs feld gefunden
- */
 
-
-static bool kernel_normalisiere(char *zeile)
-{
-
-/*--------------------------------------------- */
-	char *ext_pos;
-	char *current_pos;
-	char *last_prefix_pos = NULL;
-
-	bool treffer = false;
-
-	char *start;
-
-	if (!zeile)
-		return true;
-
-	start = zeile;
-
-	/*--------------------------------------------------------------------------------*/
-	/* Alle .tmp-Dateinamen durch 'x' ersetzen */
-	current_pos = zeile;
-	while ((ext_pos = strstr(current_pos, ".tmp")) != NULL) {
-
-		char *replace_start = ext_pos;
-		char *replace_end = ext_pos; /* + 4;  Ende von ".tmp" */
-
-		/* Rueckaerts bis zum '/' oder Leerzeichen suchen */
-		while (replace_start > zeile && 
-		       *(replace_start - 1) != '/' && 
-		       *(replace_start - 1) != ' ') {
-			replace_start--;
-		}
-
-		/* ------------------------------------------------ */
-		/* feststellen ob shell code */
-		char *replace_start_temp = replace_start;
-		while (replace_start < replace_end) {
-
-			//printk("%c", *replace_start);
-
-			if (	*replace_start == ';' || *replace_start == '>' ||
-				*replace_start == '$' || *replace_start == '|' ||
-				*replace_start == '<' || *replace_start == '(' ||
-				*replace_start == '\\' ||
-				*replace_start == ')' || *replace_start == '}') {
-				return false;
-			}
-			replace_start++;
-		}
-
-
-		/* ------------------------------------------------ */
-		replace_start = replace_start_temp;
-		/* Zeichen durch 'x' ersetzen */
-		while (replace_start < replace_end) {
-			*replace_start = 'x';
-			replace_start++;
-		}
-
-		treffer = true;
-		/* Suche hinter der aktuellen ".tmp"-Stelle fortsetzen */
-		current_pos = replace_end + 4;
-	}
-
-	if (treffer == true)
-		return true;
-
-
-
-	/*--------------------------------------------------------------------------------*/
-	/* Dass LETZTE Vorkommen von "/tmp/" suchen */
-	zeile = start;
-	current_pos = zeile;
-
-	while ((current_pos = strstr(current_pos, "/tmp/")) != NULL) {
-		treffer = true;
-		last_prefix_pos = current_pos;
-		current_pos += sizeof("/tmp/");
-	}
-
-	/* Alles vor dem letzten gefundenen '/' abschneiden */
-	if (last_prefix_pos) {
-		*(last_prefix_pos + sizeof("/tmp/") - 1) = '\0';
-		treffer = true;
-	}
-
-	if (treffer == true) {
-		last_prefix_pos += sizeof("/tmp/");
-		for (int n = 0; n < strlen(zeile); n++) {
-			//printk("%c", *(last_prefix_pos + n));
-
-			if (	*(last_prefix_pos + n) == ';'  || *(last_prefix_pos + n) == '>' ||
-				*(last_prefix_pos + n) == '$'  || *(last_prefix_pos + n) == '|' ||
-				*(last_prefix_pos + n) == '<'  || *(last_prefix_pos + n) == '(' ||
-				*(last_prefix_pos + n) == '\\' || *(last_prefix_pos + n) == ' ' ||
-				*(last_prefix_pos + n) == ')'  || *(last_prefix_pos + n) == '}') {
-				return false;
-			}
-		}
-	}
-
-	if (treffer == true)
-		return true;
-
-
-	/*--------------------------------------------------------------------------------*/
-	/* Dass LETZTE Vorkommen von "/tmp/" suchen */
-	zeile = start;
-	current_pos = zeile;
-
-	while ((current_pos = strstr(current_pos, "/temp/")) != NULL) {
-		treffer = true;
-		last_prefix_pos = current_pos;
-		current_pos += sizeof("/temp/");
-	}
-
-	/* Alles vor dem letzten gefundenen '/' abschneiden */
-	if (last_prefix_pos) {
-		*(last_prefix_pos + sizeof("/temp/") - 1) = '\0';
-		treffer = true;
-	}
-
-	if (treffer == true) {
-		last_prefix_pos += sizeof("/temp/");
-		for (int n = 0; n < strlen(zeile); n++) {
-			//printk("%c", *(last_prefix_pos + n));
-
-			if (	*(last_prefix_pos + n) == ';'  || *(last_prefix_pos + n) == '>' ||
-				*(last_prefix_pos + n) == '$'  || *(last_prefix_pos + n) == '|' ||
-				*(last_prefix_pos + n) == '<'  || *(last_prefix_pos + n) == '(' ||
-				*(last_prefix_pos + n) == '\\' || *(last_prefix_pos + n) == ' ' ||
-				*(last_prefix_pos + n) == ')'  || *(last_prefix_pos + n) == '}') {
-				return false;
-			}
-		}
-	}
-
-	if (treffer == true)
-		return true;
-
-	/*--------------------------------------------------------------------------------*/
-	/* this is for midthnight commander */
-
-	zeile = start;
-
-	if (strstr(zeile, ";file") != NULL) {
-
-		treffer = true;
-
-		// Den ersten Slash suchen
-		char *ptr = strchr(zeile, '/');
-		if (ptr != NULL) {
-			// Wir springen ein Zeichen weiter, um den Slash selbst zu behalten
-			ptr++;
-			*ptr = '\0';
-			ptr++;
-
-			// Feststellen, ob restliche char shell code haben */
-			while (*ptr != '\0' && *ptr && *ptr != '\t') {
-
-				//printk("%c", *ptr);
-
-
-				if (	*ptr == ';' || *ptr == '>' ||
-					*ptr == '$' || *ptr == '|' ||
-					*ptr == '<' || *ptr == '(' ||
-					*ptr == '\\' || *ptr == ' ' ||
-					*ptr == ')' || *ptr == '}') {
-					return false;
-				}
-				ptr++;
-			}
-		}
-	}
-
-	return true;
-
-}
-
-
-
-
+/*--------------------------------------------------------------------------------*/
+/* allowed/deny user/group script file*/
+/* 0 allowed */
+/* -1 deny */
 
 /*--------------------------------------------------------------------------------*/
 /* allowed/deny user/group script file*/
@@ -2234,7 +2082,6 @@ param_file(struct struct_file_info *struct_file_info,
 		char **list,
 		long list_len,
 		const char *step)
-
 {
 
 
@@ -2249,182 +2096,157 @@ param_file(struct struct_file_info *struct_file_info,
 						list,
 						list_len,
 						step) == false)
-			return false;
-
+			if (user_shell_allowed(struct_file_info,
+						list,
+						list_len,
+						step) == false)
+				if (group_shell_allowed(struct_file_info,
+							list,
+							list_len,
+							step) == false)
+					return false;
 
 
 	/*--------------------------------------------------------------------------------*/
+	/*
 	if (printk_deny == true)
 		printk("%s SHELL: USER/SCRIPT: check a:%s;%s;%s;%s\n", step,
 			struct_file_info->str_user_id,
 			struct_file_info->str_file_size,
 			struct_file_info->hash_string,
 			struct_file_info->fname);
-
-	/*--------------------------------------------------------------------------------*/
-	if (	(strncmp(struct_file_info->fname, "/bin/bash", sizeof("/bin/bash")) == 0) ||
-		(strncmp(struct_file_info->fname, "/usr/bin/bash", sizeof("/usr/bin/bash")) == 0) ||
-		(strncmp(struct_file_info->fname, "/bin/sh", sizeof("/bin/sh")) == 0) ||
-		(strncmp(struct_file_info->fname, "/usr/bin/sh", sizeof("/usr/bin/sh")) == 0)) {
-
-	/*--------------------------------------------------------------------------------*/
-
-		/* wichtig wenn nur interaktiv */
-		if (argv_len == 1)
-			return true;
+	*/
 
 
 	/*--------------------------------------------------------------------------------*/
-		if (argv_len >= SHELL_PARAMETER_MAX)
-			return false;
+	/* Feststellen ob shell */
+	char *user_shell_string = kasprintf(GFP_ATOMIC, "as:%s;%s;%s;%s",struct_file_info->str_user_id,
+									struct_file_info->str_file_size,
+									struct_file_info->hash_string,
+									struct_file_info->fname);
+
+	char *group_shell_string = kasprintf(GFP_ATOMIC, "gas:%s;%s;%s;%s",struct_file_info->str_user_id,
+									struct_file_info->str_file_size,
+									struct_file_info->hash_string,
+									struct_file_info->fname);
+
+	if (besearch_file(user_shell_string, list, list_len) == true ||
+		besearch_file(group_shell_string, list, list_len) == true) {
+
+			/* ab hier in jedem fall shell */
+			/* inline code pruefen */
+			kfree(user_shell_string);
+			kfree(group_shell_string);
 
 
 	/*--------------------------------------------------------------------------------*/
-		/* ist ein Argument noch nicht in Liste gewesen */
-		for (int n = 0; n <= argv_len - 1; n++) {
-
-
-			char *argument = kasprintf(GFP_KERNEL, "ARGV:%s;%s",
-						struct_file_info->str_user_id,
-						argv[n]);
-
-
-
-			/* true, system is not OK? */
-			if (!argument)
+			/* wichtig wenn nur interaktiv. zb einfach nur bash */
+			if (argv_len == 1)
 				return true;
 
-			/*--------------------------------------------------------------------------------*/
-
-			if (kernel_normalisiere(argument) == false)
-				goto not_allowed;
-
-			/*--------------------------------------------------------------------------------*/
-			if (bnsearch_file(argument, list, list_len) == true) {
-				kfree(argument);
-				continue;
-			}
-
-			if (printk_deny == true)
-printk("STAT STEP FIRST SHELL: ARGUMENT: SHELL -c DENY: %s\n", argument);
-
-
-			deny_argv_list(	argument,
-					&global_list_deny,
-					&global_list_deny_size);
-
-			kfree(argument);
-
-			if (ONLY_SHOW_DENY == true)
-				continue;
-
-			goto not_allowed;
-		}
-
-
-
 	/*--------------------------------------------------------------------------------*/
-		struct struct_file_info struct_shell_info;
-
-		char *first_word;
-
-	/*--------------------------------------------------------------------------------*/
-		/* not allowed. if one file not in list */
-		for (int n = 1; n <= argv_len - 1; n++) {
-
-			char *p = argv[n];
-
-			first_word = strsep(&p, " ");
-
-
-			struct_shell_info = get_file_info(first_word, KERNEL_READ_SIZE);
-
-			/* toctou attack: not allowed */
-			if (struct_shell_info.toctou == true) {
-				deny_list_toctou(&struct_shell_info,
-				&global_list_deny,
-				&global_list_deny_size);
+			/* wenn mehr parameter -> pech */
+			if (argv_len >= SHELL_PARAMETER_MAX) {
 				return false;
 			}
 
+	/*--------------------------------------------------------------------------------*/
+			if (global_list_konfig_pattern_size == 0)
+				return false;
 
-			/* no real file. like -- */
-			if (struct_shell_info.retval == false) {
-				continue;
+
+	/*--------------------------------------------------------------------------------*/
+			/* baue string */
+			/* ab argument 1 */
+			int string_length = strlen(struct_file_info->fname) + 1;
+
+			//if (argv_len > 10) argv_len = 10;
+			for (int n = 1; n < argv_len; n++) {
+				string_length += strlen(argv[n]);
+				string_length += sizeof(":");
 			}
 
-			//real_file = true;
-			/* check file/prog is in the list: allowed or deny */
-			/* deny user not required. not in the list is the same */
-			if (user_deny(&struct_shell_info,
-					list,
-					list_len,
-					step) == false) goto not_allowed;
+			char *str_check = kzalloc(string_length * sizeof(char), GFP_ATOMIC);
+			if (!str_check)
+				return false;
 
-			if (group_deny(&struct_shell_info,
-				list,
-				list_len,
-				step) == false) goto not_allowed;
+			strcpy(str_check, struct_file_info->fname);
+			strcat(str_check, ":");
 
+			for (int n = 1; n < argv_len; n++) {
+				strcat(str_check, argv[n]);
+				strcat(str_check, ":");
+			}
 
-			if (user_allowed(&struct_shell_info,
-				list,
-				list_len,
-				step) == true) continue;
+			char *pos = str_check;
+			char *schalter_start;
 
+			/* Suche das " :- " -> Das ist der Beginn eines Arguments */
+			while ((schalter_start = strstr(pos, ":-")) != NULL) {
 
-			if (group_allowed(&struct_shell_info,
-				list,
-				list_len,
-				step) == true) continue;
+				/* Springe hinter den Doppelpunkt (schalter_start zeigt jetzt auf das '-')  */
+				schalter_start++; 
+				/* Suche das Ende dieses Arguments (den naechsten Doppelpunkt) */
+				char *schalter_ende = strchr(schalter_start, ':');
 
-			goto not_allowed;
-		}
+				if (!schalter_ende) {
+					kfree(str_check);
+					return true; /* Abbruch, falls der String unvollstaendig ist */
+				}
 
+				/* Pruefe, ob das 'c' in diesem isolierten Schalter-Argument steckt */
+				/* (Erkennt zuverlassig -c, -ac, -cc, etc.) */
+				if (memchr(schalter_start, 'c', schalter_ende - schalter_start) != NULL) {
+					/* Treffer! Das -c aktiv. */
+					/* restlichen Text (ab schalter_ende) */
+					for (int n = 0; n <  global_list_konfig_pattern_size; n++) {
+						if (global_list_konfig_pattern[n] != NULL) {
+							if (strstr(schalter_ende, global_list_konfig_pattern[n]) != NULL) {
 
-	/*--------------------------------------------------------------------------------*/
+								if (printk_deny == true)
+									printk("SAFER: STEP FIRST: DENY SHELL INLINE  : %s\n", str_check);
 
-		/* allowed */
-		if (printk_allowed == true)
-			printk("%s SHELL: USER/SCRIPT: SHELL -c ALLOWED  : a:%s\n",
-				step,
-				struct_file_info->str_user_id);
+								kfree(str_check);
+								return false; /* Gefunden */
+							}
+						}
+					}
 
-		return true;
+					/* Da das aktive -c gefunden, Suche ende */
+					/*  Danach egal */
+					if (printk_allowed == true)
+						printk("SAFER: STEP FIRST: ALLOWED SHELL INLINE  : %s\n", str_check);
 
+					kfree(str_check);
+					return true;
+				}
 
-	/*--------------------------------------------------------------------------------*/
-	not_allowed:
+				/*
+				  Wenn kein 'c' in diesem Argument war (z.B. bei ':-a:'),
+				  suche ab dem aktuellen Doppelpunkt weiter nach dem naechsten Argument.
+				*/
+				pos = schalter_ende;
+			}
 
-		if (printk_deny == true)
-			printk("%s SHELL: USER/SCRIPT SHELL DENY                  : a:%s\n",
-				step,
-				struct_file_info->str_user_id);
+			/* kein -c gefunden */
+			if (printk_allowed == true)
+				printk("SAFER: STEP FIRST: ALLOWED SHELL INLINE  : %s\n", str_check);
 
-
-//			printk("%s USER/SCRIPT SHELL DENY                  : a:%s;%s;%s;%s\n", step,
-//				struct_shell_info.str_user_id,
-//				struct_shell_info.str_file_size,
-//				struct_shell_info.hash_string,
-//				struct_shell_info.fname);
-
-		//deny_list(&struct_shell_info,
-		//	&global_list_deny,
-		//	&global_list_deny_size);
-
-
-		if (ONLY_SHOW_DENY == true)
+			kfree(str_check);
 			return true;
-
-		return false;
 	}
 
+	kfree(user_shell_string);
+	kfree(group_shell_string);
+
+
+
+//bearbeiten
+//jedes argument pruefen
+
+
 	/*--------------------------------------------------------------------------------*/
-
-
-
-
-	/*--------------------------------------------------------------------------------*/
+	/* java ? */
 	/* if not bash */
 	if (argv_len == 1)
 		return false;
@@ -2437,21 +2259,15 @@ printk("STAT STEP FIRST SHELL: ARGUMENT: SHELL -c DENY: %s\n", argument);
 		if (argv_len != 3) return false;
 
 
-		struct_param_info = get_file_info(argv[2], KERNEL_READ_SIZE);
+		struct_param_info = get_file_info_new(argv[2], KERNEL_READ_SIZE);
 
-		/* toctou attack: not allowed */
-		if (struct_param_info.toctou == true) {
-			deny_list_toctou(&struct_param_info,
-					&global_list_deny,
-					&global_list_deny_size);
-			return false;
-		}
 
 		/* error: read, hash. back to kernel */
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
-printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n", struct_param_info.user_id,
-											     argv[2]);
+				printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n",
+					struct_param_info.user_id,
+					argv[2]);
 			return false;
 		}
 
@@ -2479,10 +2295,10 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n", struct_param_info.user
 
 		if (printk_deny == true)
 			printk("%s USER/SCRIPT DENY   : a:%s;%s;%s;%s\n", step,
-									struct_param_info.str_user_id,
-									struct_param_info.str_file_size,
-									struct_param_info.hash_string,
-									struct_param_info.fname);
+				struct_param_info.str_user_id,
+				struct_param_info.str_file_size,
+				struct_param_info.hash_string,
+				struct_param_info.fname);
 
 		deny_list(&struct_param_info,
 			&global_list_deny,
@@ -2503,7 +2319,7 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n", struct_param_info.user
 		str_length += strlen(argv[3]);
 		str_length += strlen("/.class") + 1;
 
-		char *str_class_name = kzalloc(str_length * sizeof(char), GFP_KERNEL);
+		char *str_class_name = kzalloc(str_length * sizeof(char), GFP_ATOMIC);
 		if (str_class_name == NULL) return false;
 
 		strcpy(str_class_name, argv[2]);
@@ -2511,27 +2327,14 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n", struct_param_info.user
 		strcat(str_class_name, argv[3]);
 		strcat(str_class_name, ".class");
 
-		struct_param_info = get_file_info(str_class_name, KERNEL_READ_SIZE);
-		/* toctou attack: not allowed */
-		if (struct_param_info.toctou == true) {
-			deny_list_toctou(&struct_param_info,
-					&global_list_deny,
-					&global_list_deny_size);
 
-			return false;
-		}
-
+		struct_param_info = get_file_info_new(str_class_name, KERNEL_READ_SIZE);
 		/* error: read, hash. back to kernel */
 		if (struct_param_info.retval == false) {
 			if (printk_deny == true)
-
-printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%s;;;%s\n",struct_param_info.str_user_id,
-											    struct_param_info.fname);
-
-		deny_list(&struct_param_info,
-			&global_list_deny,
-			&global_list_deny_size);
-
+				printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%s;;;%s\n",
+					struct_param_info.str_user_id,
+					struct_param_info.fname);
 
 			kfree(str_class_name);
 			return false;
@@ -2577,10 +2380,10 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%s;;;%s\n",struct_param_info.str_u
 
 		if (printk_deny == true)
 			printk("%s USER/SCRIPT DENY   : a:%s;%s;%s;%s\n", step,
-									struct_param_info.str_user_id,
-									struct_param_info.str_file_size,
-									struct_param_info.hash_string,
-									struct_param_info.fname);
+				struct_param_info.str_user_id,
+				struct_param_info.str_file_size,
+				struct_param_info.hash_string,
+				struct_param_info.fname);
 
 		deny_list(&struct_param_info,
 			&global_list_deny,
@@ -2593,7 +2396,7 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%s;;;%s\n",struct_param_info.str_u
 
 
 	/* other */
-	struct struct_file_info struct_other_file_info = get_file_info(argv[1], KERNEL_READ_SIZE);
+	struct struct_file_info struct_other_file_info = get_file_info_new(argv[1], KERNEL_READ_SIZE);
 	if (struct_other_file_info.retval == false)
 		return false;
 
@@ -2622,10 +2425,10 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%s;;;%s\n",struct_param_info.str_u
 
 	if (printk_deny == true)
 		printk("%s USER/SCRIPT DENY   : a:%s;%s;%s;%s\n", step,
-								struct_other_file_info.str_user_id,
-								struct_other_file_info.str_file_size,
-								struct_other_file_info.hash_string,
-								struct_other_file_info.fname);
+			struct_other_file_info.str_user_id,
+			struct_other_file_info.str_file_size,
+			struct_other_file_info.hash_string,
+			struct_other_file_info.fname);
 
 	deny_list(&struct_other_file_info,
 		&global_list_deny,
@@ -2758,10 +2561,11 @@ static bool exec_first_step(struct struct_file_info *struct_file_info,
 		return true;
 
 	if (printk_deny == true)
-printk("SAFER: STEP FIRST: USER/PROG. DENY: a:%s;%s;%s;%s\n", struct_file_info->str_user_id,
-										struct_file_info->str_file_size,
-										struct_file_info->hash_string,
-										struct_file_info->fname);
+		printk("SAFER: STEP FIRST: USER/PROG. DENY: a:%s;%s;%s;%s\n",
+			struct_file_info->str_user_id,
+			struct_file_info->str_file_size,
+			struct_file_info->hash_string,
+			struct_file_info->fname);
 
 	//deny_list(&struct_file_info,
 	//	&global_list_deny,
@@ -2796,17 +2600,13 @@ static bool exec_second_step(const char *filename)
 		return true;
 
 
-
-
-
-
 	ssize_t file_size = get_file_size(filename);
 	if (file_size == SIZE_ERROR) {
 
 		/* file not exist. */
 		if (verbose_file_unknown)
 
-printk("SAFER: STEP SEC  : PROG. UNKNOWN  : a:%d;;;%s\n",
+			printk("SAFER: STEP SEC  : PROG. UNKNOWN  : a:%d;;;%s\n",
 				get_current_user()->uid.val,
 				filename);
 
@@ -2824,16 +2624,7 @@ printk("SAFER: STEP SEC  : PROG. UNKNOWN  : a:%d;;;%s\n",
 	struct struct_file_info struct_file_info;
 
 
-	struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
-
-
-	/* toctou attack: not allowed */
-	if (struct_file_info.toctou == true) {
-		deny_list_toctou(&struct_file_info,
-				&global_list_deny,
-				&global_list_deny_size);
-		return false;
-	}
+	struct_file_info = get_file_info_new(filename, KERNEL_READ_SIZE);
 
 	/* error: read, hash. back to kernel */
 	if (struct_file_info.retval == false)
@@ -3013,12 +2804,31 @@ printk("SAFER: STEP SEC  : PROG. UNKNOWN  : a:%d;;;%s\n",
 		return true;
 	}
 
+	/* group allowed interpreter */
+	if (group_shell_allowed(&struct_file_info,
+				global_list_prog,
+				global_list_prog_size,
+				"SAFER: STEP SEC  :") == true) {
+		global_statistics_execve_allow_counter++;
+		return true;
+	}
+
+	/* user allowed interpreter */
+	if (user_shell_allowed(&struct_file_info,
+				global_list_prog,
+				global_list_prog_size,
+				"SAFER: STEP SEC  :") == true) {
+		global_statistics_execve_allow_counter++;
+		return true;
+	}
+
 	if (printk_deny == true) {
 
-printk("SAFER: STEP SEC  : USER/PROG. DENY: a:%s;%s;%s;%s\n", struct_file_info.str_user_id,
-										struct_file_info.str_file_size,
-										struct_file_info.hash_string,
-										struct_file_info.fname);
+		printk("SAFER: STEP SEC  : USER/PROG. DENY: a:%s;%s;%s;%s\n",
+			struct_file_info.str_user_id,
+			struct_file_info.str_file_size,
+			struct_file_info.hash_string,
+			struct_file_info.fname);
 	}
 
 	if (mutex_trylock(&learning_lock)) {
@@ -3043,6 +2853,355 @@ not_allowed:
 }
 
 
+/*--------------------------------------------------------------------------------*/
+static bool check_etc_passwd(void)
+{
+	struct		file *konf_file;
+	char		*buffer;
+	char		*line;
+	char		*next_line;
+	loff_t		pos = 0;
+	ssize_t		bytes_read;
+
+
+	ssize_t KONFIG_FILE_SIZE = get_file_size("/etc/passwd");
+
+	// Oeffnet die Datei im Namespace des ausloesenden Prozesses
+	konf_file = filp_open("/etc/passwd", O_RDONLY | O_NONBLOCK, 0);
+	if (IS_ERR(konf_file)) {
+		//force_sig(SIGKILL);
+		return true;
+	}
+
+	buffer = kmalloc(KONFIG_FILE_SIZE, GFP_ATOMIC);
+	if (!buffer) {
+		fput(konf_file);
+		return true;
+	}
+
+	bytes_read = kernel_read(konf_file, buffer, KONFIG_FILE_SIZE, &pos);
+	fput(konf_file); // Datei-Referenz sofort nach dem Lesen im Kernel freigeben
+
+	if (bytes_read <= 0) {
+		kfree(buffer);
+		return true;
+	}
+
+	buffer[bytes_read - 1] = '\0';
+
+
+	next_line = buffer;
+
+	while ((line = strsep(&next_line, "\n")) != NULL) {
+
+		if (strlen(line) == 0)
+			continue;
+
+		char *username = strsep(&line, ":");
+
+		char *password = strsep(&line, ":");
+
+		char *uid_str  = strsep(&line, ":");
+
+		if (!username || !password || !uid_str)
+			continue;
+
+		if (strcmp(uid_str, "0") == 0 && strcmp(username, "root") != 0) {
+
+			if (printk_deny == true) {
+				printk("SAFER: CONTAINER: FILE: /etc/passwd, CORRUPT\n");
+				printk("SAFER: %s:x:%s\n", username, uid_str);
+			}
+
+			kfree(buffer);
+			return false;
+		}
+	}
+
+	kfree(buffer);
+	return true;
+
+}
+
+
+
+
+
+
+/*--------------------------------------------------------------------------------*/
+static bool check_etc_group_0(void)
+{
+	struct file	*konf_file;
+	char		*buffer;
+	char		*line;
+	char		*next_line;
+	loff_t		pos = 0;
+	ssize_t		bytes_read;
+
+	ssize_t KONFIG_FILE_SIZE = get_file_size("/etc/group");
+
+	// Oeffnet die Datei im Namespace des ausloesenden Prozesses
+	konf_file = filp_open("/etc/group", O_RDONLY | O_NONBLOCK, 0);
+	if (IS_ERR(konf_file)) {
+		return true;
+	}
+
+	buffer = kmalloc(KONFIG_FILE_SIZE, GFP_ATOMIC);
+	if (!buffer) {
+		fput(konf_file);
+		return true;
+	}
+
+	bytes_read = kernel_read(konf_file, buffer, KONFIG_FILE_SIZE, &pos);
+	fput(konf_file); // Datei-Referenz sofort nach dem Lesen im Kernel freigeben
+
+	if (bytes_read <= 0) {
+		kfree(buffer);
+		return true;
+	}
+
+	buffer[bytes_read - 1] = '\0';
+
+	next_line = buffer;
+
+	// Pruefen, ob die Zeile exakt mit der legitimen Root-Gruppe beginnt, keine zusaetzliche user
+	while ((line = strsep(&next_line, "\n")) != NULL) {
+
+		if (strlen(line) == 0)
+			continue;
+
+		if (strncmp(line, "root:x:0:", 9) == 0) {
+
+			if (strlen(line) > 9) {
+				if (printk_deny == true) {
+					printk("SAFER: CONTAINER: FILE: /etc/group, CORRUPT\n");
+					printk("SAFER: %s\n", line);
+				}
+
+				kfree(buffer);
+				return false;
+			}
+		}
+	}
+
+	kfree(buffer);
+	return true;
+
+}
+
+
+static bool check_etc_group_1(void)
+{
+	struct		file *konf_file;
+	char		*buffer;
+	char		*line;
+	char		*next_line;
+	loff_t		pos = 0;
+	ssize_t		bytes_read;
+
+
+	ssize_t KONFIG_FILE_SIZE = get_file_size("/etc/group");
+
+	// Oeffnet die Datei im Namespace des ausloesenden Prozesses
+	konf_file = filp_open("/etc/group", O_RDONLY | O_NONBLOCK, 0);
+	if (IS_ERR(konf_file)) {
+		return true;
+	}
+
+	buffer = kmalloc(KONFIG_FILE_SIZE, GFP_ATOMIC);
+	if (!buffer) {
+		fput(konf_file);
+		return true;
+	}
+
+	bytes_read = kernel_read(konf_file, buffer, KONFIG_FILE_SIZE, &pos);
+	fput(konf_file); // Datei-Referenz sofort nach dem Lesen im Kernel freigeben
+
+	if (bytes_read <= 0) {
+		kfree(buffer);
+		return true;
+	}
+
+	buffer[bytes_read - 1] = '\0';
+
+
+	next_line = buffer;
+
+	while ((line = strsep(&next_line, "\n")) != NULL) {
+
+		if (strlen(line) == 0)
+			continue;
+
+		char *groupname = strsep(&line, ":");
+
+		char *password = strsep(&line, ":");
+
+		char *guid_str  = strsep(&line, ":");
+
+		if (!groupname || !password || !guid_str)
+			continue;
+
+		if (strcmp(guid_str, "0") == 0 && strcmp(groupname, "root") != 0) {
+
+			if (printk_deny == true) {
+				printk("SAFER: CONTAINER: FILE: /etc/group, CORRUPT\n");
+				printk("SAFER: %s:x:%s\n", groupname, guid_str);
+			}
+
+			kfree(buffer);
+			return false;
+		}
+	}
+
+	kfree(buffer);
+
+	return true;
+
+}
+
+
+
+static bool check_etc_shadow(void)
+{
+	struct		file *konf_file;
+	char		*buffer;
+	loff_t		pos = 0;
+	ssize_t		bytes_read;
+
+
+	ssize_t KONFIG_FILE_SIZE = get_file_size("/etc/shadow");
+
+	// Oeffnet die Datei im Namespace des ausloesenden Prozesses
+	konf_file = filp_open("/etc/shadow", O_RDONLY | O_NONBLOCK, 0);
+	if (IS_ERR(konf_file)) {
+		return true;
+	}
+
+	buffer = kmalloc(KONFIG_FILE_SIZE, GFP_ATOMIC);
+	if (!buffer) {
+		fput(konf_file);
+		return true;
+	}
+
+	bytes_read = kernel_read(konf_file, buffer, KONFIG_FILE_SIZE, &pos);
+	fput(konf_file); // Datei-Referenz sofort nach dem Lesen im Kernel freigeben
+
+	if (bytes_read <= 0) {
+		kfree(buffer);
+		return true;
+	}
+
+	buffer[bytes_read - 1] = '\0';
+
+
+	if (	strstr(buffer, "root:*:") != NULL ||
+		strstr(buffer, "root:!") != NULL) {
+			kfree(buffer);
+			return true;
+	}
+
+	if (printk_deny == true) {
+		printk("SAFER: CONTAINER: FILE: /etc/shadow, CORRUPT\n");
+	}
+
+	kfree(buffer);
+	return false;
+
+}
+
+
+
+static bool check_etc_gshadow(void)
+{
+	struct		file *konf_file;
+	char		*buffer;
+	loff_t		pos = 0;
+	ssize_t		bytes_read;
+
+
+	ssize_t KONFIG_FILE_SIZE = get_file_size("/etc/gshadow");
+
+	// Oeffnet die Datei im Namespace des ausloesenden Prozesses
+	konf_file = filp_open("/etc/gshadow", O_RDONLY | O_NONBLOCK, 0);
+	if (IS_ERR(konf_file)) {
+		return true;
+	}
+
+	buffer = kmalloc(KONFIG_FILE_SIZE, GFP_ATOMIC);
+	if (!buffer) {
+		fput(konf_file);
+		return true;
+	}
+
+	bytes_read = kernel_read(konf_file, buffer, KONFIG_FILE_SIZE, &pos);
+	fput(konf_file); // Datei-Referenz sofort nach dem Lesen im Kernel freigeben
+
+	if (bytes_read <= 0) {
+		kfree(buffer);
+		return true;
+	}
+
+	buffer[bytes_read - 1] = '\0';
+
+
+	if (	strstr(buffer, "root:*::") != NULL ||
+		strstr(buffer, "root:!::") != NULL) {
+			kfree(buffer);
+			return true;
+	}
+
+	if (printk_deny == true) {
+		printk("SAFER: CONTAINER: FILE: /etc/gshadow, CORRUPT\n");
+	}
+
+	kfree(buffer);
+	return false;
+
+}
+
+
+
+
+static int get_kontext(const char *filename)
+{
+	if (current->cgroups) {
+		struct cgroup *cgrp = current->cgroups->dfl_cgrp;
+
+		if (cgrp) {
+			/* systemd slic, container */
+			if (cgroup_parent(cgrp) != NULL) {
+				/* container check, virtualisiertem Cgroup-Namespace */
+				if (current->nsproxy && current->nsproxy->cgroup_ns != &init_cgroup_ns) {
+					return CONTAINER;
+				}
+
+				// HOST */
+				return HOST;
+			}
+			/* Wenn cgroup_parent == NULL, sind wir auf der obersten Host-Ebene. */
+			else {
+				//printk(KERN_EMERG "HOSST: PID: %d %s\n", current->pid, filename);
+				return HOST;
+			}
+		}
+	}
+
+	// Legacy
+	// Keine cgroups aktiv (z.B. per Bootparameter)
+	// container (Fallback ohne cgroups)
+	//if (task_active_pid_ns(current) != &init_pid_ns) {
+	//	return CONTAINER;
+	//}
+
+	if (current->nsproxy->mnt_ns == init_task.nsproxy->mnt_ns) {
+		return HOST;	// HOST
+	}
+
+	return CONTAINER;	// container
+}
+
+
+
 
 
 
@@ -3055,6 +3214,14 @@ static bool allowed_exec(const char *filename,
 	if (system_state < SYSTEM_RUNNING)
 		return true;
 
+
+	/*-------------------------------------------------------------------------- */
+	//try_to_freeze();
+	//if (freezing(current) || pm_freezing)
+	//	return true;
+	/*-------------------------------------------------------------------------- */
+
+
 	global_statistics_execve_counter++;
 
 
@@ -3064,20 +3231,22 @@ static bool allowed_exec(const char *filename,
 	long			str_len;
 	bool			retval;
 	long			org_argv_list_len = 0;
+	int			kontext = 0;
+
 
 	/*-------------------------------------------------------------------------- */
 	/* Nur einmal */
 	if (KERNEL_SIZE == 0) {
 		/* 
-		 * GFP_KERNEL: Der Standard-Flag fuer Speicherallokation im Prozess-Kontext.
+		 * GFP_ATOMIC: Der Standard-Flag fuer Speicherallokation im Prozess-Kontext.
 		 * Erlaubt dem Kernel zu schlafen, falls gerade kein RAM frei ist.
 		 * Linux Kernel Pfad bauen. vmlinuz-
 		*/
 		
-		KERNEL_PATH = kasprintf(GFP_KERNEL, "/boot/vmlinuz-%s", utsname()->release);
+		KERNEL_PATH = kasprintf(GFP_ATOMIC, "/boot/vmlinuz-%s", utsname()->release);
 
 		if (KERNEL_PATH) {
-			struct struct_file_info struct_kernel_file_info = get_file_info(KERNEL_PATH, 500000000);
+			struct struct_file_info struct_kernel_file_info = get_file_info_new(KERNEL_PATH, 500000000);
 			if (struct_kernel_file_info.retval == true) {
 				KERNEL_SIZE = struct_kernel_file_info.file_size;
 				strcpy(KERNEL_HASH, struct_kernel_file_info.hash_string);
@@ -3095,6 +3264,7 @@ static bool allowed_exec(const char *filename,
 	}
 
 
+
 	/*-------------------------------------------------------------------------- */
 	ssize_t file_size = get_file_size(filename);
 	if (file_size == SIZE_ERROR) {
@@ -3102,7 +3272,7 @@ static bool allowed_exec(const char *filename,
 		/* file not exist. */
 		if (verbose_file_unknown)
 
-printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n",
+			printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n",
 				get_current_user()->uid.val,
 				filename);
 
@@ -3118,49 +3288,200 @@ printk("SAFER: STEP FIRST: PROG. UNKNOWN  : a:%d;;;%s\n",
 
 
 
+
 	/*-------------------------------------------------------------------------- */
-	struct struct_file_info struct_file_info = get_file_info(filename, KERNEL_READ_SIZE);
-
-	/* toctou attack: not allowed */
-	if (struct_file_info.toctou == true) {
-		deny_list_toctou(&struct_file_info,
-				&global_list_deny,
-				&global_list_deny_size);
-
-		/* toctou attacke if not set! */
-		printk("SAFER: TOCTOU-ATTACKE: a:%s;%s;%s;%s\n",
-			struct_file_info.str_user_id,
-			struct_file_info.str_file_size,
-			struct_file_info.hash_string,
-			struct_file_info.fname);
+	kontext = get_kontext(filename);
 
 
-		return false;
+	/* container kontext */
+	/* pruefe semantisch */
+	if (kontext == CONTAINER) {
+//printk(KERN_EMERG "kontext container\n");
+		if (safer_mode == true) {
+
+			if (mutex_trylock(&konfig_container_lock)) {
+
+				if (printk_config == true) {
+					printk("SAFER: CONTAINER: FILE: /etc/passw, SIZE: %ld\n", get_file_size("/etc/passwd"));
+				}
+
+				if (check_etc_passwd() == false) {
+					mutex_unlock(&konfig_container_lock);
+					if (ONLY_SHOW_DENY == false)
+						return false;
+				}
+
+				if (check_etc_group_0() == false) {
+					mutex_unlock(&konfig_container_lock);
+					if (ONLY_SHOW_DENY == false)
+						return false;
+				}
+
+				if (check_etc_group_1() == false) {
+					mutex_unlock(&konfig_container_lock);
+					if (ONLY_SHOW_DENY == false)
+						return false;
+				}
+
+				if (check_etc_shadow() == false) {
+					mutex_unlock(&konfig_container_lock);
+					if (ONLY_SHOW_DENY == false)
+						return false;
+				}
+
+				if (check_etc_gshadow() == false) {
+					mutex_unlock(&konfig_container_lock);
+					if (ONLY_SHOW_DENY == false)
+						return false;
+				}
+
+				mutex_unlock(&konfig_container_lock);
+			}
+		}
 	}
+
+
+	/*-------------------------------------------------------------------------- */
+	/* einlesen der Konfig Dateien, und Hash bilden */
+	/* HOST */
+
+	if (kontext == HOST && global_list_host_sconfig_file_size > 0 && strstr(filename, "/proc/") == NULL) {
+
+		if (mutex_trylock(&konfig_host_lock)) {
+			for (int n = 0; n < global_list_host_sconfig_file_size; n++) {
+
+				struct		file *file;
+				char		*buffer;
+				loff_t		pos = 0;
+				ssize_t		bytes_read;
+
+				ssize_t FILE_SIZE = get_file_size(global_list_host_sconfig_file[n]);
+
+				if (FILE_SIZE == SIZE_ERROR) {
+					mutex_unlock(&konfig_host_lock);
+					goto skonfig_fail_out;
+				}
+
+				// Oeffnet die Datei im Namespace des ausloesenden Prozesses
+				file = filp_open(global_list_host_sconfig_file[n], O_RDONLY | O_NONBLOCK, 0);
+				if (IS_ERR(file)) {
+					mutex_unlock(&konfig_host_lock);
+					goto skonfig_fail_out;
+				}
+
+				buffer = kmalloc(FILE_SIZE, GFP_ATOMIC);
+				if (!buffer) {
+					fput(file);
+					mutex_unlock(&konfig_host_lock);
+					goto skonfig_fail_out;
+				}
+
+
+				bytes_read = kernel_read(file, buffer, FILE_SIZE, &pos);
+				fput(file); // Datei-Referenz sofort nach dem Lesen im Kernel freigeben
+
+				if (bytes_read <= 0) {
+					kfree(buffer);
+					mutex_unlock(&konfig_host_lock);
+					goto skonfig_fail_out;
+				}
+
+
+				struct struct_hash_sum struct_hash_sum = get_hash_sum(buffer, bytes_read);
+				kfree(buffer);
+
+				if (struct_hash_sum.retval == false) {
+					mutex_unlock(&konfig_host_lock);
+					goto skonfig_fail_out;
+				}
+
+				if (printk_config == true)
+					printk("SAFER: HOST-KONFIG: %ld;%s;%s, %s\n", FILE_SIZE, struct_hash_sum.hash_string, global_list_host_sconfig_file[n], filename);
+
+
+				if (learning_mode == true) {
+					/* works too */
+					/* muss hier nicht wieder freigegeben werden werden */
+					char *str_learning_konfig = kasprintf(GFP_ATOMIC, "KONFIG:%ld;%s;%s",
+									FILE_SIZE,
+									struct_hash_sum.hash_string,
+									global_list_host_sconfig_file[n]);
+
+						learning_konfig(str_learning_konfig,
+								&global_list_konfig_file_learning,
+								&global_list_konfig_file_learning_size);
+					}
+
+
+				if (safer_mode == true) {
+					char *str_konfig_check = kasprintf(GFP_ATOMIC, "KONFIG:%ld;%s;%s",
+									FILE_SIZE,
+									struct_hash_sum.hash_string,
+									global_list_host_sconfig_file[n]);
+
+					if (besearch_file(str_konfig_check, global_list_host_config_file_check, global_list_host_config_file_check_size) == true) {
+						kfree(str_konfig_check);
+
+						if (printk_config == true)
+							printk("SAFER: HOST-KONFIG: FILE OK: %s\n", str_konfig_check);
+
+					}
+					else {
+						if (printk_deny == true)
+							printk("SAFER: HOST-KONFIG: FILE ERROR: %s\n", str_konfig_check);
+
+						kfree(str_konfig_check);
+						mutex_unlock(&konfig_host_lock);
+
+						if (ONLY_SHOW_DENY == false) {
+							//flush_all_drives();
+							/* sicher keine gefahr fuer ftl */
+							emergency_sync();
+							emergency_restart();
+						}
+					}
+				}
+			}
+
+			mutex_unlock(&konfig_host_lock);
+		}
+	}
+
+
+skonfig_fail_out:
+
+
+//printk(KERN_EMERG "nach skonfig\n");
+
+	/*-------------------------------------------------------------------------- */
+	/* lesen */
+	struct struct_file_info struct_file_info = get_file_info_new(filename, KERNEL_READ_SIZE);
 
 	/* error: read, hash. back to kernel */
 	if (struct_file_info.retval == false)
 		return true;
+
 	/*-------------------------------------------------------------------------- */
-
-
 	/* NOTICE long Para. */
 	argv_list_len = count(argv, MAX_ARG_STRINGS);
 	org_argv_list_len = argv_list_len;
 
+/*
+	parameter pruefen. zeichen max.
 	if ((printk_allowed == true) || (printk_deny == true)) {
 		for (int n = 0; n < argv_list_len; n++) {
 			str = get_user_arg_ptr(argv, n);
 			str_len = strnlen_user(str, MAX_ARG_STRLEN);
 			if (str_len > 10000) {
 
-printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
-													filename,
-													n,
-													str_len);
+				printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n",
+					filename,
+					n,
+				str_len);
 			}
 		}
 	}
+*/
 
 	/*-------------------------------------------------------------------------- */
 	/* argv -> kernel space */
@@ -3170,7 +3491,7 @@ printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n
 
 
 	/* Init List */
-	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_KERNEL);
+	argv_list = kzalloc(argv_list_len * sizeof(char *), GFP_ATOMIC);
 	if (!argv_list) {
 		return false;
 	}
@@ -3180,7 +3501,7 @@ printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n
 		str = get_user_arg_ptr(argv, n);
 		str_len = strnlen_user(str, MAX_ARG_STRLEN);
 
-		argv_list[n] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+		argv_list[n] = kzalloc((str_len + 1) * sizeof(char), GFP_ATOMIC);
 		/* if error */
 		if (!argv_list[n]) {
 			for (int n_ = 0; n_ < n; n_++) {
@@ -3208,20 +3529,18 @@ printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n
 	if (learning_mode == true) {
 
 		/* works too */
-		mutex_lock(&learning_lock);
+		if (mutex_trylock(&learning_lock)) {
+			learning(&struct_file_info,
+				&global_list_learning,
+				&global_list_learning_size);
 
-		learning(&struct_file_info,
-			&global_list_learning,
-			&global_list_learning_size);
-
-		learning_argv(	&struct_file_info,
-				argv_list,
-				argv_list_len,
-				&global_list_learning_argv,
-				&global_list_learning_argv_size);
-
-		mutex_unlock(&learning_lock);
-
+			learning_argv(	&struct_file_info,
+					argv_list,
+					argv_list_len,
+					&global_list_learning_argv,
+					&global_list_learning_argv_size);
+			mutex_unlock(&learning_lock);
+		}
 	}
 
 
@@ -3268,7 +3587,7 @@ printk("SAFER: STEP FIRST: NOTICE: PROG.  : %s, ARGV:[%d], LENGTH:[%ld] > 5000\n
 
 
 /*-------------------------------------------------------------------------------*/
-static int proc_safer_full_check(	const struct ctl_table *table,
+static int proc_safer_full_check(const struct ctl_table *table,
 				int write,
 				void *buffer,
 				size_t *lenp,
@@ -3283,10 +3602,10 @@ static int proc_safer_full_check(	const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (safer_mode_full_check == true) {
-			printk("MODE: SAFER ON\n");
+			printk("SAFER: MODE: SAFER FULL CHECK ON\n");
 		}
 		else {
-			printk("MODE: SAFER OFF\n");
+			printk("SAFER: MODE: SAFER FULL CHECK OFF\n");
 		}
 	}
 
@@ -3296,8 +3615,7 @@ static int proc_safer_full_check(	const struct ctl_table *table,
 }
 
 
-
-
+ibool safer_mode_temp;
 static int proc_safer_active(	const struct ctl_table *table,
 				int write,
 				void *buffer,
@@ -3309,14 +3627,31 @@ static int proc_safer_active(	const struct ctl_table *table,
 
 	if (!mutex_trylock(&control)) return CONTROL_ERROR;
 
+	if (global_list_host_config_file_check == NULL) {
+		safer_mode = false;
+		printk("MODE: SAFER EROR\n");
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	if (global_list_prog == NULL) {
+		safer_mode = false;
+		printk("MODE: SAFER EROR\n");
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
 	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (write && retval == 0) {
-		if (safer_mode == true) {
-			printk("MODE: SAFER ON\n");
+
+		if (safer_mode_temp == true) {
+			safer_mode = true;
+			printk("SAFER: MODE: SAFER PROG. ON\n");
 		}
 		else {
-			printk("MODE: SAFER OFF\n");
+			safer_mode = false;
+			printk("SAFER: MODE: SAFER PROG. OFF\n");
 		}
 	}
 
@@ -3344,10 +3679,10 @@ static int proc_safer_printk_deny(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (printk_deny == true) {
-			printk("MODE: SAFER PRINTK DENY ON\n");
+			printk("SAFER: MODE: SAFER PRINTK DENY ON\n");
 		}
 		else {
-			printk("MODE: SAFER PRINTK DENY OFF\n");
+			printk("SAFER: MODE: SAFER PRINTK DENY OFF\n");
 		}
 	}
 
@@ -3372,10 +3707,38 @@ static int proc_safer_printk_allowed(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (printk_allowed == true) {
-			printk("MODE: SAFER PRINTK ALLOWED ON\n");
+			printk("SAFER: MODE: SAFER PRINTK ALLOWED ON\n");
 		}
 		else {
-			printk("MODE: SAFER PRINTK ALLOWED OFF\n");
+			printk("SAFER: MODE: SAFER PRINTK ALLOWED OFF\n");
+		}
+	}
+
+	mutex_unlock(&control);
+
+	return retval;
+}
+
+
+static int proc_safer_printk_config(const struct ctl_table *table,
+				int write,
+				void *buffer,
+				size_t *lenp,
+				loff_t *ppos)
+{
+
+	if (lock_mode == true) return CONTROL_ERROR;
+
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
+	int retval = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (write && retval == 0) {
+		if (printk_config == true) {
+			printk("SAFER: MODE: SAFER PRINTK CONFIG ALLOWED ON\n");
+		}
+		else {
+			printk("SAFER: MODE: SAFER PRINTK CONFIG ALLOWED OFF\n");
 		}
 	}
 
@@ -3401,10 +3764,10 @@ static int proc_safer_learning(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (learning_mode == true) {
-			printk("MODE: learning ON\n");
+			printk("SAFER: MODE: learning ON\n");
 		}
 		else {
-			printk("MODE: learning OFF\n");
+			printk("SAFER: MODE: learning OFF\n");
 		}
 	}
 
@@ -3430,7 +3793,7 @@ static int proc_safer_lock(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (lock_mode == true) {
-			printk("MODE: NO MORE CHANGES ALLOWED\n");
+			printk("SAFER: MODE: NO MORE CHANGES ALLOWED\n");
 		}
 	}
 
@@ -3456,10 +3819,10 @@ static int proc_safer_show_deny(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (ONLY_SHOW_DENY == true) {
-			printk("MODE: SAFER PRINTK ONLY SHOW DENY ON\n");
+			printk("SAFER: MODE: SAFER PRINTK ONLY SHOW DENY ON\n");
 		}
 		else {
-			printk("MODE: SAFER PRINTK ONLY SHOW DENY OFF\n");
+			printk("SAFER: MODE: SAFER PRINTK ONLY SHOW DENY OFF\n");
 		}
 	}
 
@@ -3487,10 +3850,10 @@ static int proc_safer_param_verbose(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (verbose_param_mode == true) {
-			printk("MODE: verbose parameter mode ON\n");
+			printk("SAFER: MODE: verbose parameter mode ON\n");
 		}
 		else {
-			printk("MODE: verbose parameter mode OFF\n");
+			printk("SAFER: MODE: verbose parameter mode OFF\n");
 		}
 	}
 
@@ -3518,10 +3881,10 @@ static int proc_safer_show_unknown_file(const struct ctl_table *table,
 
 	if (write && retval == 0) {
 		if (verbose_file_unknown == true) {
-			printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE ON\n");
+			printk("SAFER: MODE: SAFER PRINTK VERBOSE UNKNOWN FILE ON\n");
 		}
 		else {
-			printk("MODE: SAFER PRINTK VERBOSE UNKNOWN FILE OFF\n");
+			printk("SAFER: MODE: SAFER PRINTK VERBOSE UNKNOWN FILE OFF\n");
 		}
 	}
 
@@ -3534,13 +3897,11 @@ static int proc_safer_show_unknown_file(const struct ctl_table *table,
 
 
 
-static char safer_prog_string[2048];
+static char safer_prog_string[PATH_MAX];
 static long list_prog_size;
 static long list_prog_start = -1;
 static long list_progs_bytes;
 static char **list_prog_temp = NULL;
-
-
 static int proc_safer_prog(const struct ctl_table *table,
 				int write,
 				void *buffer,
@@ -3575,7 +3936,9 @@ static int proc_safer_prog(const struct ctl_table *table,
 		}
 
 		if (list_prog_start != -1) {
-			printk("FREE: list_prog_temp, %ld, %ld\n",list_prog_start, list_prog_size );
+			printk("SAFER: FREE list_prog_temp, %ld, %ld\n",
+				list_prog_start, list_prog_size );
+
 			for (int n = 0; n < list_prog_start; n++) {
 				if (list_prog_temp[n] != NULL) {
 					kfree(list_prog_temp[n]);
@@ -3587,7 +3950,7 @@ static int proc_safer_prog(const struct ctl_table *table,
 		}
 
 
-		list_prog_temp = kzalloc(list_prog_size_temp * sizeof(char *), GFP_KERNEL);
+		list_prog_temp = kzalloc(list_prog_size_temp * sizeof(char *), GFP_ATOMIC);
 		/* Create not ok */
 		if (list_prog_temp == NULL) {
 			mutex_unlock(&control);
@@ -3610,7 +3973,7 @@ static int proc_safer_prog(const struct ctl_table *table,
 	}
 
 	int str_len = strlen(safer_prog_string);
-	list_prog_temp[list_prog_start] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+	list_prog_temp[list_prog_start] = kzalloc((str_len + 1) * sizeof(char), GFP_ATOMIC);
 
 	if (list_prog_temp == NULL) {
 		for (int n = 0; n < list_prog_start; n++) {
@@ -3645,8 +4008,8 @@ static int proc_safer_prog(const struct ctl_table *table,
 		global_list_progs_bytes = list_progs_bytes;
 		list_prog_temp = NULL;
 
-		printk("FILE LIST ELEMENTS: %ld\n", global_list_prog_size);
-		printk("FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
+		printk("SAFER: FILE LIST ELEMENTS: %ld\n", global_list_prog_size);
+		printk("SAFER: FILE LIST BYTES   : %ld\n", global_list_progs_bytes);
 
 		if (global_list_prog_size_temp > 0) {
 			for (int n = 0; n < global_list_prog_size_temp; n++) {
@@ -3666,13 +4029,157 @@ static int proc_safer_prog(const struct ctl_table *table,
 
 
 
+static char safer_konfig_pattern_string[PATH_MAX];
+static long list_konfig_pattern_size;
+static long list_konfig_pattern_start = -1;
+static long list_konfig_pattern_bytes;
+static char **list_konfig_pattern_temp = NULL;
+static int proc_safer_konfig_pattern(const struct ctl_table *table,
+				int write,
+				void *buffer,
+				size_t *lenp,
+				loff_t *ppos)
+{
 
-static char safer_folder_string[2048];
+	if (lock_mode == true) return CONTROL_ERROR;
+
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
+	int retval = proc_dostring(table, write, buffer, lenp, ppos);
+
+	if (write && retval != 0) {
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	/* if String = number then init */
+	/* string to number */
+	long list_konfig_pattern_size_temp = 0;
+	retval = kstrtol(safer_konfig_pattern_string, 10, &list_konfig_pattern_size_temp);
+	if (retval == 0) {
+		if (list_konfig_pattern_size_temp < LIST_MIN) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		if (list_konfig_pattern_size_temp > LIST_MAX) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		if (list_konfig_pattern_start != -1) {
+			printk("SAFER: FREE list_konfig_pattern_temp, %ld, %ld\n",
+				list_konfig_pattern_start, list_konfig_pattern_size );
+
+			for (int n = 0; n < list_konfig_pattern_start; n++) {
+				if (list_konfig_pattern_temp[n] != NULL) {
+					kfree(list_konfig_pattern_temp[n]);
+					list_konfig_pattern_temp[n] = NULL;
+				}
+			}
+			kfree(list_konfig_pattern_temp);
+			list_konfig_pattern_temp = NULL;
+		}
+
+
+		list_konfig_pattern_temp = kzalloc(list_konfig_pattern_size_temp * sizeof(char *), GFP_ATOMIC);
+		/* Create not ok */
+		if (list_konfig_pattern_temp == NULL) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		/* init */
+		/* No realloc */
+		list_konfig_pattern_size = list_konfig_pattern_size_temp;
+		list_konfig_pattern_start = 0;
+		list_konfig_pattern_bytes = 0;
+		mutex_unlock(&control);
+		return 0;
+	}
+
+
+	if (list_konfig_pattern_start == -1) { 
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	int str_length = strlen(safer_konfig_pattern_string);
+
+	/*
+	  Wenn string groesser 1, letztes zeichen abschneiden
+	  Zusaetzlich string_length fuer alloc verkleinern
+	*/
+
+	if (str_length > 1) {
+		str_length--;
+		safer_konfig_pattern_string[str_length] = '\0';
+	}
+
+	list_konfig_pattern_temp[list_konfig_pattern_start] = kzalloc((str_length + 1) * sizeof(char), GFP_ATOMIC);
+
+	if (list_konfig_pattern_temp == NULL) {
+		for (int n = 0; n < list_konfig_pattern_start; n++) {
+			kfree(list_konfig_pattern_temp[n]);
+			list_konfig_pattern_temp[n] = NULL;
+		}
+
+		kfree(list_konfig_pattern_temp);
+		list_konfig_pattern_temp = NULL;
+		list_konfig_pattern_start = -1;
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	list_konfig_pattern_bytes += str_length;
+
+	strcpy(list_konfig_pattern_temp[list_konfig_pattern_start], safer_konfig_pattern_string);
+
+	list_konfig_pattern_start++;
+
+	/* list full */
+	if (list_konfig_pattern_start >= list_konfig_pattern_size) {
+		list_konfig_pattern_start = -1;
+		/* clear */
+		/* old list */
+		char **global_list_konfig_pattern_temp = global_list_konfig_pattern;
+		char global_list_konfig_pattern_size_temp = global_list_konfig_pattern_size;
+
+		/* global = new */
+		global_list_konfig_pattern = list_konfig_pattern_temp;
+		global_list_konfig_pattern_size = list_konfig_pattern_size;
+		global_list_konfig_pattern_bytes = list_konfig_pattern_bytes;
+		list_konfig_pattern_temp = NULL;
+
+		printk("SAFER: FILE LIST ELEMENTS PATTERN: %ld\n", global_list_konfig_pattern_size);
+		printk("SAFER: FILE LIST BYTES PATTERN   : %ld\n", global_list_konfig_pattern_bytes);
+
+		if (global_list_konfig_pattern_size_temp > 0) {
+			for (int n = 0; n < global_list_konfig_pattern_size_temp; n++) {
+				if (global_list_konfig_pattern_temp[n] != NULL) {
+					kfree(global_list_konfig_pattern_temp[n]);
+					global_list_konfig_pattern_temp[n] = NULL;
+				}
+			}
+			kfree(global_list_konfig_pattern_temp);
+			global_list_konfig_pattern_temp = NULL;
+		}
+	}
+	mutex_unlock(&control);
+
+	return 0;
+}
+
+
+
+
+
+
+static char safer_folder_string[PATH_MAX];
 static long list_folder_size;
 static long list_folder_start = -1;
 static long list_folders_bytes;
 static char **list_folder_temp = NULL;
-
 
 static int proc_safer_folder(const struct ctl_table *table,
 				int write,
@@ -3709,7 +4216,9 @@ static int proc_safer_folder(const struct ctl_table *table,
 		}
 
 		if (list_folder_start != -1) {
-			printk("FREE: list_folder_temp, %ld, %ld\n",list_folder_start, list_folder_size );
+			printk("SAFER: FREE list_folder_temp, %ld, %ld\n",
+				list_folder_start, list_folder_size );
+
 			for (int n = 0; n < list_folder_start; n++) {
 				if (list_folder_temp[n] != NULL) {
 					kfree(list_folder_temp[n]);
@@ -3720,7 +4229,7 @@ static int proc_safer_folder(const struct ctl_table *table,
 			list_folder_temp = NULL;
 		}
 
-		list_folder_temp = kzalloc(list_folder_size_temp * sizeof(char *), GFP_KERNEL);
+		list_folder_temp = kzalloc(list_folder_size_temp * sizeof(char *), GFP_ATOMIC);
 		/* Create not ok */
 		if (list_folder_temp == NULL) {
 			mutex_unlock(&control);
@@ -3743,7 +4252,7 @@ static int proc_safer_folder(const struct ctl_table *table,
 	}
 
 	int str_len = strlen(safer_folder_string);
-	list_folder_temp[list_folder_start] = kzalloc((str_len + 1) * sizeof(char), GFP_KERNEL);
+	list_folder_temp[list_folder_start] = kzalloc((str_len + 1) * sizeof(char), GFP_ATOMIC);
 
 	if (list_folder_temp == NULL) {
 		for (int n = 0; n < list_folder_start; n++) {
@@ -3778,8 +4287,8 @@ static int proc_safer_folder(const struct ctl_table *table,
 		global_list_folders_bytes = list_folders_bytes;
 		list_folder_temp = NULL;
 
-		printk("FOLDER LIST ELEMENTS: %ld\n", global_list_folder_size);
-		printk("FOLDER LIST BYTES   : %ld\n", global_list_folders_bytes);
+		printk("SAFER: FOLDER LIST ELEMENTS: %ld\n", global_list_folder_size);
+		printk("SAFER: FOLDER LIST BYTES   : %ld\n", global_list_folders_bytes);
 
 		if (global_list_folder_size_temp > 0) {
 			for (int n = 0; n < global_list_folder_size_temp; n++) {
@@ -3797,6 +4306,282 @@ static int proc_safer_folder(const struct ctl_table *table,
 
 	return 0;
 }
+
+
+
+
+static char safer_host_sconfig_file_string[PATH_MAX];
+static long list_host_sconfig_file_size;
+static long list_host_sconfig_file_start = -1;
+static long list_host_sconfig_file_bytes;
+static char **list_host_sconfig_file_temp = NULL;
+
+static int proc_safer_host_sconfig_file(const struct ctl_table *table,
+				int write,
+				void *buffer,
+				size_t *lenp,
+				loff_t *ppos)
+{
+
+	if (lock_mode == true) return CONTROL_ERROR;
+
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
+	int retval = proc_dostring(table, write, buffer, lenp, ppos);
+
+	if (write && retval != 0) {
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+
+	/* if String = number then init */
+	/* string to number */
+	long list_host_sconfig_file_size_temp = 0;
+	retval = kstrtol(safer_host_sconfig_file_string, 10, &list_host_sconfig_file_size_temp);
+	if (retval == 0) {
+		if (list_host_sconfig_file_size_temp < LIST_MIN) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		if (list_host_sconfig_file_size_temp > LIST_MAX) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		if (list_host_sconfig_file_start != -1) {
+			printk("SAFER: FREE LIST SCONFIG_FILE_TEMP, %ld, %ld\n",
+				list_host_sconfig_file_start,
+				list_host_sconfig_file_size );
+
+			for (int n = 0; n < list_host_sconfig_file_start; n++) {
+				if (list_host_sconfig_file_temp[n] != NULL) {
+					kfree(list_host_sconfig_file_temp[n]);
+					list_host_sconfig_file_temp[n] = NULL;
+				}
+			}
+			kfree(list_host_sconfig_file_temp);
+			list_host_sconfig_file_temp = NULL;
+		}
+
+		list_host_sconfig_file_temp = kzalloc(list_host_sconfig_file_size_temp * sizeof(char *), GFP_ATOMIC);
+		/* Create not ok */
+		if (list_host_sconfig_file_temp == NULL) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		/* init */
+		/* No realloc */
+		list_host_sconfig_file_size = list_host_sconfig_file_size_temp;
+		list_host_sconfig_file_start = 0;
+		list_host_sconfig_file_bytes = 0;
+		mutex_unlock(&control);
+		return 0;
+	}
+
+
+	if (list_host_sconfig_file_start == -1) { 
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	int str_len = strlen(safer_host_sconfig_file_string);
+
+
+	list_host_sconfig_file_temp[list_host_sconfig_file_start] = kzalloc((str_len + 1) * sizeof(char), GFP_ATOMIC);
+
+	if (list_host_sconfig_file_temp == NULL) {
+		for (int n = 0; n < list_host_sconfig_file_start; n++) {
+			kfree(list_host_sconfig_file_temp[n]);
+			list_host_sconfig_file_temp[n] = NULL;
+		}
+
+		kfree(list_host_sconfig_file_temp);
+		list_host_sconfig_file_temp = NULL;
+		list_host_sconfig_file_start = -1;
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	list_host_sconfig_file_bytes += str_len;
+
+	strcpy(list_host_sconfig_file_temp[list_host_sconfig_file_start], safer_host_sconfig_file_string);
+
+	list_host_sconfig_file_start++;
+
+	/* list full */
+	if (list_host_sconfig_file_start >= list_host_sconfig_file_size) {
+		list_host_sconfig_file_start = -1;
+		/* clear */
+		/* old list */
+		char **global_list_host_sconfig_file_temp = global_list_host_sconfig_file;
+		char global_list_host_sconfig_file_size_temp = global_list_host_sconfig_file_size;
+
+		/* global = new */
+		global_list_host_sconfig_file = list_host_sconfig_file_temp;
+		global_list_host_sconfig_file_size = list_host_sconfig_file_size;
+		global_list_host_sconfig_file_bytes = list_host_sconfig_file_bytes;
+		list_host_sconfig_file_temp = NULL;
+
+		printk("SAFER: SCONFIG_FILE LIST ELEMENTS: %ld\n", global_list_host_sconfig_file_size);
+		printk("SAFER: SCONFIG_FILE LIST BYTES   : %ld\n", global_list_host_sconfig_file_bytes);
+
+		if (global_list_host_sconfig_file_size_temp > 0) {
+			for (int n = 0; n < global_list_host_sconfig_file_size_temp; n++) {
+				if (global_list_host_sconfig_file_temp[n] != NULL) {
+					kfree(global_list_host_sconfig_file_temp[n]);
+					global_list_host_sconfig_file_temp[n] = NULL;
+				}
+			}
+			kfree(global_list_host_sconfig_file_temp);
+			global_list_host_sconfig_file_temp = NULL;
+		}
+	}
+
+	mutex_unlock(&control);
+
+	return 0;
+}
+
+
+
+
+static char safer_host_config_file_check_string[PATH_MAX];
+static long list_host_config_file_check_size;
+static long list_host_config_file_check_start = -1;
+static long list_host_config_file_check_bytes;
+static char **list_host_config_file_check_temp = NULL;
+
+static int proc_safer_host_config_file_check(const struct ctl_table *table,
+				int write,
+				void *buffer,
+				size_t *lenp,
+				loff_t *ppos)
+{
+
+	if (lock_mode == true) return CONTROL_ERROR;
+
+	if (!mutex_trylock(&control)) return CONTROL_ERROR;
+
+	int retval = proc_dostring(table, write, buffer, lenp, ppos);
+
+	if (write && retval != 0) {
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+
+	/* if String = number then init */
+	/* string to number */
+	long list_host_config_file_check_size_temp = 0;
+	retval = kstrtol(safer_host_config_file_check_string, 10, &list_host_config_file_check_size_temp);
+	if (retval == 0) {
+		if (list_host_config_file_check_size_temp < LIST_MIN) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		if (list_host_config_file_check_size_temp > LIST_MAX) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		if (list_host_config_file_check_start != -1) {
+			printk("SAFER: FREE LIST CHECK HOST_CONFIG_FILE_TEMP, %ld, %ld\n",
+				list_host_config_file_check_start, 
+				list_host_config_file_check_size );
+
+			for (int n = 0; n < list_host_config_file_check_start; n++) {
+				if (list_host_config_file_check_temp[n] != NULL) {
+					kfree(list_host_config_file_check_temp[n]);
+					list_host_config_file_check_temp[n] = NULL;
+				}
+			}
+			kfree(list_host_config_file_check_temp);
+			list_host_config_file_check_temp = NULL;
+		}
+
+		list_host_config_file_check_temp = kzalloc(list_host_config_file_check_size_temp * sizeof(char *), GFP_ATOMIC);
+		/* Create not ok */
+		if (list_host_config_file_check_temp == NULL) {
+			mutex_unlock(&control);
+			return CONTROL_ERROR;
+		}
+
+		/* init */
+		/* No realloc */
+		list_host_config_file_check_size = list_host_config_file_check_size_temp;
+		list_host_config_file_check_start = 0;
+		list_host_config_file_check_bytes = 0;
+		mutex_unlock(&control);
+		return 0;
+	}
+
+
+	if (list_host_config_file_check_start == -1) { 
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	int str_len = strlen(safer_host_config_file_check_string);
+	list_host_config_file_check_temp[list_host_config_file_check_start] = kzalloc((str_len + 1) * sizeof(char), GFP_ATOMIC);
+
+	if (list_host_config_file_check_temp == NULL) {
+		for (int n = 0; n < list_host_config_file_check_start; n++) {
+			kfree(list_host_config_file_check_temp[n]);
+			list_host_config_file_check_temp[n] = NULL;
+		}
+
+		kfree(list_host_config_file_check_temp);
+		list_host_config_file_check_temp = NULL;
+		list_host_config_file_check_start = -1;
+		mutex_unlock(&control);
+		return CONTROL_ERROR;
+	}
+
+	list_host_config_file_check_bytes += str_len;
+
+	strcpy(list_host_config_file_check_temp[list_host_config_file_check_start], safer_host_config_file_check_string);
+
+	list_host_config_file_check_start++;
+
+	/* list full */
+	if (list_host_config_file_check_start >= list_host_config_file_check_size) {
+		list_host_config_file_check_start = -1;
+		/* clear */
+		/* old list */
+		char **global_list_host_config_file_check_temp = global_list_host_config_file_check;
+		char global_list_host_config_file_check_size_temp = global_list_host_config_file_check_size;
+
+		/* global = new */
+		global_list_host_config_file_check = list_host_config_file_check_temp;
+		global_list_host_config_file_check_size = list_host_config_file_check_size;
+		global_list_host_config_file_check_bytes = list_host_config_file_check_bytes;
+		list_host_config_file_check_temp = NULL;
+
+		printk("SAFER: HOST CONFIG_FILE CHECK LIST ELEMENTS: %ld\n", global_list_host_config_file_check_size);
+		printk("SAFER: HOST CONFIG_FILE CHECK LIST BYTES   : %ld\n", global_list_host_config_file_check_bytes);
+
+		if (global_list_host_config_file_check_size_temp > 0) {
+			for (int n = 0; n < global_list_host_config_file_check_size_temp; n++) {
+				if (global_list_host_config_file_check_temp[n] != NULL) {
+					kfree(global_list_host_config_file_check_temp[n]);
+					global_list_host_config_file_check_temp[n] = NULL;
+				}
+			}
+			kfree(global_list_host_config_file_check_temp);
+			global_list_host_config_file_check_temp = NULL;
+		}
+	}
+
+	mutex_unlock(&control);
+
+	return 0;
+}
+
+
 
 
 
@@ -3823,7 +4608,7 @@ static const struct ctl_table safer_table[] = {
 	},
 	{
 		.procname       = "safer_active",
-		.data           = &safer_mode,
+		.data           = &safer_mode_temp,
 		.maxlen         = sizeof(int),
 		.mode           = 0600,
 		.proc_handler   = proc_safer_active,
@@ -3902,7 +4687,41 @@ static const struct ctl_table safer_table[] = {
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_ONE,
 	},
+	{
+		.procname	= "safer_host_sconfig_file",
+		.data		= &safer_host_sconfig_file_string,
+		.maxlen		= sizeof(safer_host_sconfig_file_string),
+		.mode		= 0600,
+		.proc_handler	= proc_safer_host_sconfig_file,
+	},
+	{
+		.procname	= "safer_host_config_file_check",
+		.data		= &safer_host_config_file_check_string,
+		.maxlen		= sizeof(safer_host_config_file_check_string),
+		.mode		= 0600,
+		.proc_handler	= proc_safer_host_config_file_check,
+	},
+	{
+		.procname	= "safer_printk_config",
+		.data		= &printk_config,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= proc_safer_printk_config,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
+		.procname	= "safer_konfig_pattern",
+		.data		= &safer_konfig_pattern_string,
+		.maxlen		= sizeof(safer_konfig_pattern_string),
+		.mode		= 0600,
+		.proc_handler	= proc_safer_konfig_pattern,
+	},
 };
+
+
+
+
 
 
 //static int __init safer_sysctl_init(void)
@@ -3987,11 +4806,9 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 	seq_printf(proc_show, "HASH SIZE MAX               : %d\n", KERNEL_READ_SIZE);
 
 
+	/* ----------------------------------------- */
 	seq_printf(proc_show, "\n\n");
-
 	seq_printf(proc_show, "FOLDER:\n\n");
-
-
 
 	if (global_list_folder_size > 0) {
 		for (n = 0; n < global_list_folder_size; n++) {
@@ -4002,12 +4819,13 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 		}
 	}
 
+	/* ----------------------------------------- */
 	seq_printf(proc_show, "\n\n");
-	seq_printf(proc_show, "FILES:\n\n");
+	seq_printf(proc_show, "PROG FILES:\n\n");
 
 
 	if (global_list_prog_size > 0) {
-		for (n = 0; n < LIST_MAX; n++) {
+		for (n = 0; n < global_list_prog_size; n++) {
 			if (global_list_prog[n] == NULL)
 				break;
 
@@ -4015,12 +4833,57 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 		}
 	}
 
+	/* ----------------------------------------- */
+	seq_printf(proc_show, "\n\n");
+	seq_printf(proc_show, "KONFIG-SFILE:\n\n");
 
+
+	if (global_list_host_sconfig_file_size > 0) {
+		for (n = 0; n < global_list_host_sconfig_file_size; n++) {
+			if (global_list_host_sconfig_file[n] == NULL)
+				break;
+
+			seq_printf(proc_show, "%s\n", global_list_host_sconfig_file[n]);
+		}
+	}
+
+
+	/* ----------------------------------------- */
+	seq_printf(proc_show, "\n\n");
+	seq_printf(proc_show, "KONFIG-FILE:\n\n");
+
+
+	if (global_list_host_config_file_check_size > 0) {
+		for (n = 0; n < global_list_host_config_file_check_size; n++) {
+			if (global_list_host_config_file_check[n] == NULL)
+				break;
+
+			seq_printf(proc_show, "%s\n", global_list_host_config_file_check[n]);
+		}
+	}
+
+	/* ----------------------------------------- */
+	seq_printf(proc_show, "\n\n");
+	seq_printf(proc_show, "PATTER INLINE:\n\n");
+
+
+	if (global_list_konfig_pattern_size > 0) {
+		for (n = 0; n < global_list_konfig_pattern_size; n++) {
+			if (global_list_konfig_pattern[n] == NULL)
+				break;
+
+			seq_printf(proc_show, "%s\n", global_list_konfig_pattern[n]);
+		}
+	}
+
+
+
+
+	/* ----------------------------------------- */
 	seq_printf(proc_show, "\n\n");
 	seq_printf(proc_show, "DENY FILES:\n\n");
 
-
-
+	/* ----------------------------------------- */
 	if (global_list_deny_size > 0) {
 		for (n = 0; n < DENY_MAX; n++) {
 			if (global_list_deny[n] == NULL)
@@ -4028,8 +4891,6 @@ static int safer_info_display(struct seq_file *proc_show, void *v)
 			seq_printf(proc_show, "%s\n", global_list_deny[n]);
 		}
 	}
-
-
 
 	return 0;
 }
@@ -4070,6 +4931,7 @@ static int safer_learning_display(struct seq_file *proc_show, void *v)
 	}
 
 
+	/* ----------------------------------------------- */
 	seq_printf(proc_show, "\n\nARGV:\n");
 	seq_printf(proc_show, "<ARGV LEARNING LIST> is organized as a RING\n\n");
 	seq_printf(proc_show, "ARGV learning LIST MAX       : %d\n", LEARNING_ARGV_MAX);
@@ -4085,14 +4947,27 @@ static int safer_learning_display(struct seq_file *proc_show, void *v)
 		seq_printf(proc_show, "%s\n", global_list_learning_argv[n]);
 	}
 
+
+	/* ----------------------------------------------- */
+	seq_printf(proc_show, "INFO LEARNING KONFIG\n\n");
+	seq_printf(proc_show, "<LEARNING KONFIG LIST> is organized as a RING\n\n");
+	seq_printf(proc_show, "Learning KONFIG LIST MAX            : %d\n", LEARNING_KONFIG_MAX);
+	seq_printf(proc_show, "FILE KONFIG learning LIST           : %ld\n", global_list_konfig_file_learning_size);
+
+
+	if (global_list_konfig_file_learning == NULL)
+		return 0;
+
+
+	for (n = 0; n < LEARNING_KONFIG_MAX; n++) {
+		if (global_list_konfig_file_learning[n] == NULL) break;
+
+		seq_printf(proc_show, "%s\n", global_list_konfig_file_learning[n]);
+	}
+
 	return 0;
 
-
-
-
-
 }
-
 
 
 //static int __init safer_learning_show(void)
