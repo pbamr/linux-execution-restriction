@@ -1,5 +1,5 @@
-/* Copyright (c) 2022/03/28, 2026.09.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2022.03.28, 2026.09.09, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+/* Copyright (c) 2022/03/28, 2026.08.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
+ * Urheber: 2022.03.28, 2026.08.04, Peter Boettcher, Germany/NRW, Muelheim Ruhr, mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,12 @@
 	Autor/Urheber	: Peter Boettcher
 			: Muelheim Ruhr
 			: Germany
-	Date		: 2022.04.22 - 2026.09.09
+	Date		: 2022.04.22 - 2026.08.04
 
 	Program		: safer.c
 	Path		: fs/
 
-	TEST		: Kernel 6.0 - 7.2.1
+	TEST		: Kernel 6.0 - 7.1.1
 
 			  Lenovo X230, T460, T470, T490, Fujitsu Futro S xxx, AMD Ryzen
 			  Proxmox, Docker
@@ -313,8 +313,8 @@ when in doubt remove it
 
 
 /*your choice */
-#define ARGV_MAX 16
-#define SHELL_PARAMETER_MAX 16
+#define ARGV_MAX 32
+#define SHELL_PARAMETER_MAX 32
 
 
 #define LEARNING_ARGV_MAX 5000
@@ -2160,7 +2160,6 @@ param_file(struct struct_file_info *struct_file_info,
 			/* ab argument 1 */
 			int string_length = strlen(struct_file_info->fname) + 1;
 
-			//if (argv_len > 10) argv_len = 10;
 			for (int n = 1; n < argv_len; n++) {
 				string_length += strlen(argv[n]);
 				string_length += sizeof(":");
@@ -2191,7 +2190,7 @@ param_file(struct struct_file_info *struct_file_info,
 
 				if (!schalter_ende) {
 					kfree(str_check);
-					return true; /* Abbruch, falls der String unvollstaendig ist */
+					return false; /* Abbruch, falls der String unvollstaendig ist */
 				}
 
 				/* Pruefe, ob das 'c' in diesem isolierten Schalter-Argument steckt */
@@ -2233,11 +2232,14 @@ param_file(struct struct_file_info *struct_file_info,
 				printk("SAFER: STEP FIRST: ALLOWED SHELL INLINE  : %s\n", str_check);
 
 			kfree(str_check);
-			return true;
+			//return false;
+			goto other;
 	}
 
 	kfree(user_shell_string);
 	kfree(group_shell_string);
+
+
 
 
 
@@ -2395,6 +2397,7 @@ param_file(struct struct_file_info *struct_file_info,
 	}
 
 
+other:
 	/* other */
 	struct struct_file_info struct_other_file_info = get_file_info_new(argv[1], KERNEL_READ_SIZE);
 	if (struct_other_file_info.retval == false)
