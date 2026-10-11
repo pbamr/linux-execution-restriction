@@ -4,7 +4,7 @@
 
 /* Copyright (c) 2026.04.28, 2026.07.26, Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
- * Urheber: 2026.03.28, 2026.07.26, Peter Boettcher, Germany/NRW, Muelheim Ruhr,
+ * Urheber: 2026.03.28, 2026.07.26, 2026.10.11 Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
 
  * This program is free software; you can redistribute it and/or modify
@@ -90,7 +90,7 @@
 
 
 #define LIST_MIN 1
-#define KERNEL_READ_SIZE 2123457
+#define KERNEL_READ_SIZE 5000000
 #define CONTROL_ERROR -1
 
 #define TRUE 1
@@ -155,15 +155,19 @@ static int is_executable_binary(struct file *file,
 				unsigned long prot)
 {
 
-
-	/* Mappings mit Execute-Berechtigung pruefen */
-	if (vm_flags)
-		if (VM_EXEC)
-			return 0;
-
 	/* Ist Datei? */
 	if (!file)
 		return 0;
+
+
+
+/* WICHTIG! */
+/* Auskommentieren dieser Abfrage, bewirkt das: "ld-linux prog.xyz" ueberhaupt nicht mehr ausgefuehrt wird
+*/
+
+	if (!(vm_flags & VM_EXEC))
+		return 0;
+
 
 	if (prot & PROT_EXEC)
 		return 1;
@@ -507,7 +511,7 @@ static bool checkfile(struct file *file, unsigned long vm_flags,
 		set_bit(BREAD, (unsigned long *)&inode->i_boettcher_flags);
 
 		if (printk_allowed == TRUE)
-printk("SAFER LIBRARY: FIRST READ                  : so;%lld;%s;%s\n", size, hash_string, fp);
+			printk("SAFER LIBRARY: FIRST READ                  : so;%lld;%s;%s\n", size, hash_string, fp);
 
 	}
 
@@ -550,7 +554,7 @@ printk("SAFER LIBRARY: FIRST READ                  : so;%lld;%s;%s\n", size, has
 
 		/* retval = true */
 		if (printk_allowed == TRUE)
-printk("SAFER LIBRARY: LIBRARY ALLOWED             : %s\n", string_test);
+			printk("SAFER LIBRARY: LIBRARY ALLOWED             : %s\n", string_test);
 
 		return TRUE;
 
