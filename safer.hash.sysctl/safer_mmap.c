@@ -2,7 +2,7 @@
 
 
 
-/* Copyright (c) 2026.04.28, 2026.07.26, Peter Boettcher, Germany/NRW,
+/* Copyright (c) 2026.04.28, 2026.07.26, 2026.10.11 Peter Boettcher, Germany/NRW,
  *  Muelheim Ruhr, mail:peter.boettcher@gmx.net
  * Urheber: 2026.03.28, 2026.07.26, 2026.10.11 Peter Boettcher, Germany/NRW, Muelheim Ruhr,
  * mail:peter.boettcher@gmx.net
@@ -165,7 +165,7 @@ static int is_executable_binary(struct file *file,
 /* Auskommentieren dieser Abfrage, bewirkt das: "ld-linux prog.xyz" ueberhaupt nicht mehr ausgefuehrt wird
 */
 
-	if (!(vm_flags & VM_EXEC))
+	if (vm_flags & VM_EXEC)
 		return 0;
 
 
