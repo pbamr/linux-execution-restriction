@@ -1,0 +1,160 @@
+---------------------------------------------------
+2026.04.20
+---------------------------------------------------
+Peter Boettcher
+Muelheim Ruhr
+Germany/NRW
+peter.boettcher@gmx.net
+
+---------------------------------------------------
+Alle meine Aenderungen in den Kernel Dateien sind
+mit "My Changes" zu finden.
+
+Einfach mit Editor suchen.
+
+---------------------------------------------------
+Der Ort ist im Dateinamen enthalten
+Passen Sie die Aenderungen dort, ihrer Kernelversion an.
+
+---------------------------------------------------
+Die folgenden Dateien sind dort hin zu kopieren
+safer.c		-> fs
+safer_mmap.c	-> mm
+safer_module.c	-> kernel/module
+
+
+---------------------------------------------------
+NEU: 2026.04.20
+Pruefe: Kernel Module
+Pruefe: Libraries
+
+Die Dateien werden markiert.
+Flag im "Mem INODE"
+
+Siehe Erweiterung in "include/linux/fs.h"
+"struct inode"
+
+Geprueft Dateien werden markiert.
+
+Markierte "Kernel Module" und "Libraries"
+werden dann nicht neu geprueft.
+
+Wenn Dateien veraendert, geloescht etc. werden,
+wird die Markierung geloescht.
+Es muss neu geprueft werden.
+
+
+---------------------------------------------------
+Im Block "safer.c" wird jetzt auch das Flag im Inode
+gesetzt. Dadurch keine neue "HASH" Berechnung.
+
+Das Flag ist auch ein Indikator um "TOCTOU" Angriffe
+zu erkennen.
+
+Die Funktion "kernel_read_from_path" wird weiter verwendet.
+Grund Pruefung von Parameter Dateien. Ob mit "Shebang" oder ohne.
+
+---------------------------------------------------
+in /proc/safer.info, /proc/safer.lib.info, /proc/safer.module.info
+werden auch "DENY" Dateien angezeigt.
+
+
+---------------------------------------------------
+Zum kompilieren des Linux Kernels muss das Schutzsystem
+abgeschaltet werden.
+
+Oder aehnliche Systeme.
+
+
+---------------------------------------------------
+Nutzen Sie fuer ihre "Allowed" Liste am besten /proc/safer.learning...
+Mit "cat" kopieren.
+
+Mit dem Programm "bsafer" koennen Sie alles steuern
+
+#######################################################################
+
+
+
+-------------------------------------------------
+2026.04.20
+---------------------------------------------------
+Peter Boettcher
+Muelheim an der Ruhr
+Germany/North Rhine-Westphalia
+peter.boettcher@gmx.net
+
+---------------------------------------------------
+All my changes to the kernel files can be found under "My Changes".
+
+Simply search using a text editor.
+
+---------------------------------------------------
+The location is included in the filename.
+Adjust the changes there to your kernel version.
+
+---------------------------------------------------
+Copy the following files there:
+
+safer.c 	-> fs
+safer_mmap.c	-> mm
+safer_module.c	-> kernel/module
+
+
+
+---------------------------------------------------
+NEW: 20.04.2026
+Check: Kernel Module
+Check: Libraries
+
+The files will be highlighted.
+
+Flag in "Mem INODE"
+
+See extension in "include/linux/fs.h"
+"Structure Inode"
+
+Checked files are marked.
+
+Marked "Kernel Modules" and "Libraries"
+are then not rechecked.
+
+If files are deleted, erased, etc.,
+the mark is removed.
+
+A new check must be performed.
+
+
+---------------------------------------------------
+In the "safer.c" block, the flag is now also set in the inode.
+
+This prevents a new hash calculation.
+The flag also serves as an indicator for detecting "TOCTOU" attacks.
+
+The "kernel_read_from_path" function continues to be used.
+It performs basic parameter file checks, regardless of whether they include a shebang or not.
+
+
+
+---------------------------------------------------
+To compile the Linux kernel, the protection system must be used
+disabled.
+
+Or similar systems.
+
+--------------------------------------------------
+For your "Allowed" list, it's best to use /proc/safer.learning...
+Copy it using the "cat" command.
+
+You can control everything with the program "bsafer".
+
+
+
+
+
+
+
+
+
+
+
