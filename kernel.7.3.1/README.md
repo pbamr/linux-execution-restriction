@@ -104,23 +104,20 @@ The `bsafer.sh` utility serves as the CLI interface for kernel management:
 
 *   **Load rules:**
     ```bash
-    bsafer.sh --load /etc/safer/rules.conf
+    bsafer.sh SON
     ```
 *   **Enable learning mode:**
     ```bash
-    bsafer.sh --learning on
+    bsafer.sh SLON
     ```
 *   **Disable learning mode:**
     ```bash
-    bsafer.sh --learning off
+    bsafer.sh SLOFF
     ```
 *   **Export generated whitelist:**
     ```bash
-    bsafer.sh --export > /etc/safer/rules.conf
+    bsafer.sh PLIST /etc/safer/rules.conf
     ```
-*   **Query protection status:**
-    ```bash
-    bsafer.sh --status
     ```
 
 ---
@@ -295,25 +292,21 @@ Das Dienstprogramm `bsafer.sh` dient als CLI-Schnittstelle zur Kernel-Steuerung:
 
 *   **Regelwerk laden:**
     ```bash
-    bsafer.sh --load /etc/safer/rules.conf
+    bsafer.sh SON
     ```
 *   **Lernmodus aktivieren:**
     ```bash
-    bsafer.sh --learning on
+    bsafer.sh SLON
     ```
 *   **Lernmodus deaktivieren:**
     ```bash
-    bsafer.sh --learning off
+    bsafer.sh SLOFF
     ```
 *   **Generierte Whitelist exportieren:**
     ```bash
-    bsafer.sh --export > /etc/safer/rules.conf
+    bsafer.sh PLIST  /etc/safer/rules.conf
     ```
-*   **Schutzstatus abfragen:**
-    ```bash
-    bsafer.sh --status
     ```
-
 ---
 
 ## 5. Betriebsmodi & Workflows
